@@ -35,6 +35,7 @@ import (
 	"matrimony-backend/internal/profiles"
 	"matrimony-backend/internal/queue"
 	"matrimony-backend/internal/recommendation"
+	"matrimony-backend/internal/reference"
 	"matrimony-backend/internal/reports"
 	"matrimony-backend/internal/savedsearches"
 	"matrimony-backend/internal/search"
@@ -238,6 +239,13 @@ func main() {
 	profilesService := profiles.NewService(profilesRepo, photoUploader, visitorsService, usersRepo, subscriptionsService, publisher, blockedRepo)
 	profilesHandler := profiles.NewHandler(profilesService)
 
+	referenceStore, err := reference.New()
+	if err != nil {
+		log.Error("failed to load reference data", "error", err)
+		os.Exit(1)
+	}
+	referenceHandler := reference.NewHandler(referenceStore)
+
 	preferencesRepo := preferences.NewRepository(dbPool)
 	preferencesService := preferences.NewService(preferencesRepo)
 	preferencesHandler := preferences.NewHandler(preferencesService)
@@ -365,6 +373,7 @@ func main() {
 	subscriptions.RegisterRoutes(api, subscriptionsHandler, accessIssuer)
 	payments.RegisterRoutes(api, paymentsHandler, accessIssuer, paymentGateway)
 	admin.RegisterRoutes(api, adminHandler, accessIssuer)
+	reference.RegisterRoutes(api, referenceHandler, accessIssuer)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.HTTP.Port,

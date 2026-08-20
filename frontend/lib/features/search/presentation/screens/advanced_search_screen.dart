@@ -6,12 +6,11 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/buttons/primary_button.dart';
 import '../../../../shared/widgets/inputs/app_select_field.dart';
 import '../../../../shared/widgets/inputs/choice_chip_group.dart';
+import '../../../reference/data/reference_models.dart';
+import '../../../reference/presentation/reference_providers.dart';
 import '../controllers/search_filters_controller.dart';
 import '../controllers/search_results_controller.dart';
 
-const _communities = [
-  'Brahmin', 'Rajput', 'Kayastha', 'Yadav', 'Reddy', 'Nair', 'Iyer', 'Sunni', 'Jat', 'Maratha',
-];
 const _education = ["Bachelor's Degree", "Master's Degree", 'MBA', 'Doctorate (PhD)'];
 const _professions = [
   'Software Engineer', 'Doctor', 'Chartered Accountant', 'Architect', 'Teacher',
@@ -34,6 +33,18 @@ class AdvancedSearchScreen extends ConsumerWidget {
     final controller = ref.read(searchFiltersProvider.notifier);
     final filters = ref.watch(searchFiltersProvider);
 
+    // Communities narrow to whatever religions the search already has, so
+    // filtering by Hindu stops offering Sunni. With no religion chosen the
+    // full set stays available rather than the list going empty.
+    final religions =
+        ref.watch(religionsProvider).valueOrNull ?? const <RefReligion>[];
+    final communityNames = <String>{
+      for (final r in religions)
+        if (filters.religions.isEmpty || filters.religions.contains(r.name))
+          for (final c in r.communities) c.name,
+    }.toList()
+      ..sort();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Advanced Search')),
       body: SafeArea(
@@ -47,7 +58,7 @@ class AdvancedSearchScreen extends ConsumerWidget {
                   children: [
                     ChoiceChipGroup<String>(
                       label: 'Community',
-                      options: _communities,
+                      options: communityNames,
                       labelBuilder: (v) => v,
                       selected: filters.communities,
                       onToggle: (v) => controller.update((f) {

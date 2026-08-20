@@ -1,0 +1,730 @@
+[
+  {
+    "name": "Hindu",
+    "communities": [
+      {
+        "name": "Brahmin",
+        "sub_castes": [
+          "Anavil",
+          "Audichya",
+          "Bhatt",
+          "Bhumihar",
+          "Deshastha",
+          "Dhiman",
+          "Gaur",
+          "Goswami",
+          "Gurukkal",
+          "Havyaka",
+          "Iyengar",
+          "Iyer",
+          "Kanyakubja",
+          "Kokanastha",
+          "Kota",
+          "Kulin",
+          "Madhwa",
+          "Maithil",
+          "Namboodiri",
+          "Niyogi",
+          "Pandit",
+          "Rarhi",
+          "Saraswat",
+          "Saryuparin",
+          "Smartha",
+          "Sri Vaishnava",
+          "Tyagi",
+          "Vaidiki",
+          "Vaidya",
+          "Velanadu"
+        ]
+      },
+      {
+        "name": "Rajput",
+        "sub_castes": [
+          "Chauhan",
+          "Gehlot",
+          "Jadeja",
+          "Kachwaha",
+          "Parmar",
+          "Rathore",
+          "Sisodia",
+          "Solanki",
+          "Tomar"
+        ]
+      },
+      {
+        "name": "Kayastha",
+        "sub_castes": [
+          "Ambashtha",
+          "Bhatnagar",
+          "Karan",
+          "Mathur",
+          "Nigam",
+          "Saxena",
+          "Srivastava",
+          "Suryadhwaj"
+        ]
+      },
+      {
+        "name": "Maratha",
+        "sub_castes": [
+          "96 Kuli Maratha",
+          "Deshmukh",
+          "Ghatge",
+          "Jadhav",
+          "Kunbi Maratha",
+          "More",
+          "Nimbalkar",
+          "Patil",
+          "Shinde"
+        ]
+      },
+      {
+        "name": "Yadav",
+        "sub_castes": [
+          "Ahir",
+          "Gwala",
+          "Gwalvanshi",
+          "Krishnauth",
+          "Nandvanshi",
+          "Yaduvanshi"
+        ]
+      },
+      {
+        "name": "Reddy",
+        "sub_castes": [
+          "Desuru",
+          "Gandla",
+          "Motati",
+          "Pakanati",
+          "Panta",
+          "Pedakanti",
+          "Velama Reddy"
+        ]
+      },
+      {
+        "name": "Nair",
+        "sub_castes": [
+          "Illathu",
+          "Kiriyathil",
+          "Menon",
+          "Nambiar",
+          "Pillai",
+          "Stani",
+          "Vellithara"
+        ]
+      },
+      {
+        "name": "Jat",
+        "sub_castes": [
+          "Dhillon",
+          "Gill",
+          "Kadian",
+          "Malik",
+          "Randhawa",
+          "Sandhu",
+          "Sidhu",
+          "Tomar"
+        ]
+      },
+      {
+        "name": "Gupta",
+        "sub_castes": [
+          "Agarwal",
+          "Bania",
+          "Barnwal",
+          "Kasaudhan",
+          "Khandelwal",
+          "Maheshwari",
+          "Oswal",
+          "Rastogi",
+          "Vaishya"
+        ]
+      },
+      {
+        "name": "Patel",
+        "sub_castes": [
+          "Anjana",
+          "Kadva",
+          "Leuva",
+          "Matia",
+          "Patidar"
+        ]
+      },
+      {
+        "name": "Vokkaliga",
+        "sub_castes": [
+          "Dasa",
+          "Gangadikara",
+          "Hallikar",
+          "Kunchitiga",
+          "Morasu",
+          "Sadara"
+        ]
+      },
+      {
+        "name": "Lingayat",
+        "sub_castes": [
+          "Banajiga",
+          "Ganiga",
+          "Gowda",
+          "Jangam",
+          "Panchamsali",
+          "Reddy Lingayat",
+          "Sadar"
+        ]
+      },
+      {
+        "name": "Kamma",
+        "sub_castes": [
+          "Gampa",
+          "Godachrlu",
+          "Illuvellani",
+          "Kavitri",
+          "Pedda"
+        ]
+      },
+      {
+        "name": "Ezhava",
+        "sub_castes": [
+          "Billava",
+          "Chovan",
+          "Thiyya"
+        ]
+      },
+      {
+        "name": "Mudaliar",
+        "sub_castes": [
+          "Agamudayar",
+          "Arcot",
+          "Isai Vellalar",
+          "Kondaikatti",
+          "Saiva Pillai",
+          "Sengunthar",
+          "Thuluva Vellala"
+        ]
+      },
+      {
+        "name": "Chettiar",
+        "sub_castes": [
+          "Agaram",
+          "Devanga",
+          "Elur",
+          "Nagarathar",
+          "Nattukottai",
+          "Pattinavar",
+          "Vaniya"
+        ]
+      },
+      {
+        "name": "Thakur",
+        "sub_castes": [
+          "Bhumihar Thakur",
+          "Kshatriya Thakur",
+          "Rajput Thakur"
+        ]
+      },
+      {
+        "name": "Sindhi",
+        "sub_castes": [
+          "Amil",
+          "Bhaiband",
+          "Chhapru",
+          "Larai",
+          "Lohana",
+          "Sahiti",
+          "Thattai"
+        ]
+      },
+      {
+        "name": "Arora",
+        "sub_castes": [
+          "Bhatia",
+          "Chadha",
+          "Khatri Arora",
+          "Sahni"
+        ]
+      },
+      {
+        "name": "Khatri",
+        "sub_castes": [
+          "Bahri",
+          "Bunjahi",
+          "Dhaighar",
+          "Kapoor",
+          "Khukhrain",
+          "Mehra",
+          "Sarin",
+          "Seth"
+        ]
+      },
+      {
+        "name": "Kurmi",
+        "sub_castes": [
+          "Awadhia",
+          "Chandravanshi",
+          "Gangwar",
+          "Kanaujia",
+          "Patanwar",
+          "Sachan"
+        ]
+      },
+      {
+        "name": "Gowda",
+        "sub_castes": [
+          "Deva",
+          "Halepaika",
+          "Kuruba Gowda",
+          "Namdhari",
+          "Okkaliga"
+        ]
+      },
+      {
+        "name": "Agarwal",
+        "sub_castes": [
+          "Bansal",
+          "Garg",
+          "Goyal",
+          "Jindal",
+          "Mangal",
+          "Mittal",
+          "Singhal"
+        ]
+      },
+      {
+        "name": "Vellalar",
+        "sub_castes": [
+          "Arunattu",
+          "Chozhia",
+          "Karkarthar",
+          "Kongu",
+          "Thondaimandala"
+        ]
+      },
+      {
+        "name": "Nadar",
+        "sub_castes": [
+          "Gramani",
+          "Karukkupattayar",
+          "Kongu Nadar",
+          "Nattathi",
+          "Santror"
+        ]
+      },
+      {
+        "name": "Teli",
+        "sub_castes": [
+          "Ekbaile",
+          "Rathod Teli",
+          "Sahu",
+          "Sav"
+        ]
+      },
+      {
+        "name": "Vishwakarma",
+        "sub_castes": [
+          "Badigar",
+          "Kammalar",
+          "Lohar",
+          "Panchal",
+          "Sonar",
+          "Sutar",
+          "Tatari"
+        ]
+      },
+      {
+        "name": "Scheduled Caste",
+        "sub_castes": [
+          "Adi Dravida",
+          "Chamar",
+          "Jatav",
+          "Mahar",
+          "Mala",
+          "Madiga",
+          "Pasi",
+          "Ravidasia",
+          "Valmiki"
+        ]
+      },
+      {
+        "name": "Scheduled Tribe",
+        "sub_castes": [
+          "Bhil",
+          "Gond",
+          "Ho",
+          "Khasi",
+          "Meena",
+          "Munda",
+          "Oraon",
+          "Santhal"
+        ]
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Muslim",
+    "communities": [
+      {
+        "name": "Sunni",
+        "sub_castes": [
+          "Ansari",
+          "Barelvi",
+          "Deobandi",
+          "Ehl-e-Hadith",
+          "Hanafi",
+          "Maliki",
+          "Shafi",
+          "Sunni Bohra"
+        ]
+      },
+      {
+        "name": "Shia",
+        "sub_castes": [
+          "Athna Ashari",
+          "Bohra",
+          "Dawoodi Bohra",
+          "Ismaili",
+          "Khoja",
+          "Zaidi"
+        ]
+      },
+      {
+        "name": "Sheikh",
+        "sub_castes": [
+          "Farooqui",
+          "Qureshi",
+          "Siddiqui",
+          "Usmani"
+        ]
+      },
+      {
+        "name": "Syed",
+        "sub_castes": [
+          "Bukhari",
+          "Hashmi",
+          "Jafri",
+          "Naqvi",
+          "Rizvi",
+          "Zaidi"
+        ]
+      },
+      {
+        "name": "Pathan",
+        "sub_castes": [
+          "Afridi",
+          "Durrani",
+          "Khattak",
+          "Lodhi",
+          "Yusufzai"
+        ]
+      },
+      {
+        "name": "Mughal",
+        "sub_castes": [
+          "Beg",
+          "Chughtai",
+          "Mirza"
+        ]
+      },
+      {
+        "name": "Memon",
+        "sub_castes": [
+          "Halai",
+          "Kathiawari",
+          "Kutchi",
+          "Okhai"
+        ]
+      },
+      {
+        "name": "Mapila",
+        "sub_castes": [
+          "Malabar Mapila",
+          "Thangal"
+        ]
+      },
+      {
+        "name": "Ansari",
+        "sub_castes": [
+          "Julaha",
+          "Momin"
+        ]
+      },
+      {
+        "name": "Rajput Muslim",
+        "sub_castes": [
+          "Bhatti",
+          "Chauhan Muslim",
+          "Ranghar"
+        ]
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Christian",
+    "communities": [
+      {
+        "name": "Roman Catholic",
+        "sub_castes": [
+          "Goan Catholic",
+          "Latin Catholic",
+          "Mangalorean Catholic",
+          "Syro-Malabar",
+          "Syro-Malankara"
+        ]
+      },
+      {
+        "name": "Protestant",
+        "sub_castes": [
+          "Baptist",
+          "Church of North India",
+          "Church of South India",
+          "Lutheran",
+          "Methodist",
+          "Presbyterian"
+        ]
+      },
+      {
+        "name": "Orthodox",
+        "sub_castes": [
+          "Jacobite",
+          "Malankara Orthodox",
+          "Syrian Orthodox"
+        ]
+      },
+      {
+        "name": "Marthoma",
+        "sub_castes": []
+      },
+      {
+        "name": "Pentecostal",
+        "sub_castes": [
+          "Assemblies of God",
+          "Church of God",
+          "India Pentecostal Church"
+        ]
+      },
+      {
+        "name": "Evangelical",
+        "sub_castes": []
+      },
+      {
+        "name": "Anglican",
+        "sub_castes": []
+      },
+      {
+        "name": "Seventh-day Adventist",
+        "sub_castes": []
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Sikh",
+    "communities": [
+      {
+        "name": "Jat Sikh",
+        "sub_castes": [
+          "Dhillon",
+          "Gill",
+          "Grewal",
+          "Randhawa",
+          "Sandhu",
+          "Sidhu",
+          "Virk"
+        ]
+      },
+      {
+        "name": "Khatri Sikh",
+        "sub_castes": [
+          "Bedi",
+          "Kapoor",
+          "Sodhi",
+          "Trehan"
+        ]
+      },
+      {
+        "name": "Arora Sikh",
+        "sub_castes": [
+          "Chadha",
+          "Sahni"
+        ]
+      },
+      {
+        "name": "Ramgarhia",
+        "sub_castes": [
+          "Dhiman",
+          "Lohar",
+          "Tarkhan"
+        ]
+      },
+      {
+        "name": "Ravidasia",
+        "sub_castes": []
+      },
+      {
+        "name": "Mazhabi",
+        "sub_castes": []
+      },
+      {
+        "name": "Ahluwalia",
+        "sub_castes": []
+      },
+      {
+        "name": "Namdhari",
+        "sub_castes": []
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Jain",
+    "communities": [
+      {
+        "name": "Digambar",
+        "sub_castes": [
+          "Agrawal Jain",
+          "Bagherwal",
+          "Khandelwal Jain",
+          "Parwar",
+          "Porwal"
+        ]
+      },
+      {
+        "name": "Svetambar",
+        "sub_castes": [
+          "Deravasi",
+          "Murtipujak",
+          "Sthanakvasi",
+          "Terapanthi"
+        ]
+      },
+      {
+        "name": "Oswal",
+        "sub_castes": [
+          "Bisa Oswal",
+          "Dasa Oswal"
+        ]
+      },
+      {
+        "name": "Porwal",
+        "sub_castes": []
+      },
+      {
+        "name": "Shrimali",
+        "sub_castes": []
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Buddhist",
+    "communities": [
+      {
+        "name": "Navayana",
+        "sub_castes": [
+          "Ambedkarite"
+        ]
+      },
+      {
+        "name": "Theravada",
+        "sub_castes": []
+      },
+      {
+        "name": "Mahayana",
+        "sub_castes": []
+      },
+      {
+        "name": "Vajrayana",
+        "sub_castes": [
+          "Bhutia",
+          "Ladakhi",
+          "Tibetan"
+        ]
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Parsi",
+    "communities": [
+      {
+        "name": "Zoroastrian",
+        "sub_castes": [
+          "Irani",
+          "Parsi"
+        ]
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Jewish",
+    "communities": [
+      {
+        "name": "Bene Israel",
+        "sub_castes": []
+      },
+      {
+        "name": "Baghdadi",
+        "sub_castes": []
+      },
+      {
+        "name": "Cochin Jew",
+        "sub_castes": []
+      },
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Spiritual - not religious",
+    "communities": [
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "No Religion",
+    "communities": [
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  },
+  {
+    "name": "Other",
+    "communities": [
+      {
+        "name": "Other",
+        "sub_castes": []
+      }
+    ]
+  }
+]

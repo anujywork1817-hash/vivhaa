@@ -115,6 +115,16 @@ class ApiEndpoints {
   static const String adminReports = '/admin/reports';
   static String adminResolveReport(String id) => '/admin/reports/$id/resolve';
 
+  // Reference lists (countries/states/cities and the religion tree) — these
+  // used to be hardcoded Dart constants per screen; the backend now owns
+  // them so they cascade off real data and change without an app release.
+  static const String referenceCountries = '/reference/countries';
+  static const String referenceReligions = '/reference/religions';
+  static String referenceStates(String countryCode) =>
+      '/reference/countries/$countryCode/states';
+  static String referenceCities(String countryCode, String stateCode) =>
+      '/reference/countries/$countryCode/states/$stateCode/cities';
+
   static String reportUser(String profileId) => '/reports/$profileId';
   static const String verificationSubmit = '/verification/id';
   static const String verificationStatus = '/verification/me';

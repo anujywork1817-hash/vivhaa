@@ -5,22 +5,17 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/enums.dart';
-import '../../../../shared/widgets/inputs/app_select_field.dart';
+import '../../../../shared/widgets/inputs/app_searchable_select_field.dart';
 import '../../../../shared/widgets/misc/onboarding_step_scaffold.dart';
+import '../../../reference/presentation/reference_providers.dart';
 import '../controllers/profile_creation_controller.dart';
 
-const _religions = [
-  'Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain', 'Buddhist', 'Parsi', 'Jewish', 'No Religion'
-];
-const _communities = [
-  'Brahmin', 'Rajput', 'Kayastha', 'Yadav', 'Reddy', 'Nair', 'Iyer', 'Sunni', 'Shia', 'Jat', 'Maratha', 'Other'
-];
-const _countries = [
-  'India', 'United States', 'United Kingdom', 'Canada', 'Australia', 'United Arab Emirates',
-  'Singapore', 'Other',
-];
-
 /// Right after name/DOB — religion, community, and country of residence.
+///
+/// All three lists come from `/reference/*` rather than the constants that
+/// used to sit at the top of this file, so community cascades off religion
+/// and the country list is the real one rather than eight entries plus
+/// "Other".
 class ReligionCommunityScreen extends ConsumerWidget {
   const ReligionCommunityScreen({super.key});
 
@@ -28,6 +23,10 @@ class ReligionCommunityScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(profileCreationControllerProvider.notifier);
     final draft = ref.watch(profileCreationControllerProvider).draft;
+
+    final religionsAsync = ref.watch(religionsProvider);
+    final countriesAsync = ref.watch(countriesProvider);
+    final communities = ref.watch(communitiesProvider(draft.religion));
 
     final canContinue =
         draft.religion != null && draft.community != null && draft.country != null;
@@ -42,11 +41,25 @@ class ReligionCommunityScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppSelectField(
+          AppSearchableSelectField(
             label: 'Religion',
             value: draft.religion,
-            options: _religions,
-            onSelected: (v) => controller.update((p) => p.copyWith(religion: v)),
+            options: [
+              for (final r in religionsAsync.valueOrNull ?? const [])
+                SelectOption(r.name),
+            ],
+            isLoading: religionsAsync.isLoading,
+            errorMessage: religionsAsync.hasError ? _listError : null,
+            onRetry: () => ref.invalidate(religionsProvider),
+            // Changing religion invalidates everything below it — a Hindu
+            // profile switched to Muslim must not keep "Brahmin".
+            onSelected: (o) => controller.update(
+              (p) => p.copyWith(
+                religion: o.value,
+                clearCommunity: true,
+                clearSubCommunity: true,
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.xxl),
           Text('Community', style: context.textStyles.headlineSmall),
@@ -55,11 +68,16 @@ class ReligionCommunityScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: AppSelectField(
+                child: AppSearchableSelectField(
                   label: 'Community',
                   value: draft.community,
-                  options: _communities,
-                  onSelected: (v) => controller.update((p) => p.copyWith(community: v)),
+                  enabled: draft.religion != null,
+                  emptyMessage: 'Choose a religion first',
+                  options: [for (final c in communities) SelectOption(c.name)],
+                  isLoading: religionsAsync.isLoading,
+                  onSelected: (o) => controller.update(
+                    (p) => p.copyWith(community: o.value, clearSubCommunity: true),
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -89,14 +107,26 @@ class ReligionCommunityScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxl),
           Text('Living in', style: context.textStyles.headlineSmall),
           const SizedBox(height: AppSpacing.md),
-          AppSelectField(
+          AppSearchableSelectField(
             label: 'Living in',
+            hint: 'Country you live in',
             value: draft.country,
-            options: _countries,
-            onSelected: (v) => controller.update((p) => p.copyWith(country: v)),
+            options: [
+              for (final c in countriesAsync.valueOrNull ?? const [])
+                SelectOption(c.name, c.label),
+            ],
+            isLoading: countriesAsync.isLoading,
+            errorMessage: countriesAsync.hasError ? _listError : null,
+            onRetry: () => ref.invalidate(countriesProvider),
+            // State and city are keyed by country, so both have to go.
+            onSelected: (o) => controller.update(
+              (p) => p.copyWith(country: o.value, clearState: true, clearCity: true),
+            ),
           ),
         ],
       ),
     );
   }
 }
+
+const _listError = "Couldn't load this list. Check your connection and try again.";

@@ -234,6 +234,15 @@ class Profile {
     bool? submitted,
     String? visibility,
     DateTime? createdAt,
+    // Passing `null` to a copyWith parameter is indistinguishable from
+    // omitting it, so clearing a field needs its own flag. Only the
+    // cascading location/community fields have one, because they're the
+    // only ones a later choice has to invalidate: change country and the
+    // old state is not just stale but wrong.
+    bool clearState = false,
+    bool clearCity = false,
+    bool clearCommunity = false,
+    bool clearSubCommunity = false,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -244,13 +253,13 @@ class Profile {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
       maritalStatus: maritalStatus ?? this.maritalStatus,
-      city: city ?? this.city,
-      state: state ?? this.state,
+      city: clearCity ? null : (city ?? this.city),
+      state: clearState ? null : (state ?? this.state),
       country: country ?? this.country,
       religion: religion ?? this.religion,
       motherTongue: motherTongue ?? this.motherTongue,
-      community: community ?? this.community,
-      subCommunity: subCommunity ?? this.subCommunity,
+      community: clearCommunity ? null : (community ?? this.community),
+      subCommunity: clearSubCommunity ? null : (subCommunity ?? this.subCommunity),
       casteNoBar: casteNoBar ?? this.casteNoBar,
       highestEducation: highestEducation ?? this.highestEducation,
       college: college ?? this.college,

@@ -5,17 +5,15 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/buttons/primary_button.dart';
-import '../../../../shared/widgets/inputs/app_select_field.dart';
+import '../../../../shared/widgets/inputs/app_searchable_select_field.dart';
+import '../../../reference/data/reference_models.dart';
+import '../../../reference/data/reference_repository.dart';
+import '../../../reference/presentation/reference_providers.dart';
 import '../../../../shared/widgets/inputs/choice_chip_group.dart';
 import '../controllers/search_filters_controller.dart';
 import '../controllers/search_results_controller.dart';
 
 const _maritalOptions = ['Never Married', 'Divorced', 'Widowed'];
-const _religionOptions = ['Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain'];
-const _cities = [
-  'Mumbai', 'Bengaluru', 'Delhi', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad', 'Kolkata',
-  'Jaipur', 'Surat',
-];
 
 class BasicSearchScreen extends ConsumerWidget {
   const BasicSearchScreen({super.key});
@@ -24,6 +22,24 @@ class BasicSearchScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(searchFiltersProvider.notifier);
     final filters = ref.watch(searchFiltersProvider);
+
+    final religionNames = <String>[
+      for (final r in ref.watch(religionsProvider).valueOrNull ?? const <RefReligion>[])
+        r.name,
+    ];
+
+    // Country only narrows the pickers below it; the search request drops it
+    // because the index has no country field to filter on.
+    final countryCode =
+        _codeForCountry(ref.watch(countriesProvider).valueOrNull, filters.country);
+    final statesAsync = countryCode == null
+        ? const AsyncValue<List<RefState>>.data([])
+        : ref.watch(statesProvider(countryCode));
+    final stateCode = _codeForState(statesAsync.valueOrNull, filters.state);
+    final citiesAsync = (countryCode == null || stateCode == null)
+        ? const AsyncValue<List<String>>.data([])
+        : ref.watch(citiesProvider(
+            (countryCode: countryCode, stateCode: stateCode, query: '')));
 
     return Scaffold(
       appBar: AppBar(
@@ -82,7 +98,7 @@ class BasicSearchScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     ChoiceChipGroup<String>(
                       label: 'Religion',
-                      options: _religionOptions,
+                      options: religionNames,
                       labelBuilder: (v) => v,
                       selected: filters.religions,
                       onToggle: (v) => controller.update((f) {
@@ -92,11 +108,61 @@ class BasicSearchScreen extends ConsumerWidget {
                       }),
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    AppSelectField(
+                    AppSearchableSelectField(
+                      label: 'Country',
+                      hint: 'Any country',
+                      value: filters.country,
+                      options: [
+                        for (final c in ref.watch(countriesProvider).valueOrNull ??
+                            const <RefCountry>[])
+                          SelectOption(c.name, c.label),
+                      ],
+                      isLoading: ref.watch(countriesProvider).isLoading,
+                      onSelected: (o) => controller.update((f) =>
+                          f.copyWith(country: o.value, clearState: true, clearCity: true)),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSearchableSelectField(
+                      label: 'State',
+                      hint: 'Any state',
+                      value: filters.state,
+                      enabled: countryCode != null,
+                      emptyMessage: 'Choose a country first',
+                      options: [
+                        for (final s in statesAsync.valueOrNull ?? const <RefState>[])
+                          SelectOption(s.name),
+                      ],
+                      isLoading: statesAsync.isLoading,
+                      onSelected: (o) => controller
+                          .update((f) => f.copyWith(state: o.value, clearCity: true)),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    AppSearchableSelectField(
                       label: 'City',
+                      hint: 'Any city',
                       value: filters.city,
-                      options: _cities,
-                      onSelected: (v) => controller.update((f) => f.copyWith(city: v)),
+                      enabled: stateCode != null,
+                      emptyMessage: 'Choose a state first',
+                      options: [
+                        for (final c in citiesAsync.valueOrNull ?? const <String>[])
+                          SelectOption(c),
+                      ],
+                      isLoading: citiesAsync.isLoading,
+                      onSearch: (countryCode == null || stateCode == null)
+                          ? null
+                          : (query) async {
+                              final result = await ref
+                                  .read(referenceRepositoryProvider)
+                                  .cities(countryCode, stateCode, query: query);
+                              return result.when(
+                                success: (cities) => cities
+                                    .map((c) => SelectOption(c))
+                                    .toList(growable: false),
+                                failure: (_) => const <SelectOption>[],
+                              );
+                            },
+                      onSelected: (o) =>
+                          controller.update((f) => f.copyWith(city: o.value)),
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     Center(
@@ -126,4 +192,20 @@ class BasicSearchScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String? _codeForCountry(List<RefCountry>? countries, String? name) {
+  if (countries == null || name == null) return null;
+  for (final c in countries) {
+    if (c.name == name) return c.code;
+  }
+  return null;
+}
+
+String? _codeForState(List<RefState>? states, String? name) {
+  if (states == null || name == null) return null;
+  for (final s in states) {
+    if (s.name == name) return s.code;
+  }
+  return null;
 }

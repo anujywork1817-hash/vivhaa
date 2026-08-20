@@ -20,6 +20,10 @@ class SearchFilters {
   final int heightMaxCm;
   final Set<String> maritalStatuses;
   final Set<String> religions;
+  /// Country scopes the state and city pickers only — the search index does
+  /// not carry a country field, so it is deliberately not sent to the API.
+  final String? country;
+  final String? state;
   final String? city;
   final Set<String> communities;
   final Set<String> education;
@@ -37,6 +41,8 @@ class SearchFilters {
     this.heightMaxCm = 195,
     this.maritalStatuses = const {},
     this.religions = const {},
+    this.country,
+    this.state,
     this.city,
     this.communities = const {},
     this.education = const {},
@@ -51,6 +57,7 @@ class SearchFilters {
     var count = 0;
     if (maritalStatuses.isNotEmpty) count++;
     if (religions.isNotEmpty) count++;
+    if (state != null && state!.isNotEmpty) count++;
     if (city != null && city!.isNotEmpty) count++;
     if (communities.isNotEmpty) count++;
     if (education.isNotEmpty) count++;
@@ -69,6 +76,10 @@ class SearchFilters {
     int? heightMaxCm,
     Set<String>? maritalStatuses,
     Set<String>? religions,
+    String? country,
+    bool clearCountry = false,
+    String? state,
+    bool clearState = false,
     String? city,
     bool clearCity = false,
     Set<String>? communities,
@@ -90,6 +101,8 @@ class SearchFilters {
       heightMaxCm: heightMaxCm ?? this.heightMaxCm,
       maritalStatuses: maritalStatuses ?? this.maritalStatuses,
       religions: religions ?? this.religions,
+      country: clearCountry ? null : (country ?? this.country),
+      state: clearState ? null : (state ?? this.state),
       city: clearCity ? null : (city ?? this.city),
       communities: communities ?? this.communities,
       education: education ?? this.education,

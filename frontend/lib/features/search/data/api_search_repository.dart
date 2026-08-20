@@ -40,6 +40,9 @@ class ApiSearchRepository implements SearchRepository {
         if (filters.communities.isNotEmpty) 'community': filters.communities.toList(),
         if (filters.education.isNotEmpty) 'education': filters.education.toList(),
         if (filters.professions.isNotEmpty) 'occupation': filters.professions.toList(),
+        // `country` is intentionally absent: it scopes the pickers in the UI
+        // but the search index carries no country field to match against.
+        if (filters.state != null && filters.state!.isNotEmpty) 'state': filters.state,
         if (filters.city != null && filters.city!.isNotEmpty) 'city': filters.city,
         if (filters.diet != null) 'diet': [dietLabelToBackend(filters.diet!)],
         if (filters.manglik != null) 'manglik': manglikLabelToBackend(filters.manglik!),
