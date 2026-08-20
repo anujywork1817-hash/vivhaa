@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "879856026168",
+    "project_id": "sahdi-17c86",
+    "storage_bucket": "sahdi-17c86.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879856026168:android:f124ea868cd7acc2de9ccd",
+        "android_client_info": {
+          "package_name": "com.shaadiclone.shaadi_clone"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "879856026168-k5fmr2t88smvojhga3fe4bdmogar0ogs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.shaadiclone.shaadi_clone",
+            "certificate_hash": "21e6c15cba92d4deac436cc0f2bfd309f68079b9"
+          }
+        },
+        {
+          "client_id": "879856026168-a82vq1aco24pr25gq540m5qe5e7rc4eq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDSPL4h7imlGm8ZpQgVUDQxPNscyAoW3Ok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "879856026168-a82vq1aco24pr25gq540m5qe5e7rc4eq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
