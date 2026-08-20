@@ -168,15 +168,52 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
     if (selected != null) onSave(selected);
   }
 
+  /// True while the profile is being created, so "Confirm & Continue" can't
+  /// be tapped twice into two POSTs.
+  bool _submitting = false;
+
   Future<void> _submit() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+
+    final controller = ref.read(profileCreationControllerProvider.notifier);
     final prefs = ref.read(profileCreationControllerProvider).draft.partnerPreferences;
+
+    // This is the last step that collects profile data, so it's where the
+    // draft becomes a real backend profile.
+    //
+    // It used to happen two screens later, on the premium paywall — which
+    // left Connect Matches asking /matches/recommended for a profile that
+    // did not exist yet. That endpoint answers 400 profile_required, so
+    // every new member saw "Could not load suggested matches", every time.
+    // Submitting here also means the recommendations are scored against a
+    // real profile rather than being a generic list.
+    //
+    // Standalone (editing from the menu) skips it: that profile is already
+    // on the backend and only the preferences are being changed.
+    var profileSaved = true;
+    if (!widget.standalone) {
+      profileSaved = await controller.submit();
+    }
+
     await ref.read(preferencesRepositoryProvider).upsert(prefs);
     if (!mounted) return;
+    setState(() => _submitting = false);
+
     if (widget.standalone) {
       Navigator.of(context).pop();
-    } else {
-      context.push(AppRoutes.connectMatches);
+      return;
     }
+
+    // Onboarding still continues on failure — Connect Matches degrades to
+    // its "you can still continue" state — but say so rather than letting
+    // the next screen look inexplicably broken.
+    if (!profileSaved) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Couldn't save your profile just yet — we'll retry as you continue."),
+      ));
+    }
+    context.push(AppRoutes.connectMatches);
   }
 
   @override
@@ -422,7 +459,11 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
-            child: PrimaryButton(label: 'Confirm & Continue', onPressed: _submit),
+            child: PrimaryButton(
+              label: 'Confirm & Continue',
+              loading: _submitting,
+              onPressed: _submit,
+            ),
           ),
         ],
       ),
