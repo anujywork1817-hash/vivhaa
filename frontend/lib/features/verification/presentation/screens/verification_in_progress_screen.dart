@@ -21,7 +21,7 @@ class _VerificationInProgressScreenState extends State<VerificationInProgressScr
   void initState() {
     super.initState();
     Future.delayed(const Duration(milliseconds: 1600), () {
-      if (mounted) context.go(AppRoutes.hobbies);
+      if (mounted) context.go(AppRoutes.personalDocumentUpload);
     });
   }
 

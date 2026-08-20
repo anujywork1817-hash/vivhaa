@@ -14,10 +14,12 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 	v.Use(middleware.RequireAuth(issuer))
 	v.POST("/id", h.Submit)
 	v.GET("/me", h.GetMine)
+	v.GET("/me/all", h.ListMine)
 
 	admin := rg.Group("/admin/verifications")
 	admin.Use(middleware.RequireAuth(issuer), middleware.RequireRole("admin"))
 	admin.GET("", h.ListPending)
+	admin.GET("/user/:userId", h.ListForUser)
 	admin.PUT("/:id/approve", h.Approve)
 	admin.PUT("/:id/reject", h.Reject)
 }

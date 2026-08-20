@@ -47,6 +47,7 @@ import '../../features/verification/presentation/screens/confirm_selfie_screen.d
 import '../../features/verification/presentation/screens/take_selfie_screen.dart';
 import '../../features/verification/presentation/screens/verification_in_progress_screen.dart';
 import '../../features/verification/presentation/screens/verification_prompt_screen.dart';
+import '../../features/verification/presentation/screens/personal_document_upload_screen.dart';
 import '../../features/verification/presentation/screens/verifying_screen.dart';
 import '../../features/search/presentation/screens/advanced_search_screen.dart';
 import '../../features/search/presentation/screens/basic_search_screen.dart';
@@ -90,6 +91,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: AppRoutes.verificationInProgress,
           builder: (_, __) => const VerificationInProgressScreen()),
+      GoRoute(
+          path: AppRoutes.personalDocumentUpload,
+          builder: (_, __) => const PersonalDocumentUploadScreen()),
       GoRoute(
           path: AppRoutes.hobbies,
           builder: (_, state) => HobbiesScreen(standalone: state.extra == true)),

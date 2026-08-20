@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveVerification,
   listPendingVerifications,
+  listUserDocuments,
   rejectVerification,
   type ListVerificationsParams,
 } from '../api/verifications';
@@ -12,6 +13,14 @@ export function useVerificationsList(params: ListVerificationsParams) {
     queryKey: ['verifications', params],
     queryFn: () => listPendingVerifications(params),
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useUserDocuments(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['userDocuments', userId],
+    queryFn: () => listUserDocuments(userId as string),
+    enabled: !!userId,
   });
 }
 

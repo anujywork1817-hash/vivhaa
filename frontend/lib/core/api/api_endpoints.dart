@@ -118,4 +118,5 @@ class ApiEndpoints {
   static String reportUser(String profileId) => '/reports/$profileId';
   static const String verificationSubmit = '/verification/id';
   static const String verificationStatus = '/verification/me';
+  static const String verificationMine = '/verification/me/all';
 }

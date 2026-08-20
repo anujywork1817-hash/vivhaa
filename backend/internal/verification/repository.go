@@ -45,6 +45,36 @@ func (r *Repository) GetLatestByUserID(ctx context.Context, userID string) (Veri
 	return r.scan(r.db.QueryRow(ctx, q, userID))
 }
 
+// GetLatestByUserIDAndType scopes the "already pending/approved" check to
+// a single document type, so e.g. a pending personal_document submission
+// doesn't block a separate selfie submission (and vice versa).
+func (r *Repository) GetLatestByUserIDAndType(ctx context.Context, userID, documentType string) (Verification, error) {
+	q := `SELECT ` + columns + ` FROM verifications WHERE user_id = $1 AND document_type = $2 ORDER BY created_at DESC LIMIT 1`
+	return r.scan(r.db.QueryRow(ctx, q, userID, documentType))
+}
+
+// ListByUserID returns every document a user has ever submitted, newest
+// first — used both for the user's own "my documents" view and, with an
+// arbitrary userID, for the admin per-customer documents view.
+func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Verification, error) {
+	q := `SELECT ` + columns + ` FROM verifications WHERE user_id = $1 ORDER BY created_at DESC`
+	rows, err := r.db.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []Verification
+	for rows.Next() {
+		v, err := r.scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, v)
+	}
+	return results, rows.Err()
+}
+
 func (r *Repository) GetByID(ctx context.Context, id string) (Verification, error) {
 	q := `SELECT ` + columns + ` FROM verifications WHERE id = $1`
 	return r.scan(r.db.QueryRow(ctx, q, id))

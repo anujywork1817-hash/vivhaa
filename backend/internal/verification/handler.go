@@ -72,6 +72,27 @@ func (h *Handler) GetMine(c *gin.Context) {
 	response.OK(c, resp)
 }
 
+func (h *Handler) ListMine(c *gin.Context) {
+	userID := c.GetString("user_id")
+	resp, err := h.service.ListByUserID(c.Request.Context(), userID)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}
+
+// ListForUser is the admin-only counterpart of ListMine — it looks up an
+// arbitrary user's documents by :userId rather than the caller's own.
+func (h *Handler) ListForUser(c *gin.Context) {
+	resp, err := h.service.ListByUserID(c.Request.Context(), c.Param("userId"))
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}
+
 func (h *Handler) ListPending(c *gin.Context) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	limit, _ := strconv.Atoi(c.Query("limit"))

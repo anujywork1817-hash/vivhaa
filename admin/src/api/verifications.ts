@@ -22,3 +22,8 @@ export async function rejectVerification(id: string, req: ReviewRequest): Promis
   const { data } = await apiClient.put<Envelope<VerificationResponse>>(`/admin/verifications/${id}/reject`, req);
   return data.data;
 }
+
+export async function listUserDocuments(userId: string): Promise<VerificationResponse[]> {
+  const { data } = await apiClient.get<Envelope<VerificationResponse[]>>(`/admin/verifications/user/${userId}`);
+  return data.data;
+}

@@ -21,6 +21,7 @@ class AppRoutes {
   static const String confirmSelfie = '/onboarding/verification/confirm';
   static const String verifying = '/onboarding/verification/verifying';
   static const String verificationInProgress = '/onboarding/verification/in-progress';
+  static const String personalDocumentUpload = '/onboarding/verification/personal-document';
   static const String hobbies = '/onboarding/hobbies';
   static const String familyDetails = '/onboarding/family-details';
   static const String partnerPreferences = '/onboarding/partner-preferences';

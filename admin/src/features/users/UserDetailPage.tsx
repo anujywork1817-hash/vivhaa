@@ -1,16 +1,35 @@
-import { ArrowLeftOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Descriptions, Modal, Space, Tag, Typography, message } from 'antd';
+import { ArrowLeftOutlined, StopOutlined, CheckCircleOutlined, FileOutlined } from '@ant-design/icons';
+import { Avatar, Button, Card, Descriptions, Image, List, Modal, Space, Tag, Typography, message } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
 import { useActivateUser, useSuspendUser, useUser } from '../../hooks/useUsers';
+import { useUserDocuments } from '../../hooks/useVerifications';
+import type { VerificationResponse } from '../../types/api';
 
 const STATUS_COLORS: Record<string, string> = { active: 'green', pending: 'gold', suspended: 'red' };
+
+const DOC_STATUS_COLORS: Record<string, string> = { approved: 'green', rejected: 'red', pending: 'gold' };
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  aadhaar: 'Aadhaar',
+  passport: 'Passport',
+  driving_license: 'Driving License',
+  voter_id: 'Voter ID',
+  pan: 'PAN',
+  selfie: 'Selfie',
+  personal_document: 'Personal Document',
+};
+
+function isImageUrl(url: string): boolean {
+  return /\.(png|jpe?g|gif|webp|bmp|heic|heif)(\?|$)/i.test(url);
+}
 
 export function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: user, isPending, isError, error, refetch } = useUser(id);
+  const { data: documents, isPending: documentsPending } = useUserDocuments(id);
   const suspend = useSuspendUser();
   const activate = useActivateUser();
 
@@ -118,28 +137,52 @@ export function UserDetailPage() {
         )}
       </Card>
 
-      <Card title="Verification">
-        {user.verification ? (
-          <Descriptions column={2} size="small">
-            <Descriptions.Item label="Status">
-              <Tag color={user.verification.status === 'approved' ? 'green' : user.verification.status === 'rejected' ? 'red' : 'gold'}>
-                {user.verification.status}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Document type">{user.verification.document_type}</Descriptions.Item>
-            <Descriptions.Item label="Submitted document" span={2}>
-              <a href={user.verification.document_url} target="_blank" rel="noreferrer">
-                View document
-              </a>
-            </Descriptions.Item>
-            {user.verification.review_notes && (
-              <Descriptions.Item label="Review notes" span={2}>
-                {user.verification.review_notes}
-              </Descriptions.Item>
+      <Card title="Documents">
+        {documentsPending ? (
+          <LoadingState label="Loading documents…" />
+        ) : documents && documents.length > 0 ? (
+          <List
+            itemLayout="horizontal"
+            dataSource={documents}
+            renderItem={(doc: VerificationResponse) => (
+              <List.Item>
+                <List.Item.Meta
+                  avatar={
+                    isImageUrl(doc.document_url) ? (
+                      <Image
+                        src={doc.document_url}
+                        alt={doc.document_type}
+                        width={56}
+                        height={56}
+                        style={{ objectFit: 'cover', borderRadius: 4 }}
+                        fallback="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1NiIgaGVpZ2h0PSI1NiI+PC9zdmc+"
+                      />
+                    ) : (
+                      <FileOutlined style={{ fontSize: 32, color: '#8c8c8c' }} />
+                    )
+                  }
+                  title={
+                    <Space>
+                      <span>{DOC_TYPE_LABELS[doc.document_type] ?? doc.document_type}</span>
+                      <Tag color={DOC_STATUS_COLORS[doc.status] ?? 'default'}>{doc.status}</Tag>
+                    </Space>
+                  }
+                  description={
+                    <Space direction="vertical" size={0}>
+                      <span>Submitted {new Date(doc.created_at).toLocaleString()}</span>
+                      {doc.reviewed_at && <span>Reviewed {new Date(doc.reviewed_at).toLocaleString()}</span>}
+                      {doc.review_notes && <span>Notes: {doc.review_notes}</span>}
+                      <a href={doc.document_url} target="_blank" rel="noreferrer">
+                        View / download document
+                      </a>
+                    </Space>
+                  }
+                />
+              </List.Item>
             )}
-          </Descriptions>
+          />
         ) : (
-          <Typography.Text type="secondary">No ID document submitted yet.</Typography.Text>
+          <Typography.Text type="secondary">No documents submitted yet.</Typography.Text>
         )}
       </Card>
     </div>

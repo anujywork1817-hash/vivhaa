@@ -28,8 +28,9 @@ var validDocumentTypes = map[string]bool{
 	"passport":        true,
 	"driving_license": true,
 	"voter_id":        true,
-	"pan":             true,
-	"selfie":          true,
+	"pan":               true,
+	"selfie":            true,
+	"personal_document": true,
 }
 
 type Service struct {
@@ -50,7 +51,7 @@ func (s *Service) Submit(ctx context.Context, userID, documentType string, data 
 		return Response{}, fmt.Errorf("%w: %v", ErrInvalidFile, err)
 	}
 
-	existing, err := s.repo.GetLatestByUserID(ctx, userID)
+	existing, err := s.repo.GetLatestByUserIDAndType(ctx, userID, documentType)
 	if err == nil {
 		if existing.Status == "pending" {
 			return Response{}, ErrAlreadyPending
@@ -80,6 +81,25 @@ func (s *Service) GetMine(ctx context.Context, userID string) (Response, error) 
 		return Response{}, err
 	}
 	return s.toResponse(ctx, v)
+}
+
+// ListByUserID returns every document submitted by userID, newest first.
+// Used both for a user's own document list and, with an admin-supplied
+// userID, for the admin per-customer documents view.
+func (s *Service) ListByUserID(ctx context.Context, userID string) ([]Response, error) {
+	rows, err := s.repo.ListByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Response, 0, len(rows))
+	for _, v := range rows {
+		resp, err := s.toResponse(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, resp)
+	}
+	return out, nil
 }
 
 const (
