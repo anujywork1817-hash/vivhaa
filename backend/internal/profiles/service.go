@@ -21,10 +21,30 @@ var (
 	ErrInvalidImage    = errors.New("invalid image")
 	ErrPremiumRequired = errors.New("upgrade to premium to view contact details")
 	ErrInvalidLocation = errors.New("latitude must be between -90 and 90, longitude between -180 and 180")
+	ErrInvalidAge      = errors.New("date of birth must put the member between 18 and 100 years old")
 )
 
 const maxPhotosPerProfile = 6
 const dateLayout = "2006-01-02"
+
+// Age bounds for a member's own date of birth. The client calendar already
+// restricts its range to these, but the API is the boundary that actually
+// enforces it.
+const (
+	minSignupAge = 18
+	maxSignupAge = 100
+)
+
+// ageOn returns how many whole years old someone born on dob is at on,
+// counting a birthday as reached only once the day itself arrives.
+func ageOn(dob, on time.Time) int {
+	years := on.Year() - dob.Year()
+	if on.Month() < dob.Month() ||
+		(on.Month() == dob.Month() && on.Day() < dob.Day()) {
+		years--
+	}
+	return years
+}
 
 // BlockChecker reports whether two users have a block relationship in
 // either direction. Declared here rather than importing internal/blocked
@@ -409,6 +429,9 @@ func applyInput(p *Profile, in ProfileInput) error {
 		t, err := time.Parse(dateLayout, *in.DateOfBirth)
 		if err != nil {
 			return err
+		}
+		if age := ageOn(t, time.Now().UTC()); age < minSignupAge || age > maxSignupAge {
+			return ErrInvalidAge
 		}
 		p.DateOfBirth = &t
 	}

@@ -205,6 +205,8 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusPaymentRequired, "premium_required", err.Error(), nil)
 	case errors.Is(err, ErrInvalidLocation):
 		response.Fail(c, http.StatusBadRequest, "invalid_location", err.Error(), nil)
+	case errors.Is(err, ErrInvalidAge):
+		response.Fail(c, http.StatusBadRequest, "invalid_age", err.Error(), nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}

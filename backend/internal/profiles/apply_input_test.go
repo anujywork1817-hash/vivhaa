@@ -1,6 +1,10 @@
 package profiles
 
-import "testing"
+import (
+	"errors"
+	"testing"
+	"time"
+)
 
 // applyInput is a partial update: only fields present in the request are
 // touched. These tests pin that behaviour because the "my height/company
@@ -131,5 +135,67 @@ func TestApplyInput_SelfieVerifiedNotSettable(t *testing.T) {
 	}
 	if p.SelfieVerified {
 		t.Error("SelfieVerified should default to false and be unreachable via ProfileInput")
+	}
+}
+
+// Date of birth is the one ProfileInput field with a policy attached: the
+// member must be an adult. The client calendar restricts its own range, so
+// anything out of bounds arriving here is a bypassed client, not a typo.
+func TestApplyInput_RejectsOutOfRangeDateOfBirth(t *testing.T) {
+	today := time.Now().UTC()
+
+	for _, tc := range []struct {
+		name    string
+		dob     time.Time
+		wantErr bool
+	}{
+		{"comfortably adult", today.AddDate(-30, 0, 0), false},
+		{"exactly the minimum age", today.AddDate(-minSignupAge, 0, 0), false},
+		{"one day short of the minimum", today.AddDate(-minSignupAge, 0, 1), true},
+		{"child", today.AddDate(-12, 0, 0), true},
+		{"born tomorrow", today.AddDate(0, 0, 1), true},
+		{"implausibly old", today.AddDate(-(maxSignupAge + 1), 0, -1), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var p Profile
+			err := applyInput(&p, ProfileInput{DateOfBirth: str(tc.dob.Format(dateLayout))})
+
+			if tc.wantErr {
+				if !errors.Is(err, ErrInvalidAge) {
+					t.Fatalf("err = %v, want ErrInvalidAge", err)
+				}
+				if p.DateOfBirth != nil {
+					t.Error("DateOfBirth was applied despite being rejected")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("applyInput returned error: %v", err)
+			}
+			if p.DateOfBirth == nil {
+				t.Fatal("DateOfBirth was not applied")
+			}
+		})
+	}
+}
+
+func TestAgeOn_CountsBirthdayOnlyOnceReached(t *testing.T) {
+	dob := time.Date(1996, 3, 12, 0, 0, 0, 0, time.UTC)
+
+	for _, tc := range []struct {
+		name string
+		on   time.Time
+		want int
+	}{
+		{"day before the birthday", time.Date(2026, 3, 11, 0, 0, 0, 0, time.UTC), 29},
+		{"on the birthday", time.Date(2026, 3, 12, 0, 0, 0, 0, time.UTC), 30},
+		{"day after the birthday", time.Date(2026, 3, 13, 0, 0, 0, 0, time.UTC), 30},
+		{"earlier month", time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC), 29},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ageOn(dob, tc.on); got != tc.want {
+				t.Errorf("ageOn = %d, want %d", got, tc.want)
+			}
+		})
 	}
 }

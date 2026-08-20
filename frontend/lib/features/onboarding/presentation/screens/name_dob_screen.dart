@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/enums.dart';
+import '../../../../shared/widgets/inputs/app_date_picker_field.dart';
 import '../../../../shared/widgets/inputs/app_text_field.dart';
 import '../../../../shared/widgets/misc/onboarding_step_scaffold.dart';
 import '../controllers/profile_creation_controller.dart';
+
+/// Matrimony sign-ups are adults only, and the partner-preference sliders
+/// elsewhere already clamp to 18–65 — so 18 is the floor here too. The upper
+/// bound just keeps the year grid to a sane length.
+const minSignupAge = 18;
+const maxSignupAge = 100;
 
 /// First form step right after "This Profile is for" — just name and date
 /// of birth, kept on their own screen rather than folded into the longer
@@ -25,46 +31,12 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
       text: ref.read(profileCreationControllerProvider).draft.firstName);
   late final _lastNameController = TextEditingController(
       text: ref.read(profileCreationControllerProvider).draft.lastName);
-  final _dayController = TextEditingController();
-  final _monthController = TextEditingController();
-  final _yearController = TextEditingController();
-
-  final _dayFocus = FocusNode();
-  final _monthFocus = FocusNode();
-  final _yearFocus = FocusNode();
 
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _dayController.dispose();
-    _monthController.dispose();
-    _yearController.dispose();
-    _dayFocus.dispose();
-    _monthFocus.dispose();
-    _yearFocus.dispose();
     super.dispose();
-  }
-
-  void _tryUpdateDateOfBirth(void Function(DateTime? date) apply) {
-    final day = int.tryParse(_dayController.text);
-    final month = int.tryParse(_monthController.text);
-    final year = int.tryParse(_yearController.text);
-    if (day == null || month == null || year == null || _yearController.text.length != 4) {
-      apply(null);
-      return;
-    }
-    if (day < 1 || day > 31 || month < 1 || month > 12) {
-      apply(null);
-      return;
-    }
-    final date = DateTime(year, month, day);
-    // Guard against overflow dates (e.g. 31 Feb rolling into March).
-    if (date.month != month) {
-      apply(null);
-      return;
-    }
-    apply(date);
   }
 
   @override
@@ -77,6 +49,12 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
         draft.dateOfBirth != null;
 
     final profileFor = draft.profileFor ?? ProfileFor.myself;
+
+    // Computed per build rather than cached in state so a session left open
+    // across midnight can't offer a date that has since gone out of range.
+    final today = DateTime.now();
+    final oldestAllowed = DateTime(today.year - maxSignupAge, today.month, today.day);
+    final youngestAllowed = DateTime(today.year - minSignupAge, today.month, today.day);
 
     return OnboardingStepScaffold(
       stepIndex: 1,
@@ -101,67 +79,18 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
           const SizedBox(height: AppSpacing.xxl),
           Text('Date of birth', style: context.textStyles.headlineSmall),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: AppTextField(
-                  label: 'Day',
-                  hint: 'DD',
-                  controller: _dayController,
-                  focusNode: _dayFocus,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  onChanged: (v) {
-                    _tryUpdateDateOfBirth(
-                        (date) => controller.update((p) => p.copyWith(dateOfBirth: date)));
-                    if (v.length == 2) FocusScope.of(context).requestFocus(_monthFocus);
-                  },
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: AppTextField(
-                  label: 'Month',
-                  hint: 'MM',
-                  controller: _monthController,
-                  focusNode: _monthFocus,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                  onChanged: (v) {
-                    _tryUpdateDateOfBirth(
-                        (date) => controller.update((p) => p.copyWith(dateOfBirth: date)));
-                    if (v.length == 2) FocusScope.of(context).requestFocus(_yearFocus);
-                  },
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                flex: 2,
-                child: AppTextField(
-                  label: 'Year',
-                  hint: 'YYYY',
-                  controller: _yearController,
-                  focusNode: _yearFocus,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  onChanged: (_) => _tryUpdateDateOfBirth(
-                      (date) => controller.update((p) => p.copyWith(dateOfBirth: date))),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                  ],
-                ),
-              ),
-            ],
+          AppDatePickerField(
+            label: 'Date of birth',
+            hint: 'Tap to pick a date',
+            value: draft.dateOfBirth,
+            firstDate: oldestAllowed,
+            lastDate: youngestAllowed,
+            onSelected: (date) => controller.update((p) => p.copyWith(dateOfBirth: date)),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'You must be at least $minSignupAge to create a profile.',
+            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
           ),
         ],
       ),
