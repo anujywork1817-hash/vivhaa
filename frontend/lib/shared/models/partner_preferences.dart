@@ -60,6 +60,12 @@ class PartnerPreferences {
     String? profession,
     String? profileManagedBy,
     String? diet,
+    // "Open to All" means *no* country/state filter, and passing null can't
+    // express that — copyWith reads an omitted argument and an explicit null
+    // identically, so the old value survived and the preference silently
+    // stayed put. These say "clear it" out loud.
+    bool clearCountry = false,
+    bool clearState = false,
   }) {
     return PartnerPreferences(
       ageMin: ageMin ?? this.ageMin,
@@ -73,8 +79,8 @@ class PartnerPreferences {
       education: education ?? this.education,
       locationPreference: locationPreference ?? this.locationPreference,
       incomeMin: incomeMin ?? this.incomeMin,
-      country: country ?? this.country,
-      state: state ?? this.state,
+      country: clearCountry ? null : (country ?? this.country),
+      state: clearState ? null : (state ?? this.state),
       highestQualification: highestQualification ?? this.highestQualification,
       workingWith: workingWith ?? this.workingWith,
       profession: profession ?? this.profession,

@@ -7,15 +7,15 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/enums.dart';
 import '../../../../shared/models/partner_preferences.dart';
 import '../../../../shared/widgets/buttons/primary_button.dart';
+import '../../../reference/data/reference_models.dart';
+import '../../../reference/presentation/reference_providers.dart';
 import '../../data/api_preferences_repository.dart';
 import '../controllers/profile_creation_controller.dart';
 
-const _religionOptions = ['Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain', 'Buddhist', 'Open to All'];
-const _communityOptions = ['Brahmin', 'Rajput', 'Kayastha', 'Yadav', 'Reddy', 'Nair', 'Open to All'];
 const _motherTongueOptions = ['Hindi', 'English', 'Marathi', 'Tamil', 'Gujarati', 'Open to All'];
+const _openToAll = 'Open to All';
+
 const _maritalOptions = ['Never Married', 'Divorced', 'Widowed', 'Open to All'];
-const _countryOptions = ['India', 'United States', 'United Kingdom', 'Canada', 'Open to All'];
-const _stateOptions = ['Maharashtra', 'Delhi-NCR', 'Karnataka', 'Gujarat', 'Open to All'];
 const _qualificationOptions = ["Bachelor's Degree", "Master's Degree", 'MBA', 'PhD', 'Open to All'];
 const _workingWithOptions = ['Private Company', 'Government / Public Sector', 'Business / Self Employed', 'Open to All'];
 const _professionOptions = ['Software Engineer', 'Doctor', 'Chartered Accountant', 'Teacher', 'Open to All'];
@@ -223,6 +223,38 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
     final prefs = draft.partnerPreferences;
     final profileFor = draft.profileFor ?? ProfileFor.myself;
 
+    // These lists were hardcoded constants that never varied — six religions,
+    // and a community list of Hindu castes shown no matter which religion was
+    // picked. They come from /reference/* now, and cascade the same way the
+    // profile-side pickers do.
+    final religions =
+        ref.watch(religionsProvider).valueOrNull ?? const <RefReligion>[];
+    final chosenReligion = prefs.religions.isEmpty ? null : prefs.religions.first;
+
+    final religionOptions = <String>[_openToAll, for (final r in religions) r.name];
+
+    // With no religion chosen the preference really is "any", so offer every
+    // community rather than an empty list the member can't get past.
+    final communityOptions = <String>[
+      _openToAll,
+      ...{
+        for (final r in religions)
+          if (chosenReligion == null || r.name == chosenReligion)
+            for (final c in r.communities) c.name,
+      }.toList()
+        ..sort(),
+    ];
+
+    final countries =
+        ref.watch(countriesProvider).valueOrNull ?? const <RefCountry>[];
+    final countryOptions = <String>[_openToAll, for (final c in countries) c.name];
+
+    final countryCode = _codeForCountry(countries, prefs.country);
+    final states = countryCode == null
+        ? const <RefState>[]
+        : (ref.watch(statesProvider(countryCode)).valueOrNull ?? const <RefState>[]);
+    final stateOptions = <String>[_openToAll, for (final st in states) st.name];
+
     void updatePrefs(PartnerPreferences Function(PartnerPreferences) fn) =>
         controller.updatePartnerPreferences(fn);
 
@@ -311,10 +343,15 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
                       value: prefs.religions.isEmpty ? 'Open to All' : prefs.religions.join(', '),
                       onTap: () => _editSingle(
                         title: 'Religion',
-                        options: _religionOptions,
+                        options: religionOptions,
                         value: prefs.religions.isEmpty ? null : prefs.religions.first,
-                        onSave: (v) => updatePrefs(
-                            (p) => p.copyWith(religions: v == 'Open to All' ? [] : [v])),
+                        // Communities belong to a religion, so a change here
+                        // clears the one below rather than leaving e.g.
+                        // "Brahmin" sitting under Muslim.
+                        onSave: (v) => updatePrefs((p) => p.copyWith(
+                              religions: v == _openToAll ? [] : [v],
+                              communities: [],
+                            )),
                       ),
                     ),
                     _PrefRow(
@@ -323,10 +360,10 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
                       value: prefs.communities.isEmpty ? 'Open to All' : prefs.communities.join(', '),
                       onTap: () => _editSingle(
                         title: 'Community',
-                        options: _communityOptions,
+                        options: communityOptions,
                         value: prefs.communities.isEmpty ? null : prefs.communities.first,
                         onSave: (v) => updatePrefs(
-                            (p) => p.copyWith(communities: v == 'Open to All' ? [] : [v])),
+                            (p) => p.copyWith(communities: v == _openToAll ? [] : [v])),
                       ),
                     ),
                     _PrefRow(
@@ -350,10 +387,13 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
                         value: prefs.country ?? 'Open to All',
                         onTap: () => _editSingle(
                           title: 'Country living in',
-                          options: _countryOptions,
+                          options: countryOptions,
                           value: prefs.country,
-                          onSave: (v) => updatePrefs(
-                              (p) => p.copyWith(country: v == 'Open to All' ? null : v)),
+                          onSave: (v) => updatePrefs((p) => p.copyWith(
+                                country: v == _openToAll ? null : v,
+                                clearCountry: v == _openToAll,
+                                clearState: true,
+                              )),
                         ),
                       ),
                       _PrefRow(
@@ -362,10 +402,12 @@ class _PartnerPreferencesScreenState extends ConsumerState<PartnerPreferencesScr
                         value: prefs.state ?? 'Open to All',
                         onTap: () => _editSingle(
                           title: 'State living in',
-                          options: _stateOptions,
+                          options: stateOptions,
                           value: prefs.state,
-                          onSave: (v) =>
-                              updatePrefs((p) => p.copyWith(state: v == 'Open to All' ? null : v)),
+                          onSave: (v) => updatePrefs((p) => p.copyWith(
+                                state: v == _openToAll ? null : v,
+                                clearState: v == _openToAll,
+                              )),
                         ),
                       ),
                     ]),
@@ -546,4 +588,15 @@ class _PrefRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Partner preferences store a country by name; the states endpoint is keyed
+/// by ISO code, so resolve one from the other. Null until the country list
+/// has loaded, which leaves the state picker showing just "Open to All".
+String? _codeForCountry(List<RefCountry> countries, String? name) {
+  if (name == null) return null;
+  for (final c in countries) {
+    if (c.name == name) return c.code;
+  }
+  return null;
 }
