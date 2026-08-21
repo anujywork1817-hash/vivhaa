@@ -284,45 +284,75 @@ func (s *Service) VerifyOTP(ctx context.Context, req VerifyOTPRequest, userAgent
 // an account on first sign-in. Google already verifies the email as part
 // of issuing the token, so a first-time Google account goes straight to
 // active — there's no separate OTP step to prove ownership of it.
-func (s *Service) GoogleAuth(ctx context.Context, idToken, userAgent, ip string) (AuthResponse, error) {
+func (s *Service) GoogleAuth(ctx context.Context, idToken, userAgent, ip string) (GoogleAuthResponse, error) {
 	if !s.googleVerifier.Configured() {
-		return AuthResponse{}, ErrGoogleNotConfigured
+		return GoogleAuthResponse{}, ErrGoogleNotConfigured
 	}
 
 	claims, err := s.googleVerifier.Verify(ctx, idToken)
 	if err != nil || !claims.EmailVerified {
-		return AuthResponse{}, ErrGoogleTokenInvalid
+		return GoogleAuthResponse{}, ErrGoogleTokenInvalid
 	}
 
-	user, err := s.repo.GetUserByIdentifier(ctx, claims.Email)
+	return s.googleAuthForEmail(ctx, claims.Email, userAgent, ip)
+}
+
+// googleAuthForEmail is everything GoogleAuth does once the ID token has
+// already been proven to belong to a real, email_verified Google account —
+// split out purely so it can be unit tested without a live Google token,
+// which *Verifier has no way to fake.
+func (s *Service) googleAuthForEmail(ctx context.Context, email, userAgent, ip string) (GoogleAuthResponse, error) {
+	user, err := s.repo.GetUserByIdentifier(ctx, email)
 	switch {
 	case errors.Is(err, ErrNotFound):
-		created, err := s.repo.CreateUser(ctx, nil, &claims.Email, nil)
-		if err != nil {
-			return AuthResponse{}, err
+		if _, err := s.repo.CreateUser(ctx, nil, &email, nil); err != nil {
+			return GoogleAuthResponse{}, err
 		}
-		if err := s.repo.MarkVerified(ctx, created.ID, "email"); err != nil {
-			return AuthResponse{}, err
-		}
-		user = created
-		user.Status = "active"
-		_ = s.analyticsSvc.Track(ctx, "signup", &user.ID, map[string]string{"channel": "google"})
+		_ = s.analyticsSvc.Track(ctx, "signup_started", nil, map[string]string{"channel": "google"})
+		return s.challengeGoogleSignup(ctx, email)
 	case err != nil:
-		return AuthResponse{}, err
+		return GoogleAuthResponse{}, err
 	case user.Status == "suspended":
-		return AuthResponse{}, ErrAccountSuspended
+		return GoogleAuthResponse{}, ErrAccountSuspended
 	case user.Status != "active":
-		if err := s.repo.MarkVerified(ctx, user.ID, "email"); err != nil {
-			return AuthResponse{}, err
-		}
-		user.Status = "active"
+		// Left pending by an earlier, unfinished phone/email signup for the
+		// same address — finishing via Google still goes through the same
+		// OTP gate as finishing any other way would.
+		return s.challengeGoogleSignup(ctx, email)
 	}
 
+	// An existing, already-active account: Google vouched for this sign-in
+	// once already, at account creation, so a returning user isn't made to
+	// verify again on every single login.
 	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
-		return AuthResponse{}, err
+		return GoogleAuthResponse{}, err
 	}
+	auth, err := s.issueTokens(ctx, user, userAgent, ip)
+	if err != nil {
+		return GoogleAuthResponse{}, err
+	}
+	return GoogleAuthResponse{
+		AccessToken:  auth.AccessToken,
+		RefreshToken: auth.RefreshToken,
+		ExpiresAt:    auth.ExpiresAt,
+		User:         &auth.User,
+	}, nil
+}
 
-	return s.issueTokens(ctx, user, userAgent, ip)
+// challengeGoogleSignup sends the same signup OTP RequestOTP/Signup would,
+// so the caller finishes with the existing, unmodified /auth/verify-otp —
+// no new code path for verification, only for how the challenge gets
+// triggered.
+func (s *Service) challengeGoogleSignup(ctx context.Context, email string) (GoogleAuthResponse, error) {
+	code, err := s.sendOTP(ctx, email, "email", "signup")
+	if err != nil {
+		return GoogleAuthResponse{}, err
+	}
+	resp := GoogleAuthResponse{OTPRequired: true, Identifier: email}
+	if s.devMode {
+		resp.DevOTP = code
+	}
+	return resp, nil
 }
 
 // Login authenticates with identifier + password.

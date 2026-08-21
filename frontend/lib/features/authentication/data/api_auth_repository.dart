@@ -49,13 +49,26 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<ApiResult<AppUser>> loginWithGoogle(String idToken) async {
+  Future<ApiResult<GoogleAuthOutcome>> loginWithGoogle(String idToken) async {
     try {
       final response = await _client.dio.post(
         ApiEndpoints.googleAuth,
         data: {'id_token': idToken},
       );
-      return await _completeLogin(response);
+      final data = response.data['data'] as Map<String, dynamic>;
+
+      if (data['otp_required'] == true) {
+        return ApiResult.success(GoogleOtpRequired(
+          data['identifier'] as String,
+          data['dev_otp'] as String?,
+        ));
+      }
+
+      final loggedIn = await _completeLogin(response);
+      return loggedIn.when(
+        success: (user) => ApiResult.success(GoogleSignedIn(user)),
+        failure: (f) => ApiResult.failure(f),
+      );
     } on DioException catch (e) {
       return ApiResult.failure(mapDioException(e));
     }

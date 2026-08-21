@@ -84,7 +84,11 @@ func (h *Handler) GoogleAuth(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
+	// A first-time signup carries no tokens yet — cookies wait until the
+	// OTP challenge above is actually cleared via /auth/verify-otp.
+	if !resp.OTPRequired {
+		h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
+	}
 	response.OK(c, resp)
 }
 

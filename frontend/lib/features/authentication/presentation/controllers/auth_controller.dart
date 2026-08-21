@@ -50,6 +50,9 @@ class AuthState {
   }
 }
 
+/// What the caller of AuthController.signInWithGoogle should do next.
+enum GoogleSignInResult { signedIn, otpRequired, cancelled, failed }
+
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   final GoogleAuthService _googleAuth;
@@ -123,14 +126,15 @@ class AuthController extends StateNotifier<AuthState> {
   /// Runs the real Google account picker, then exchanges the ID token it
   /// returns for a real backend session (the backend verifies the token
   /// itself — this app never trusts the picker result on its own).
-  /// Returns false (with no error) if the user cancels the picker.
-  Future<bool> signInWithGoogle() async {
+  /// Returns GoogleSignInResult.cancelled if the user closes the picker
+  /// with no error; check AuthState.failure for the message on .failed.
+  Future<GoogleSignInResult> signInWithGoogle() async {
     state = state.copyWith(isLoading: true, clearFailure: true);
     try {
       final account = await _googleAuth.signIn();
       if (account == null) {
         state = state.copyWith(isLoading: false);
-        return false;
+        return GoogleSignInResult.cancelled;
       }
 
       final idToken = (await account.authentication).idToken;
@@ -139,35 +143,50 @@ class AuthController extends StateNotifier<AuthState> {
           isLoading: false,
           failure: AppFailure.unknown('Google did not return a usable sign-in token.'),
         );
-        return false;
+        return GoogleSignInResult.failed;
       }
 
       final result = await _repository.loginWithGoogle(idToken);
       return result.when(
-        success: (user) {
-          state = state.copyWith(isLoading: false, user: user);
-          unawaited(_push.registerDevice());
-          return true;
+        success: (outcome) => switch (outcome) {
+          GoogleSignedIn(user: final user) => () {
+              state = state.copyWith(isLoading: false, user: user);
+              unawaited(_push.registerDevice());
+              return GoogleSignInResult.signedIn;
+            }(),
+          // Same shape as any other pending signup: set pendingContact and
+          // lastDevOtp exactly like requestOtp does, so the OTP screen and
+          // its existing verifyOtp() call need no Google-specific branch --
+          // this is a completely ordinary OTP verification from here on.
+          GoogleOtpRequired(identifier: final identifier, devOtp: final devOtp) => () {
+              state = state.copyWith(
+                isLoading: false,
+                pendingContact: identifier,
+                lastDevOtp: devOtp,
+                clearDevOtp: devOtp == null,
+              );
+              return GoogleSignInResult.otpRequired;
+            }(),
         },
         failure: (f) {
           state = state.copyWith(isLoading: false, failure: f);
-          return false;
+          return GoogleSignInResult.failed;
         },
       );
     } on GoogleAuthNotConfiguredException catch (e) {
       state = state.copyWith(
         isLoading: false,
         failure: AppFailure.unknown(
-          'Google Sign-In isn\'t set up for this platform yet. ${e.details}',
+          "Google Sign-In isn't set up for this platform yet. ${e.details}",
         ),
       );
-      return false;
+      return GoogleSignInResult.failed;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         failure: AppFailure.unknown('Google Sign-In failed. Please try again.'),
       );
-      return false;
+      return GoogleSignInResult.failed;
     }
   }
 

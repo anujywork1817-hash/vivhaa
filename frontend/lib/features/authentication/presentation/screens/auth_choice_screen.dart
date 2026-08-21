@@ -15,23 +15,32 @@ class AuthChoiceScreen extends ConsumerWidget {
   const AuthChoiceScreen({super.key});
 
   Future<void> _signInWithGoogle(BuildContext context, WidgetRef ref) async {
-    final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    final result = await ref.read(authControllerProvider.notifier).signInWithGoogle();
     if (!context.mounted) return;
-    if (ok) {
-      // Returning users (an existing backend profile) skip onboarding
-      // entirely; new users go through it as usual.
-      final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
-      if (!context.mounted) return;
-      context.go(hasProfile ? AppRoutes.home : AppRoutes.profileFor);
-      return;
+
+    switch (result) {
+      case GoogleSignInResult.signedIn:
+        // Returning users (an existing backend profile) skip onboarding
+        // entirely; new users go through it as usual.
+        final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
+        if (!context.mounted) return;
+        context.go(hasProfile ? AppRoutes.home : AppRoutes.profileFor);
+      case GoogleSignInResult.otpRequired:
+        // A first-time signup: AuthController already sent the OTP and
+        // set pendingContact to the Google account's email, so the OTP
+        // screen's existing verifyOtp() call needs nothing Google-specific
+        // — this proceeds exactly like any other signup from here.
+        context.push(AppRoutes.otp);
+      case GoogleSignInResult.failed:
+        final failure = ref.read(authControllerProvider).failure;
+        if (failure != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message)),
+          );
+        }
+      case GoogleSignInResult.cancelled:
+      // No error to show — the user closed the account picker.
     }
-    final failure = ref.read(authControllerProvider).failure;
-    if (failure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failure.message)),
-      );
-    }
-    // A null failure means the user closed the account picker — no error.
   }
 
   @override

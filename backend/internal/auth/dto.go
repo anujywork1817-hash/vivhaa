@@ -34,6 +34,33 @@ type GoogleAuthRequest struct {
 	IDToken string `json:"id_token" validate:"required"`
 }
 
+// GoogleAuthResponse is one of two shapes depending on OTPRequired:
+//
+//   - OTPRequired true: this is a first-time signup (or an account still
+//     pending from an earlier, unfinished phone/email signup). Only
+//     Identifier — the Google account's email — is set; the client must
+//     call the existing /auth/verify-otp with it to finish, exactly like
+//     a phone/email signup.
+//   - OTPRequired false: a returning, already-active account. The token
+//     fields are set and the client is signed in immediately, same as
+//     before this type existed.
+//
+// Google's own EmailVerified claim already proves the address is real, but
+// a matrimony platform's anti-fraud posture wants every signup path —
+// Google included — to clear the same one-time code challenge, not get a
+// silent bypass. A returning user isn't asked again: Google already
+// vouched for this exact sign-in once, at account creation.
+type GoogleAuthResponse struct {
+	OTPRequired bool   `json:"otp_required"`
+	Identifier  string `json:"identifier,omitempty"`
+	DevOTP      string `json:"dev_otp,omitempty"`
+
+	AccessToken  string     `json:"access_token,omitempty"`
+	RefreshToken string     `json:"refresh_token,omitempty"`
+	ExpiresAt    string     `json:"expires_at,omitempty"`
+	User         *UserBrief `json:"user,omitempty"`
+}
+
 type LoginRequest struct {
 	Identifier string `json:"identifier" validate:"required"`
 	Password   string `json:"password" validate:"required"`

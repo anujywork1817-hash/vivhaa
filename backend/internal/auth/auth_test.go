@@ -100,6 +100,12 @@ func uniquePhone(t *testing.T) string {
 	return fmt.Sprintf("+19255%06d%d", time.Now().Unix()%1000000, n%10)
 }
 
+func uniqueEmail(t *testing.T) string {
+	t.Helper()
+	n := atomic.AddInt64(&testPhoneSeq, 1)
+	return fmt.Sprintf("google-auth-test-%d-%d@example.com", time.Now().UnixNano(), n)
+}
+
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 	pool := testdb.Connect(t)
@@ -290,4 +296,164 @@ func mustCreateActiveUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 	}
 	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID) })
 	return userID
+}
+
+// mustCreateActiveEmailUser mirrors mustCreateActiveUser but for an
+// email-identified, passwordless account — the shape a Google signup
+// leaves behind once it has cleared the OTP gate, and what a returning
+// Google user's row looks like on every login after that.
+func mustCreateActiveEmailUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email string) string {
+	t.Helper()
+	var userID string
+	err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, status, email_verified)
+		VALUES ($1, 'active', true)
+		RETURNING id`, email).Scan(&userID)
+	if err != nil {
+		t.Fatalf("mustCreateActiveEmailUser: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID) })
+	return userID
+}
+
+// mustCreatePendingEmailUser is what a phone/email signup leaves behind if
+// it's abandoned before the OTP is verified — the state googleAuthForEmail
+// must also gate behind an OTP challenge, rather than silently activating.
+func mustCreatePendingEmailUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email string) string {
+	t.Helper()
+	var userID string
+	err := pool.QueryRow(ctx, `
+		INSERT INTO users (email, status)
+		VALUES ($1, 'pending')
+		RETURNING id`, email).Scan(&userID)
+	if err != nil {
+		t.Fatalf("mustCreatePendingEmailUser: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID) })
+	return userID
+}
+
+// ---- googleAuthForEmail: the part of GoogleAuth reachable without a live
+// Google ID token (see the comment on googleAuthForEmail itself) ----
+
+func TestGoogleAuthForEmail_NewUser_RequiresOTPInsteadOfIssuingTokens(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	email := uniqueEmail(t)
+
+	resp, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("googleAuthForEmail() error: %v", err)
+	}
+
+	if !resp.OTPRequired {
+		t.Fatal("a brand-new Google signup must require OTP, not sign in directly")
+	}
+	if resp.Identifier != email {
+		t.Errorf("resp.Identifier = %q, want %q", resp.Identifier, email)
+	}
+	if resp.DevOTP == "" {
+		t.Error("devMode should echo the OTP back, same as Signup/RequestOTP")
+	}
+	if resp.AccessToken != "" || resp.RefreshToken != "" {
+		t.Error("no tokens should be issued until the OTP is verified")
+	}
+
+	user, err := svc.repo.GetUserByIdentifier(ctx, email)
+	if err != nil {
+		t.Fatalf("GetUserByIdentifier() error: %v", err)
+	}
+	t.Cleanup(func() { _, _ = svc.repo.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID) })
+	if user.Status != "pending" {
+		t.Errorf("new Google signup's status = %q, want pending until OTP verified", user.Status)
+	}
+}
+
+// TestGoogleAuthForEmail_NewUser_OTPVerifiesLikeAnyOtherSignup pins that the
+// OTP challengeGoogleSignup sends is a real signup OTP: it activates the
+// account through the exact same, unmodified VerifyOTP used by phone/email
+// signup, with no separate code path.
+func TestGoogleAuthForEmail_NewUser_OTPVerifiesLikeAnyOtherSignup(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	email := uniqueEmail(t)
+
+	started, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("googleAuthForEmail() error: %v", err)
+	}
+	user, _ := svc.repo.GetUserByIdentifier(ctx, email)
+	t.Cleanup(func() { _, _ = svc.repo.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID) })
+
+	verified, err := svc.VerifyOTP(ctx, VerifyOTPRequest{Identifier: email, Code: started.DevOTP}, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("VerifyOTP() with the Google-signup OTP failed: %v", err)
+	}
+	if verified.AccessToken == "" {
+		t.Error("VerifyOTP() should issue tokens once the Google-signup OTP is correct")
+	}
+
+	activated, err := svc.repo.GetUserByIdentifier(ctx, email)
+	if err != nil {
+		t.Fatalf("GetUserByIdentifier() error: %v", err)
+	}
+	if activated.Status != "active" {
+		t.Errorf("status after verifying = %q, want active", activated.Status)
+	}
+}
+
+func TestGoogleAuthForEmail_PendingUser_RequiresOTP(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	email := uniqueEmail(t)
+	mustCreatePendingEmailUser(t, ctx, svc.repo.db, email)
+
+	resp, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("googleAuthForEmail() error: %v", err)
+	}
+	if !resp.OTPRequired {
+		t.Error("an account left pending by an earlier signup attempt must still clear the OTP gate")
+	}
+	if resp.AccessToken != "" {
+		t.Error("no tokens should be issued for a still-pending account")
+	}
+}
+
+func TestGoogleAuthForEmail_ActiveUser_SignsInWithoutOTP(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	email := uniqueEmail(t)
+	mustCreateActiveEmailUser(t, ctx, svc.repo.db, email)
+
+	resp, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("googleAuthForEmail() error: %v", err)
+	}
+
+	if resp.OTPRequired {
+		t.Error("a returning, already-active account should not be re-challenged on every login")
+	}
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
+		t.Error("an already-active account should be signed in directly")
+	}
+	if resp.User == nil || resp.User.Email == nil || *resp.User.Email != email {
+		t.Errorf("resp.User = %+v, want email %q", resp.User, email)
+	}
+}
+
+func TestGoogleAuthForEmail_SuspendedUser_ReturnsErrAccountSuspended(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+	email := uniqueEmail(t)
+	userID := mustCreateActiveEmailUser(t, ctx, svc.repo.db, email)
+
+	if _, err := svc.repo.db.Exec(ctx, `UPDATE users SET status = 'suspended' WHERE id = $1`, userID); err != nil {
+		t.Fatalf("failed to suspend test user: %v", err)
+	}
+
+	_, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
+	if !errors.Is(err, ErrAccountSuspended) {
+		t.Errorf("googleAuthForEmail() on a suspended account = %v, want ErrAccountSuspended", err)
+	}
 }
