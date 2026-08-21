@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 /// Central endpoint registry, matched to the actual matrimony_backend
 /// Go API (see that project's docs/postman_phase*.json for the full
 /// contract). Paths and the response envelope ({success, data, error,
@@ -9,30 +6,33 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class ApiEndpoints {
   ApiEndpoints._();
 
-  /// Defaults to the dev machine's LAN IP for Android — this project is
-  /// being tested on a real physical device over WiFi, not the emulator
-  /// (which would instead need 10.0.2.2). iOS simulator, web, and desktop
-  /// all reach the backend via localhost directly.
+  /// The shared backend on the local network — the same host every client
+  /// (phone, web, desktop) talks to, so a device no longer has to be on the
+  /// developer's own machine to work.
   ///
-  /// If the dev machine's LAN IP ever changes (new network, DHCP lease
-  /// renewal, etc.), update _devMachineLanIp below, or override per-run
-  /// with --dart-define=API_BASE_URL=http://<ip>:58080 without touching
-  /// this file (e.g. --dart-define=API_BASE_URL=http://10.0.2.2:58080
-  /// to target the emulator instead).
-  static const String _devMachineLanIp = '192.168.1.7';
+  /// This used to point at whichever laptop was running `docker compose`,
+  /// which meant every DHCP lease renewal silently broke every installed
+  /// build, and a phone could only reach the API while that one laptop was
+  /// up. The server address is stable, so it is the sane default.
+  ///
+  /// Override per-run without touching this file when you do want a local
+  /// backend — e.g. against your own machine:
+  ///   --dart-define=API_BASE_URL=http://192.168.1.20:8080
+  ///   --dart-define=WS_BASE_URL=ws://192.168.1.20:8080
+  /// or the Android emulator's host alias (10.0.2.2), or localhost plus
+  /// `adb reverse tcp:8080 tcp:8080` for a USB-tethered device.
+  static const String _serverHost = '192.168.1.222:58080';
 
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) return override;
-    if (!kIsWeb && Platform.isAndroid) return 'http://$_devMachineLanIp:8080';
-    return 'http://localhost:8080';
+    return 'http://$_serverHost';
   }
 
   static String get wsBaseUrl {
     const override = String.fromEnvironment('WS_BASE_URL');
     if (override.isNotEmpty) return override;
-    if (!kIsWeb && Platform.isAndroid) return 'ws://$_devMachineLanIp:8080';
-    return 'ws://localhost:8080';
+    return 'ws://$_serverHost';
   }
 
   // Auth — passwordless, single request-otp entry point for both new and
