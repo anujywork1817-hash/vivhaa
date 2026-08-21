@@ -161,16 +161,20 @@ func (r *Repository) UpdateLocation(ctx context.Context, userID string, lat, lng
 // SetSelfieVerified flips the verified badge — the only place this ever
 // happens is admin verification review (see BUG-C05: it must never be
 // user-settable via ProfileInput).
+//
+// A document can be submitted (and later reviewed) before the applicant
+// has finished onboarding far enough to have a profiles row yet — the
+// personal-document upload step runs before profile creation in the
+// current onboarding flow. Treating "no profile row yet" as an error here
+// used to fail the ENTIRE admin approval (Reject never calls this at all,
+// which is why reject kept working while accept silently 500'd) even
+// though there's nothing wrong with the approval itself — there's just
+// no badge to flip yet. No-op instead: the verifications row is still
+// marked approved either way.
 func (r *Repository) SetSelfieVerified(ctx context.Context, userID string, verified bool) error {
 	const q = `UPDATE profiles SET selfie_verified = $2 WHERE user_id = $1`
-	tag, err := r.db.Exec(ctx, q, userID, verified)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
+	_, err := r.db.Exec(ctx, q, userID, verified)
+	return err
 }
 
 func (r *Repository) CreatePhoto(ctx context.Context, profileID, objectKey, url string, isPrimary bool) (Photo, error) {

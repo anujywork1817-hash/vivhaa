@@ -92,10 +92,14 @@ export function VerificationDetailDrawer({
 
   async function handleApprove() {
     if (!verification) return;
-    await approve.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
-    message.success('Verification approved.');
-    setNotes('');
-    onClose();
+    try {
+      await approve.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
+      message.success('Verification approved.');
+      setNotes('');
+      onClose();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Could not approve this verification.');
+    }
   }
 
   function confirmReject() {
@@ -106,10 +110,14 @@ export function VerificationDetailDrawer({
       okText: 'Reject',
       okButtonProps: { danger: true },
       onOk: async () => {
-        await reject.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
-        message.success('Verification rejected.');
-        setNotes('');
-        onClose();
+        try {
+          await reject.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
+          message.success('Verification rejected.');
+          setNotes('');
+          onClose();
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : 'Could not reject this verification.');
+        }
       },
     });
   }
