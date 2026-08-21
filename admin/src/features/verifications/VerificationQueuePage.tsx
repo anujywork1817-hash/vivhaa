@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ErrorState } from '../../components/ErrorState';
 import { useVerificationsList } from '../../hooks/useVerifications';
 import type { VerificationResponse } from '../../types/api';
-import { VerificationDetailDrawer } from './VerificationDetailDrawer';
+import { documentLabel, VerificationDetailDrawer } from './VerificationDetailDrawer';
 
 export function VerificationQueuePage() {
   const [page, setPage] = useState(1);
@@ -14,7 +14,7 @@ export function VerificationQueuePage() {
   const { data, isPending, isError, error, refetch, isFetching } = useVerificationsList({ page, limit });
 
   const columns: ColumnsType<VerificationResponse> = [
-    { title: 'Document type', dataIndex: 'document_type' },
+    { title: 'Document type', dataIndex: 'document_type', render: (value: string) => documentLabel(value) },
     {
       title: 'Status',
       dataIndex: 'status',
