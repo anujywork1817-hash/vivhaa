@@ -10,6 +10,7 @@ enum AppFailureType {
   validation,
   server,
   unknown,
+  premiumRequired,
 }
 
 class AppFailure implements Exception {
@@ -49,6 +50,11 @@ class AppFailure implements Exception {
   factory AppFailure.unknown([String? message]) => AppFailure(
         type: AppFailureType.unknown,
         message: message ?? 'Something unexpected happened.',
+      );
+
+  factory AppFailure.premiumRequired([String? message]) => AppFailure(
+        type: AppFailureType.premiumRequired,
+        message: message ?? 'Upgrade to premium to send messages.',
       );
 
   @override

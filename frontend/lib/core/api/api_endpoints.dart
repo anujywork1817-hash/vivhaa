@@ -19,20 +19,20 @@ class ApiEndpoints {
   /// with --dart-define=API_BASE_URL=http://<ip>:58080 without touching
   /// this file (e.g. --dart-define=API_BASE_URL=http://10.0.2.2:58080
   /// to target the emulator instead).
-  static const String _devMachineLanIp = '192.168.1.29';
+  static const String _devMachineLanIp = '192.168.1.7';
 
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) return override;
-    if (!kIsWeb && Platform.isAndroid) return 'http://$_devMachineLanIp:58080';
-    return 'http://localhost:58080';
+    if (!kIsWeb && Platform.isAndroid) return 'http://$_devMachineLanIp:8080';
+    return 'http://localhost:8080';
   }
 
   static String get wsBaseUrl {
     const override = String.fromEnvironment('WS_BASE_URL');
     if (override.isNotEmpty) return override;
-    if (!kIsWeb && Platform.isAndroid) return 'ws://$_devMachineLanIp:58080';
-    return 'ws://localhost:58080';
+    if (!kIsWeb && Platform.isAndroid) return 'ws://$_devMachineLanIp:8080';
+    return 'ws://localhost:8080';
   }
 
   // Auth — passwordless, single request-otp entry point for both new and

@@ -5,6 +5,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
+import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../controllers/interests_controller.dart';
 
 /// Full-screen accept/decline for one pending received interest —
@@ -13,14 +14,42 @@ class InterestDecisionScreen extends ConsumerWidget {
   final String interestId;
   const InterestDecisionScreen({super.key, required this.interestId});
 
-  Future<void> _respond(BuildContext context, WidgetRef ref, bool accept) async {
+  Future<void> _respond(BuildContext context, WidgetRef ref, bool accept, String profileId) async {
     await ref.read(interestsActionsProvider).respond(interestId, accept);
-    if (context.mounted) {
+    if (!context.mounted) return;
+
+    if (!accept) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(accept ? 'Interest accepted — you can now chat.' : 'Interest declined.')),
+        const SnackBar(content: Text('Interest declined.')),
       );
       context.pop();
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Interest accepted — you can now chat.')),
+    );
+
+    // Accepting creates a conversation server-side — refetch (rather than
+    // trust a possibly-stale cached list) so we can find the partner's
+    // conversation ID (the chat window is keyed by *user* ID, whereas the
+    // interest record only carries their *profile* ID) and open it
+    // directly instead of just popping back to the interests list.
+    ref.invalidate(conversationsProvider);
+    try {
+      final conversations = await ref.read(conversationsProvider.future);
+      if (!context.mounted) return;
+      final conversation =
+          conversations.where((c) => c.withProfile.id == profileId).firstOrNull;
+      if (conversation != null) {
+        context.pushReplacement(AppRoutes.chatWindowPath(conversation.id));
+        return;
+      }
+    } catch (_) {
+      // Fall through to the plain pop below — the accept itself already
+      // succeeded, only the follow-up navigation convenience failed.
+    }
+    if (context.mounted) context.pop();
   }
 
   @override
@@ -73,14 +102,14 @@ class InterestDecisionScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => _respond(context, ref, false),
+                            onPressed: () => _respond(context, ref, false, record.profile.id),
                             child: const Text('Decline'),
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () => _respond(context, ref, true),
+                            onPressed: () => _respond(context, ref, true, record.profile.id),
                             child: const Text('Accept'),
                           ),
                         ),

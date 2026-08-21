@@ -22,6 +22,7 @@ AppFailure mapDioException(DioException e) {
   final body = e.response?.data;
   final message = _extractMessage(body);
   final fieldErrors = _extractFieldErrors(body);
+  final code = _extractCode(body);
 
   switch (status) {
     case 400:
@@ -29,6 +30,12 @@ AppFailure mapDioException(DioException e) {
       return AppFailure.validation(message ?? 'That input isn\'t valid.', fieldErrors);
     case 401:
       return AppFailure.unauthorized(message);
+    case 402:
+      if (code == 'premium_required') return AppFailure.premiumRequired(message);
+      return AppFailure(
+        type: AppFailureType.premiumRequired,
+        message: message ?? 'Upgrade to premium to continue.',
+      );
     case 403:
       return AppFailure(
         type: AppFailureType.forbidden,
@@ -45,6 +52,14 @@ AppFailure mapDioException(DioException e) {
       if (status >= 500) return AppFailure.server(message);
       return AppFailure.unknown(message);
   }
+}
+
+String? _extractCode(dynamic body) {
+  if (body is Map && body['error'] is Map) {
+    final code = body['error']['code'];
+    if (code is String) return code;
+  }
+  return null;
 }
 
 String? _extractMessage(dynamic body) {

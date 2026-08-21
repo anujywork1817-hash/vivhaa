@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/exceptions/app_exception.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/chat_message.dart';
@@ -9,6 +12,7 @@ import '../../../../shared/models/conversation.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
 import '../../../calls/presentation/controllers/call_controller.dart';
 import '../../../calls/presentation/screens/active_call_screen.dart';
+import '../../../premium/presentation/controllers/premium_controller.dart';
 import '../../../profile_detail/presentation/widgets/profile_actions_sheet.dart';
 import '../controllers/chat_controller.dart';
 
@@ -46,13 +50,45 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
   Future<void> _send() async {
     final text = _textController.text;
     if (text.trim().isEmpty) return;
-    _textController.clear();
     final failure =
         await ref.read(messagesControllerProvider(widget.conversationId).notifier).send(text);
-    if (failure != null && mounted) {
+    if (!mounted) return;
+    if (failure == null) {
+      // Only clear on success — losing what was typed on a failed send
+      // (e.g. a premium_required rejection) would force the member to
+      // retype it.
+      _textController.clear();
+      _scrollToBottom();
+      return;
+    }
+    if (failure.type == AppFailureType.premiumRequired) {
+      _showUpgradePrompt(failure.message);
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
     }
-    _scrollToBottom();
+  }
+
+  void _showUpgradePrompt(String message) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Upgrade to Premium'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.push(AppRoutes.premiumPaywall);
+            },
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _startCall(Conversation conversation, {bool isVideo = true}) async {
@@ -104,6 +140,13 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
         ?.where((c) => c.id == widget.conversationId)
         .firstOrNull;
     final messages = ref.watch(messagesControllerProvider(widget.conversationId));
+    // Free members can read/open conversations and accept/decline
+    // interests freely — only sending a new message is gated. Defaults to
+    // allowing the composer while the subscription is still loading (or
+    // failed to load) rather than flashing the upgrade banner; a stale
+    // premium_required response from an actual send is still caught as a
+    // safety net in _send().
+    final isPremium = ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? true;
 
     ref.listen(messagesControllerProvider(widget.conversationId), (_, __) => _scrollToBottom());
 
@@ -166,6 +209,8 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
           ),
           if (conversation?.isBlocked ?? false)
             const _BlockedComposerBar()
+          else if (!isPremium)
+            _UpgradeComposerBar(onUpgrade: () => context.push(AppRoutes.premiumPaywall))
           else
             _Composer(
               controller: _textController,
@@ -207,6 +252,45 @@ class _BlockedComposerBar extends StatelessWidget {
             Expanded(
               child: Text('You can no longer message each other.',
                   style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Replaces the message composer for free members — reading history and
+/// everything else in the chat screen stays fully usable, only sending a
+/// new text message is gated behind premium.
+class _UpgradeComposerBar extends StatelessWidget {
+  final VoidCallback onUpgrade;
+  const _UpgradeComposerBar({required this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: context.colors.accentSoft,
+          border: Border(top: BorderSide(color: context.colors.line)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.workspace_premium_rounded, color: context.colors.accent),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Upgrade to Premium to send messages.',
+                style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            FilledButton(
+              onPressed: onUpgrade,
+              child: const Text('Upgrade'),
             ),
           ],
         ),

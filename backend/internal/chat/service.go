@@ -65,14 +65,21 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 		return MessageResponse{}, ErrBlocked
 	}
 
-	// Basic text messaging is free once an interest is mutually accepted —
-	// premium unlocks contact-info reveal (profiles.Service, "view_contact")
-	// and unlimited interests, not messaging itself. It was gated here too
-	// at one point, which silently blocked every free-tier send with no
-	// UI feedback (the frontend's send() swallows failures), making chat
-	// look broken for any non-premium account despite the whole flow
-	// (mutual-accept unlocks chat) being advertised as free everywhere in
-	// the UI copy.
+	// Sending is premium-gated (the "chat" plan feature — see the
+	// subscription_plans seed data); free users can still match, open a
+	// conversation and read replies, but must upgrade to send. This was
+	// gated here once before and reverted because the frontend's send()
+	// silently swallowed the resulting error — this time ErrPremiumRequired
+	// is surfaced to the caller (see the ListMessages/SendMessage callers
+	// in handler.go) so the UI can show a real paywall instead of a no-op.
+	canChat, err := s.subsSvc.HasFeature(ctx, senderID, "chat")
+	if err != nil {
+		return MessageResponse{}, err
+	}
+	if !canChat {
+		return MessageResponse{}, ErrPremiumRequired
+	}
+
 	m, err := s.repo.CreateMessage(ctx, senderID, receiverID, body, MessageKindText)
 	if err != nil {
 		return MessageResponse{}, err
