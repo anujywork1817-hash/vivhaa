@@ -34,7 +34,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
     for (final profile in suggested.where((p) => _selected!.contains(p.id))) {
       await actions.send(profile);
     }
-    if (mounted) context.push(AppRoutes.premiumPaywall);
+    if (mounted) context.go(AppRoutes.home);
   }
 
   @override
@@ -55,7 +55,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => context.push(AppRoutes.premiumPaywall),
+            onPressed: () => context.go(AppRoutes.home),
             child: const Text('Skip'),
           ),
         ],
@@ -67,7 +67,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
           title: 'Could not load suggested matches',
           message: 'You can still continue — matches will show up on your dashboard.',
           actionLabel: 'Continue',
-          onAction: () => context.push(AppRoutes.premiumPaywall),
+          onAction: () => context.go(AppRoutes.home),
         ),
         data: (suggested) {
           if (suggested.isEmpty) {
@@ -76,7 +76,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
               title: 'No suggestions yet',
               message: "We'll have matches ready once ${profileFor.possessive} profile is live.",
               actionLabel: 'Continue',
-              onAction: () => context.push(AppRoutes.premiumPaywall),
+              onAction: () => context.go(AppRoutes.home),
             );
           }
 

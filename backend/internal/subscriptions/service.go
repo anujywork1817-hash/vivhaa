@@ -3,6 +3,7 @@ package subscriptions
 import (
 	"context"
 	"errors"
+	"os"
 	"time"
 )
 
@@ -12,6 +13,17 @@ type Service struct {
 
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// gatingEnabled is a launch switch, not a plan setting: the app is meant
+// to run fully free at first (everyone effectively on the premium
+// feature set) until premium is ready to actually launch, at which point
+// setting PREMIUM_GATING_ENABLED=true flips HasFeature back to real
+// per-plan enforcement without any other code change. Plans, payments,
+// and the admin subscription views are all unaffected either way — this
+// only short-circuits the one method call sites use to gate a feature.
+func gatingEnabled() bool {
+	return os.Getenv("PREMIUM_GATING_ENABLED") == "true"
 }
 
 func (s *Service) ListPlans(ctx context.Context) ([]PlanResponse, error) {
@@ -62,6 +74,10 @@ func (s *Service) GetMine(ctx context.Context, userID string) (SubscriptionRespo
 // HasFeature reports whether userID's current plan (active subscription,
 // or the free plan if they have none) includes featureKey.
 func (s *Service) HasFeature(ctx context.Context, userID, featureKey string) (bool, error) {
+	if !gatingEnabled() {
+		return true, nil
+	}
+
 	sub, err := s.repo.GetActiveByUserID(ctx, userID)
 	if errors.Is(err, ErrNotFound) {
 		freePlan, err := s.repo.GetPlanByCode(ctx, "free")
