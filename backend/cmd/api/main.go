@@ -28,6 +28,7 @@ import (
 	"matrimony-backend/internal/favourites"
 	"matrimony-backend/internal/interests"
 	"matrimony-backend/internal/matchmaking"
+	"matrimony-backend/internal/middleware"
 	"matrimony-backend/internal/moderation"
 	"matrimony-backend/internal/notifications"
 	"matrimony-backend/internal/payments"
@@ -160,6 +161,7 @@ func main() {
 		Timeout:         3 * time.Second,
 	}))
 	router.Use(gin.Recovery())
+	router.Use(middleware.RequestLog(log))
 
 	router.Use(cors.New(cors.Config{
 		AllowAllOrigins: cfg.CORS.AllowAllOrigins,

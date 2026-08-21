@@ -8,8 +8,17 @@ import '../data/reference_repository.dart';
 /// loading and error states for free, rather than every picker hand-rolling
 /// its own. The repository memoises the underlying responses, so a provider
 /// rebuild is cheap.
+///
+/// All of these are autoDispose, and that matters more than it looks: a
+/// keepAlive FutureProvider caches a *failure* for the life of the process.
+/// One failed fetch — a flaky moment, an expired token — and the picker was
+/// permanently stuck on "Couldn't load this list", with the app never
+/// retrying even after connectivity came back. Worse, with no HTTP call left
+/// to trigger it, Dio's 401-refresh never ran either, so the session stayed
+/// stale too. Disposing when the screen goes away makes a retry the default
+/// rather than something the member has to discover.
 
-final countriesProvider = FutureProvider<List<RefCountry>>((ref) async {
+final countriesProvider = FutureProvider.autoDispose<List<RefCountry>>((ref) async {
   final result = await ref.watch(referenceRepositoryProvider).countries();
   return result.when(
     success: (data) => data,
@@ -20,7 +29,7 @@ final countriesProvider = FutureProvider<List<RefCountry>>((ref) async {
 /// States for one ISO country code. Keyed by country because a state code is
 /// only unique within its country.
 final statesProvider =
-    FutureProvider.family<List<RefState>, String>((ref, countryCode) async {
+    FutureProvider.autoDispose.family<List<RefState>, String>((ref, countryCode) async {
   final result = await ref.watch(referenceRepositoryProvider).states(countryCode);
   return result.when(
     success: (data) => data,
@@ -35,7 +44,7 @@ final statesProvider =
 typedef CityQuery = ({String countryCode, String stateCode, String query});
 
 final citiesProvider =
-    FutureProvider.family<List<String>, CityQuery>((ref, q) async {
+    FutureProvider.autoDispose.family<List<String>, CityQuery>((ref, q) async {
   final result = await ref.watch(referenceRepositoryProvider).cities(
         q.countryCode,
         q.stateCode,
@@ -47,7 +56,7 @@ final citiesProvider =
   );
 });
 
-final religionsProvider = FutureProvider<List<RefReligion>>((ref) async {
+final religionsProvider = FutureProvider.autoDispose<List<RefReligion>>((ref) async {
   final result = await ref.watch(referenceRepositoryProvider).religions();
   return result.when(
     success: (data) => data,
