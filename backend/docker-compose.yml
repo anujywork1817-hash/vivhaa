@@ -337,6 +337,20 @@ services:
     profiles:
       - tools
 
+  # Admin panel — static React/Vite build served by nginx. The API URL is
+  # baked in at image build time (Vite inlines import.meta.env.* into the
+  # bundle), so changing it means rebuilding this image, not just restarting
+  # the container.
+  admin:
+    build:
+      context: ../admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://192.168.1.222:58080}
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_HOST_PORT:-5173}:80"
+
 volumes:
   postgres_data:
   minio_data:
