@@ -15,15 +15,24 @@ import (
 // "role" into the request context for downstream handlers.
 func RequireAuth(issuer *jwt.Issuer) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		header := c.GetHeader("Authorization")
-		parts := strings.SplitN(header, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		token := bearerToken(c)
+		if token == "" {
+			// Falls back to the httpOnly cookie auth/handler.go's
+			// setAuthCookies mirrors every token response into — a browser
+			// client (the admin panel) can rely on this instead of holding
+			// the access token in JS-reachable storage; native clients keep
+			// using the Authorization header exactly as before.
+			if cookie, err := c.Cookie("access_token"); err == nil && cookie != "" {
+				token = cookie
+			}
+		}
+		if token == "" {
 			response.Fail(c, http.StatusUnauthorized, "unauthorized", "missing or malformed Authorization header", nil)
 			c.Abort()
 			return
 		}
 
-		claims, err := issuer.Verify(parts[1])
+		claims, err := issuer.Verify(token)
 		if err != nil {
 			response.Fail(c, http.StatusUnauthorized, "unauthorized", "invalid or expired access token", nil)
 			c.Abort()
@@ -34,6 +43,15 @@ func RequireAuth(issuer *jwt.Issuer) gin.HandlerFunc {
 		c.Set("role", claims.Role)
 		c.Next()
 	}
+}
+
+func bearerToken(c *gin.Context) string {
+	header := c.GetHeader("Authorization")
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return parts[1]
 }
 
 // RequireRole restricts a route to a specific role; must run after RequireAuth.

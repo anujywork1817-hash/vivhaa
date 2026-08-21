@@ -16,7 +16,7 @@ const _channelId = 'vivaha_default';
 
 const _channel = AndroidNotificationChannel(
   _channelId,
-  'Vivaha notifications',
+  'Vivah notifications',
   description: 'Interests and messages',
   importance: Importance.high,
 );
@@ -116,7 +116,7 @@ class PushNotificationService {
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
-          'Vivaha notifications',
+          'Vivah notifications',
           importance: Importance.high,
           priority: Priority.high,
         ),

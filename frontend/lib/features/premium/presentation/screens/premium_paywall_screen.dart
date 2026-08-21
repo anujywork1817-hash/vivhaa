@@ -193,7 +193,7 @@ class _PlanSelector extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text('Vivaha Premium', style: context.textStyles.headlineSmall),
+                child: Text('Vivah Premium', style: context.textStyles.headlineSmall),
               ),
             ],
           ),

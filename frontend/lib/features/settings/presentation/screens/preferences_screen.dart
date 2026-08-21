@@ -23,7 +23,7 @@ class PreferencesScreen extends ConsumerWidget {
           Text('Theme', style: context.textStyles.titleSmall),
           const SizedBox(height: 4),
           Text(
-            'Choose how Vivaha looks. "System default" follows your phone\'s '
+            'Choose how Vivah looks. "System default" follows your phone\'s '
             'own light/dark setting automatically.',
             style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
           ),

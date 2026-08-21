@@ -25,7 +25,7 @@ class MenuScreen extends ConsumerWidget {
     // recipient can actually search for via "Search by Profile ID".
     final code = draft.profileCode;
     final lines = [
-      "$name's profile on Vivaha",
+      "$name's profile on Vivah",
       if (draft.age != null) 'Age: ${draft.age}',
       if (draft.city != null) 'City: ${draft.city}',
       if (draft.profession != null) 'Profession: ${draft.profession}',
@@ -193,7 +193,7 @@ class MenuScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                          child: Text('VIP Vivaha', style: context.textStyles.titleSmall)),
+                          child: Text('VIP Vivah', style: context.textStyles.titleSmall)),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
                         // No invite/VIP tier exists on the backend — only
@@ -202,7 +202,7 @@ class MenuScreen extends ConsumerWidget {
                         onPressed: () => showDialog(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
-                            title: const Text('VIP Vivaha'),
+                            title: const Text('VIP Vivah'),
                             content: const Text(
                                 'Our invite-only VIP tier isn\'t open yet. Premium membership is '
                                 'available today and unlocks chat, unlimited interests and contact details.'),
@@ -302,7 +302,7 @@ class MenuScreen extends ConsumerWidget {
                         ?.copyWith(color: context.colors.accent, decoration: TextDecoration.underline)),
               ),
               const SizedBox(height: 4),
-              Text('Copyright © 1996-2026 Vivaha.com',
+              Text('Copyright © 1996-2026 Vivah.com',
                   style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
               Text('Version 1.0.0',
                   style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
@@ -427,7 +427,7 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
     final previouslyRated = ref.watch(appRatingProvider) != null;
 
     return AlertDialog(
-      title: const Text('Enjoying Vivaha?'),
+      title: const Text('Enjoying Vivah?'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

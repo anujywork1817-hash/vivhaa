@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/router/app_router.dart';
+import '../core/router/app_routes.dart';
 import '../core/theme/app_scroll_behavior.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_preferences_controller.dart';
+import '../features/dashboard/presentation/controllers/app_shell_controller.dart';
 
 class ShaadiApp extends ConsumerWidget {
   const ShaadiApp({super.key});
@@ -12,23 +17,111 @@ class ShaadiApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final preferences = ref.watch(themePreferencesProvider);
-    return MaterialApp.router(
-      title: 'Vivaha',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: preferences.themeMode,
-      scrollBehavior: const AppScrollBehavior(),
-      // A single MediaQuery override at the app root scales every Text
-      // widget's rendered size without needing to thread a font-scale
-      // value through AppTypography's individual TextStyles.
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(preferences.fontSize.scale),
+    return _BackButtonGate(
+      router: router,
+      child: MaterialApp.router(
+        title: 'Vivah',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: preferences.themeMode,
+        scrollBehavior: const AppScrollBehavior(),
+        // A single MediaQuery override at the app root scales every Text
+        // widget's rendered size without needing to thread a font-scale
+        // value through AppTypography's individual TextStyles.
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(preferences.fontSize.scale),
+          ),
+          child: child!,
         ),
-        child: child!,
+        routerConfig: router,
       ),
-      routerConfig: router,
+    );
+  }
+}
+
+/// App-wide system-back interception: no matter how deep the current
+/// screen was pushed (onboarding step, chat window, profile detail,
+/// settings, …), the first back press always collapses the stack back to
+/// the Dashboard/Home tab in one step rather than popping one screen at a
+/// time. Only once the user is already sitting on the Home tab does back
+/// arm a "press again to exit" window; a second press inside that window
+/// exits the app, and letting the window lapse resets it.
+///
+/// go_router 14.x runs every declared [GoRoute] on a single root
+/// [Navigator] (nested navigators only appear with ShellRoute/
+/// StatefulShellRoute, which this app doesn't use), so a single
+/// [PopScope] wrapping the whole [MaterialApp.router] is enough to catch
+/// every system back press app-wide without touching in-screen back
+/// arrows, which call `context.pop()`/`Navigator.pop()` directly and
+/// never invoke this pop route at all.
+class _BackButtonGate extends ConsumerStatefulWidget {
+  const _BackButtonGate({required this.router, required this.child});
+
+  final GoRouter router;
+  final Widget child;
+
+  @override
+  ConsumerState<_BackButtonGate> createState() => _BackButtonGateState();
+}
+
+class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
+  static const _exitWindow = Duration(seconds: 2);
+  DateTime? _lastBackPressAt;
+  Timer? _exitWindowTimer;
+
+  @override
+  void dispose() {
+    _exitWindowTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleBack() {
+    final location = widget.router.routerDelegate.currentConfiguration.uri.toString();
+    final onHomeRoute = location == AppRoutes.home;
+    final onHomeTab = ref.read(appShellTabProvider) == AppTab.home;
+
+    if (!onHomeRoute || !onHomeTab) {
+      if (!onHomeTab) {
+        ref.read(appShellTabProvider.notifier).state = AppTab.home;
+      }
+      if (!onHomeRoute) {
+        widget.router.go(AppRoutes.home);
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastBackPressAt != null && now.difference(_lastBackPressAt!) <= _exitWindow) {
+      _exitWindowTimer?.cancel();
+      SystemNavigator.pop();
+      return;
+    }
+
+    _lastBackPressAt = now;
+    _exitWindowTimer?.cancel();
+    _exitWindowTimer = Timer(_exitWindow, () => _lastBackPressAt = null);
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: widget.child,
     );
   }
 }

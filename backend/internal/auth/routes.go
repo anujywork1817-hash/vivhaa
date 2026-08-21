@@ -18,6 +18,9 @@ const (
 	otpRequestIPLimit  = 10
 	otpRequestIPWindow = 10 * time.Minute
 
+	otpVerifyIPLimit  = 20
+	otpVerifyIPWindow = 10 * time.Minute
+
 	loginIPLimit  = 20
 	loginIPWindow = 15 * time.Minute
 )
@@ -29,7 +32,9 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter
 	auth.POST("/request-otp",
 		middleware.RateLimit(limiter, "otp_request:ip", otpRequestIPLimit, otpRequestIPWindow, middleware.ByIP()),
 		h.RequestOTP)
-	auth.POST("/verify-otp", h.VerifyOTP)
+	auth.POST("/verify-otp",
+		middleware.RateLimit(limiter, "otp_verify:ip", otpVerifyIPLimit, otpVerifyIPWindow, middleware.ByIP()),
+		h.VerifyOTP)
 	auth.POST("/google", h.GoogleAuth)
 	auth.POST("/login",
 		middleware.RateLimit(limiter, "login:ip", loginIPLimit, loginIPWindow, middleware.ByIP()),

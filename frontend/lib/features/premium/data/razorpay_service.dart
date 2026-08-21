@@ -73,7 +73,7 @@ class RazorpayService {
       'key': keyId,
       'order_id': orderId,
       'amount': amountInPaise,
-      'name': 'Vivaha',
+      'name': 'Vivah',
       'description': description,
       'prefill': {
         if (contactEmail != null) 'email': contactEmail,

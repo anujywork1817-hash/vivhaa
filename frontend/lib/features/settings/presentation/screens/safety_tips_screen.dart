@@ -16,7 +16,7 @@ const _tips = [
   (
     icon: Icons.currency_rupee_rounded,
     title: 'Never send money',
-    body: 'Vivaha will never ask you to send money to a match. Be wary of anyone who does, especially early on.',
+    body: 'Vivah will never ask you to send money to a match. Be wary of anyone who does, especially early on.',
   ),
   (
     icon: Icons.lock_outline_rounded,

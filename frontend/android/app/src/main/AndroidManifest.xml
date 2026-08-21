@@ -15,7 +15,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application
-        android:label="shaadi_clone"
+        android:label="Vivah"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

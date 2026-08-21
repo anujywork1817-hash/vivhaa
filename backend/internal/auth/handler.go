@@ -14,10 +14,31 @@ import (
 
 type Handler struct {
 	service *Service
+	// isProd gates the Secure flag on the auth cookies set alongside every
+	// token response — Secure cookies are silently dropped by browsers over
+	// plain HTTP, which local/LAN dev deployments (see .env's http://
+	// API_BASE_URL) still use.
+	isProd bool
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, isProd bool) *Handler {
+	return &Handler{service: service, isProd: isProd}
+}
+
+// setAuthCookies mirrors resp's tokens into httpOnly cookies, in addition
+// to (not instead of) the JSON body — the mobile app has no use for
+// cookies and keeps working exactly as before via the body; a browser
+// client (the admin panel) can opt into reading its session from these
+// instead of holding the raw JWTs in JS-accessible storage, which is what
+// makes them stealable by an XSS bug in that panel. SameSite=Lax rather
+// than None: this only needs to work same-site (the admin panel and API
+// share a host, differing only by port, which cookies treat as the same
+// site), and Lax avoids the Secure-cookie-required-for-None restriction
+// that would otherwise break plain-HTTP LAN deployments entirely.
+func (h *Handler) setAuthCookies(c *gin.Context, accessToken, refreshToken string) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("access_token", accessToken, 15*60, "/", "", h.isProd, true)
+	c.SetCookie("refresh_token", refreshToken, 30*24*60*60, "/", "", h.isProd, true)
 }
 
 func (h *Handler) Signup(c *gin.Context) {
@@ -63,6 +84,7 @@ func (h *Handler) GoogleAuth(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
 	response.OK(c, resp)
 }
 
@@ -77,6 +99,7 @@ func (h *Handler) VerifyOTP(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
 	response.OK(c, resp)
 }
 
@@ -91,6 +114,7 @@ func (h *Handler) Login(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
 	response.OK(c, resp)
 }
 
@@ -105,6 +129,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
 	response.OK(c, resp)
 }
 

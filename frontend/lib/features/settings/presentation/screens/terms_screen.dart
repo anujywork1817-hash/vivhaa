@@ -8,13 +8,13 @@ class TermsScreen extends StatelessWidget {
   static const _sections = [
     (
       'Acceptance of terms',
-      'By creating a profile or otherwise using Vivaha, you agree to these Terms & '
+      'By creating a profile or otherwise using Vivah, you agree to these Terms & '
           'Conditions and our Privacy Policy. If you do not agree, please do not use the app.',
     ),
     (
       'Eligibility',
       'You must be at least 18 years old and legally eligible to marry under applicable '
-          'law to create a profile on Vivaha, whether for yourself or on behalf of a family '
+          'law to create a profile on Vivah, whether for yourself or on behalf of a family '
           'member with their knowledge and consent.',
     ),
     (

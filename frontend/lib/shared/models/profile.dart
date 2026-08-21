@@ -40,7 +40,7 @@ class Profile {
   final String? workWith;
   final String? companyName;
 
-  /// Opts the profile out of Vivaha's affiliated matchmaking network.
+  /// Opts the profile out of Vivah's affiliated matchmaking network.
   final bool? matchmakingOptOut;
 
   // Family

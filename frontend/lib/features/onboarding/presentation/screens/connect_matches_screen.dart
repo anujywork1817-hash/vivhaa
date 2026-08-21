@@ -50,7 +50,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
           children: [
             Icon(Icons.favorite_rounded, size: 16, color: context.colors.accent),
             const SizedBox(width: 4),
-            Text('Vivaha', style: TextStyle(fontFamily: 'Georgia', color: context.colors.accent)),
+            Text('Vivah', style: TextStyle(fontFamily: 'Georgia', color: context.colors.accent)),
           ],
         ),
         actions: [

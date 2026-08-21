@@ -48,30 +48,39 @@ class AuthChoiceScreen extends ConsumerWidget {
             child: Column(
               children: [
                 const Spacer(flex: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      margin: const EdgeInsets.only(right: 8, bottom: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOutBack,
+                  builder: (context, t, child) => Opacity(
+                    opacity: t.clamp(0.0, 1.0),
+                    child: Transform.scale(scale: 0.7 + (0.3 * t), child: child),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        margin: const EdgeInsets.only(right: 8, bottom: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
                       ),
-                      child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
-                    ),
-                    const Text(
-                      'Vivaha',
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 40,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                      const Text(
+                        'Vivah',
+                        style: TextStyle(
+                          fontFamily: 'Georgia',
+                          fontSize: 40,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const Spacer(flex: 3),
                 Align(
@@ -93,14 +102,6 @@ class AuthChoiceScreen extends ConsumerWidget {
                   onTap: isLoading
                       ? null
                       : () => context.push(AppRoutes.login, extra: ContactMode.email),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _ChoicePill(
-                  icon: Icons.smartphone_rounded,
-                  label: 'Sign Up with Mobile',
-                  onTap: isLoading
-                      ? null
-                      : () => context.push(AppRoutes.login, extra: ContactMode.mobile),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _ChoicePill(

@@ -22,6 +22,7 @@ class HomeDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
+    final draft = ref.watch(profileCreationControllerProvider).draft;
 
     return Scaffold(
       appBar: AppBar(
@@ -29,8 +30,20 @@ class HomeDashboardScreen extends ConsumerWidget {
           icon: const Icon(Icons.menu_rounded),
           onPressed: () => context.push(AppRoutes.menu),
         ),
-        title: const Text('My Vivaha'),
+        title: const Text('My Vivah'),
         actions: [
+          InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => context.push(AppRoutes.editProfile),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: ProfileAvatar(
+                name: draft.fullName ?? '',
+                photoUrl: draft.profilePhotoUrl,
+                size: 32,
+              ),
+            ),
+          ),
           Stack(
             children: [
               IconButton(
@@ -150,7 +163,7 @@ class _CompleteProfileCard extends ConsumerWidget {
     // itself as "astro details" while checking the About Me field.
     final missing = <({String label, VoidCallback onTap})>[
       if (draft.profilePhotoUrl == null)
-        (label: 'Add a profile photo', onTap: () => context.push(AppRoutes.editProfile)),
+        (label: 'Add a profile photo', onTap: () => context.push(AppRoutes.managePhotos)),
       if (draft.aboutMe == null || draft.aboutMe!.isEmpty)
         (label: 'Write about yourself', onTap: () => context.push(AppRoutes.editProfile)),
       if (draft.hobbies.isEmpty)

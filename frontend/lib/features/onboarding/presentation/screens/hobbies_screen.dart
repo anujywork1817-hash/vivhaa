@@ -105,7 +105,7 @@ class HobbiesScreen extends ConsumerWidget {
           children: [
             Icon(Icons.favorite_rounded, size: 16, color: context.colors.accent),
             const SizedBox(width: 4),
-            Text('Vivaha', style: TextStyle(fontFamily: 'Georgia', color: context.colors.accent)),
+            Text('Vivah', style: TextStyle(fontFamily: 'Georgia', color: context.colors.accent)),
           ],
         ),
         centerTitle: true,

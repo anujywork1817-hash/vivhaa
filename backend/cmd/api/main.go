@@ -216,7 +216,7 @@ func main() {
 
 	authRepo := auth.NewRepository(dbPool)
 	authService := auth.NewService(authRepo, smsSender, emailSender, accessIssuer, cfg.JWT.RefreshTTL, cfg.Env == "dev", analyticsService, googleVerifier, rateLimiter)
-	authHandler := auth.NewHandler(authService)
+	authHandler := auth.NewHandler(authService, cfg.Env == "prod")
 
 	usersRepo := users.NewRepository(dbPool)
 	usersHandler := users.NewHandler(usersRepo)

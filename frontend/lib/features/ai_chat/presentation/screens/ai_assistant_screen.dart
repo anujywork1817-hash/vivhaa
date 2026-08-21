@@ -73,7 +73,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.xl),
                           child: Text(
-                            'Ask me for profile tips, conversation starters, or how to use Vivaha.',
+                            'Ask me for profile tips, conversation starters, or how to use Vivah.',
                             textAlign: TextAlign.center,
                             style: context.textStyles.bodyMedium
                                 ?.copyWith(color: context.colors.muted),

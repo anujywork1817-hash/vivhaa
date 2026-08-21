@@ -102,7 +102,7 @@ class _AboutMeScreenState extends ConsumerState<AboutMeScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            "Do not add ${profileFor.possessive} profile to Vivaha's affiliated Matchmaking",
+                            "Do not add ${profileFor.possessive} profile to Vivah's affiliated Matchmaking",
                             style: context.textStyles.bodyMedium,
                           ),
                         ),
@@ -113,7 +113,7 @@ class _AboutMeScreenState extends ConsumerState<AboutMeScreen> {
                             builder: (dialogContext) => AlertDialog(
                               title: const Text('Affiliated matchmaking'),
                               content: const Text(
-                                  "By default, your profile may also be shown through Vivaha's partner matchmaking services for extra visibility. Check this box to opt out."),
+                                  "By default, your profile may also be shown through Vivah's partner matchmaking services for extra visibility. Check this box to opt out."),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.of(dialogContext).pop(),

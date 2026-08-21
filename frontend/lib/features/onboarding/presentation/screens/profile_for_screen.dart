@@ -100,41 +100,6 @@ class ProfileForScreen extends ConsumerWidget {
                               ),
                             ),
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                        border: Border.all(color: context.colors.line),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            margin: const EdgeInsets.only(top: 2),
-                            decoration: BoxDecoration(
-                              color: context.colors.gold,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.priority_high_rounded,
-                                size: 14, color: Colors.white),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text(
-                              'Vivaha is built for genuine match-seekers. Any falsification, '
-                              'commercial use or profiles by marriage bureaus are strictly '
-                              'prohibited and may be reported to law enforcement.',
-                              style: context.textStyles.bodySmall
-                                  ?.copyWith(color: context.colors.ink),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
