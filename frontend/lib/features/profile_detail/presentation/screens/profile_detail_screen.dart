@@ -14,7 +14,6 @@ import '../../../../shared/widgets/feedback/error_state.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/locked_profile_photo.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
-import '../../../ai_chat/data/api_ai_repository.dart';
 import '../../../calls/presentation/controllers/call_controller.dart';
 import '../../../calls/presentation/screens/active_call_screen.dart';
 import '../../../chat/presentation/controllers/chat_controller.dart';
@@ -538,14 +537,6 @@ class _ActionBar extends ConsumerWidget {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.auto_awesome_rounded, color: context.colors.accent),
-              tooltip: 'AI icebreakers',
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                builder: (_) => _IcebreakersSheet(profileId: profileId),
-              ),
-            ),
-            IconButton(
               icon: Icon(Icons.chat_bubble_outline_rounded,
                   color: chatTarget != null ? context.colors.accent : context.colors.muted),
               tooltip: chatTarget != null ? 'Chat' : 'Chat unlocks once interest is accepted',
@@ -665,86 +656,6 @@ class _DetailShimmer extends StatelessWidget {
             ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
             const SizedBox(height: AppSpacing.md),
             ShimmerBox(width: double.infinity, height: 90, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// AI-generated conversation starters for this profile — a thin wrapper
-/// around `GET /ai/icebreakers/:profileId`; fails with a clear message if
-/// the backend's Groq key isn't configured.
-class _IcebreakersSheet extends ConsumerStatefulWidget {
-  final String profileId;
-  const _IcebreakersSheet({required this.profileId});
-
-  @override
-  ConsumerState<_IcebreakersSheet> createState() => _IcebreakersSheetState();
-}
-
-class _IcebreakersSheetState extends ConsumerState<_IcebreakersSheet> {
-  bool _loading = true;
-  List<String> _icebreakers = const [];
-  AppFailure? _failure;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final result = await ref.read(aiRepositoryProvider).getIcebreakers(widget.profileId);
-    if (!mounted) return;
-    result.when(
-      success: (data) => setState(() {
-        _icebreakers = data;
-        _loading = false;
-      }),
-      failure: (f) => setState(() {
-        _failure = f;
-        _loading = false;
-      }),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.auto_awesome_rounded, color: context.colors.accent, size: 18),
-                const SizedBox(width: 6),
-                Text('AI icebreakers', style: context.textStyles.titleMedium),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (_loading)
-              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-            else if (_failure != null)
-              Text(_failure!.message,
-                  style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted))
-            else
-              ..._icebreakers.map((text) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      decoration: BoxDecoration(
-                        color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                        border: Border.all(color: context.colors.line),
-                      ),
-                      child: Text(text, style: context.textStyles.bodyMedium),
-                    ),
-                  )),
           ],
         ),
       ),

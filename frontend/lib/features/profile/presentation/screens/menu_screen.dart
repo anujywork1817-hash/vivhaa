@@ -267,6 +267,11 @@ class MenuScreen extends ConsumerWidget {
                     onTap: () => context.push(AppRoutes.safetyTips),
                   ),
                   _Row(
+                    icon: Icons.block_outlined,
+                    label: 'Blocked Users',
+                    onTap: () => context.push(AppRoutes.blockedUsers),
+                  ),
+                  _Row(
                     icon: Icons.star_outline_rounded,
                     label: 'Rate the App',
                     onTap: () => _rateApp(context, ref),
