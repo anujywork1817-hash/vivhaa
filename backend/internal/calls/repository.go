@@ -272,3 +272,45 @@ func (r *Repository) ListForAdmin(ctx context.Context, f ListFilter) ([]CallSess
 	}
 	return out, total, rows.Err()
 }
+
+// ListForUser backs GET /calls/history — every call session userID took
+// part in (as either caller or callee), newest first, joined against the
+// *other* party's profile for display (name + primary photo) since the
+// caller already knows their own.
+func (r *Repository) ListForUser(ctx context.Context, userID string, page, limit int) ([]CallSessionWithPartner, int, error) {
+	var total int
+	if err := r.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM call_sessions WHERE caller_user_id = $1 OR callee_user_id = $1`, userID,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	q := `
+		SELECT cs.id, cs.caller_user_id, cs.callee_user_id, cs.status, cs.is_video, cs.started_at, cs.connected_at,
+		       cs.ended_at, cs.duration_seconds, cs.end_reason, pp.full_name,
+		       (SELECT url FROM profile_photos ph WHERE ph.profile_id = pp.id ORDER BY ph.is_primary DESC, ph.sort_order ASC LIMIT 1)
+		FROM call_sessions cs
+		JOIN profiles pp ON pp.user_id = CASE WHEN cs.caller_user_id = $1 THEN cs.callee_user_id ELSE cs.caller_user_id END
+		WHERE cs.caller_user_id = $1 OR cs.callee_user_id = $1
+		ORDER BY cs.started_at DESC
+		LIMIT $2 OFFSET $3`
+
+	rows, err := r.db.Query(ctx, q, userID, limit, (page-1)*limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var out []CallSessionWithPartner
+	for rows.Next() {
+		var cs CallSessionWithPartner
+		if err := rows.Scan(
+			&cs.ID, &cs.CallerUserID, &cs.CalleeUserID, &cs.Status, &cs.IsVideo, &cs.StartedAt, &cs.ConnectedAt,
+			&cs.EndedAt, &cs.DurationSeconds, &cs.EndReason, &cs.PartnerName, &cs.PartnerPhoto,
+		); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, cs)
+	}
+	return out, total, rows.Err()
+}

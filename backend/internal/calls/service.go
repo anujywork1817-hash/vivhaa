@@ -407,6 +407,47 @@ func IsCallType(raw []byte) bool {
 	return strings.HasPrefix(probe.Type, "call:")
 }
 
+// ListMyCallHistory backs GET /calls/history — the caller's own past
+// calls (as either caller or callee), newest first.
+func (s *Service) ListMyCallHistory(ctx context.Context, userID string, page, limit int) ([]MyCallHistoryResponse, ListMeta, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = defaultLimit
+	}
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	rows, total, err := s.repo.ListForUser(ctx, userID, page, limit)
+	if err != nil {
+		return nil, ListMeta{}, err
+	}
+
+	out := make([]MyCallHistoryResponse, 0, len(rows))
+	for _, r := range rows {
+		var endedAt *string
+		if r.EndedAt != nil {
+			v := r.EndedAt.Format(time.RFC3339)
+			endedAt = &v
+		}
+		direction := "outgoing"
+		partnerUserID := r.CalleeUserID
+		if r.CallerUserID != userID {
+			direction = "incoming"
+			partnerUserID = r.CallerUserID
+		}
+		out = append(out, MyCallHistoryResponse{
+			ID: r.ID, PartnerUserID: partnerUserID, PartnerName: r.PartnerName, PartnerPhoto: r.PartnerPhoto,
+			Direction: direction, Status: r.Status, IsVideo: r.IsVideo,
+			StartedAt: r.StartedAt.Format(time.RFC3339), EndedAt: endedAt,
+			DurationSeconds: r.DurationSeconds, EndReason: r.EndReason,
+		})
+	}
+	return out, ListMeta{Page: page, Limit: limit, Total: total}, nil
+}
+
 func (s *Service) AdminListCallHistory(ctx context.Context, f ListFilter) ([]CallHistoryResponse, ListMeta, error) {
 	if f.Page < 1 {
 		f.Page = 1

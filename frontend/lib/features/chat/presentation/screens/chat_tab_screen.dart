@@ -18,9 +18,10 @@ enum ChatFilter { all, unread }
 /// choice survives tab switches.
 final chatFilterProvider = StateProvider<ChatFilter>((ref) => ChatFilter.all);
 
-/// Chat tab — conversations (all or unread only) plus call history.
-/// A conversation exists per profile whose interest was accepted in
-/// either direction.
+/// Chat tab — conversations (all or unread only). A conversation exists
+/// per profile whose interest was accepted in either direction. Call
+/// history lives one tap away via the app bar's history icon
+/// (CallHistoryScreen), not inline in this list.
 class ChatTabScreen extends ConsumerWidget {
   const ChatTabScreen({super.key});
 
@@ -32,7 +33,16 @@ class ChatTabScreen extends ConsumerWidget {
     final unreadCount = async.valueOrNull?.where((c) => c.unreadCount > 0).length ?? 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat')),
+      appBar: AppBar(
+        title: const Text('Chat'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Call history',
+            onPressed: () => context.push(AppRoutes.callHistory),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // Horizontally scrollable so the pills can never overflow,

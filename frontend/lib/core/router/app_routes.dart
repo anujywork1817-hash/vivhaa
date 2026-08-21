@@ -69,6 +69,7 @@ class AppRoutes {
   static const String interests = '/interests';
   static const String interestDecision = '/interests/decision/:id';
   static const String chatWindow = '/chat/:id';
+  static const String callHistory = '/chat/call-history';
 
   static String interestDecisionPath(String interestId) => '/interests/decision/$interestId';
   static String chatWindowPath(String conversationId) => '/chat/$conversationId';

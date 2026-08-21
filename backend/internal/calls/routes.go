@@ -18,6 +18,10 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 	videoCall.Use(middleware.RequireAuth(issuer))
 	videoCall.GET("/ice-servers", h.ICEServers)
 
+	calls := rg.Group("/calls")
+	calls.Use(middleware.RequireAuth(issuer))
+	calls.GET("/history", h.ListMyCallHistory)
+
 	adminGroup := rg.Group("/admin")
 	adminGroup.Use(middleware.RequireAuth(issuer), middleware.RequireRole("admin"))
 	adminGroup.GET("/call-history", h.AdminListCallHistory)

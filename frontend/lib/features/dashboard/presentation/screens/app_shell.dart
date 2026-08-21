@@ -8,6 +8,8 @@ import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../../../chat/presentation/screens/chat_tab_screen.dart';
 import '../../../interests/presentation/controllers/interests_controller.dart';
 import '../../../premium/presentation/screens/premium_paywall_screen.dart';
+import '../../../../shared/models/my_subscription.dart';
+import '../../../../shared/widgets/feedback/empty_state.dart';
 import '../controllers/app_shell_controller.dart';
 import 'home_dashboard_screen.dart';
 import 'inbox_tab_screen.dart';
@@ -29,7 +31,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     MatchesTabScreen(),
     InboxTabScreen(),
     ChatTabScreen(),
-    PremiumPaywallScreen(showSkip: false),
+    kPremiumFeatureEnabled ? const PremiumPaywallScreen(showSkip: false) : const _PremiumComingSoonScreen(),
   ];
 
   @override
@@ -107,6 +109,26 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           const BottomNavigationBarItem(
               icon: Icon(Icons.workspace_premium_rounded), label: 'Premium'),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown in place of the real paywall/plan screens while premium is
+/// disabled app-wide (see [kPremiumFeatureEnabled]) — the nav tab stays
+/// visible, but tapping it no longer drops the user into a paywall flow
+/// for a feature that isn't actually available yet.
+class _PremiumComingSoonScreen extends StatelessWidget {
+  const _PremiumComingSoonScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Premium')),
+      body: const EmptyState(
+        icon: Icons.workspace_premium_rounded,
+        title: 'Premium — Coming Soon',
+        message: "We're putting the finishing touches on premium membership. Check back soon!",
       ),
     );
   }

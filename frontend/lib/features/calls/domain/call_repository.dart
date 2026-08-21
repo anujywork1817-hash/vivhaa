@@ -1,4 +1,5 @@
 import '../../../core/api/api_result.dart';
+import '../../../shared/models/call_history_entry.dart';
 
 class IceServer {
   final List<String> urls;
@@ -20,4 +21,8 @@ abstract class CallRepository {
   /// TURN credential. Fetched fresh per call rather than cached, since a
   /// TURN credential expires.
   Future<ApiResult<List<IceServer>>> getIceServers();
+
+  /// GET /calls/history — page is 0-based here (mirrors SearchRepository.search);
+  /// the implementation adds 1 before sending it to the backend.
+  Future<ApiResult<List<CallHistoryEntry>>> getCallHistory({int page = 0});
 }

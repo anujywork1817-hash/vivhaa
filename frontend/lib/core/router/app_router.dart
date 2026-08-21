@@ -4,6 +4,7 @@ import '../../features/authentication/presentation/screens/auth_choice_screen.da
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/otp_screen.dart';
 import '../../features/authentication/presentation/screens/splash_screen.dart';
+import '../../features/calls/presentation/screens/call_history_screen.dart';
 import '../../features/chat/presentation/screens/chat_window_screen.dart';
 import '../../features/dashboard/presentation/screens/app_shell.dart';
 import '../../features/discover_matches/presentation/screens/discover_screen.dart';
@@ -155,6 +156,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.chatWindow,
         builder: (_, state) =>
             ChatWindowScreen(conversationId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: AppRoutes.callHistory,
+        builder: (_, __) => const CallHistoryScreen(),
       ),
     ],
   );

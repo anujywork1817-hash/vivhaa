@@ -86,6 +86,7 @@ class ApiEndpoints {
   static String declineContact(String messageId) => '/chat/contact-requests/$messageId/decline';
   static const String wsChat = '/ws/chat';
   static const String iceServers = '/video-call/ice-servers';
+  static const String callHistory = '/calls/history';
 
   static const String subscriptionPlans = '/subscriptions/plans';
   static const String mySubscription = '/subscriptions/me';

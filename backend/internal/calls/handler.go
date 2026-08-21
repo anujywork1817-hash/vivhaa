@@ -23,6 +23,21 @@ func (h *Handler) ICEServers(c *gin.Context) {
 	response.OK(c, h.service.ICEServers(userID))
 }
 
+// ListMyCallHistory backs GET /calls/history — the caller's own past
+// calls, newest first.
+func (h *Handler) ListMyCallHistory(c *gin.Context) {
+	userID := c.GetString("user_id")
+	page, _ := strconv.Atoi(c.Query("page"))
+	limit, _ := strconv.Atoi(c.Query("limit"))
+
+	rows, meta, err := h.service.ListMyCallHistory(c.Request.Context(), userID, page, limit)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.Success(c, http.StatusOK, rows, meta)
+}
+
 // AdminListCallHistory backs GET /admin/call-history. from/to are plain
 // YYYY-MM-DD dates (not full timestamps) — the admin UI's date-range
 // picker works in whole days; `to` is treated as end-of-day so a range

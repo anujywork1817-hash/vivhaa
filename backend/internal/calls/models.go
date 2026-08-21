@@ -22,3 +22,12 @@ type CallSessionWithProfiles struct {
 	CallerName *string
 	CalleeName *string
 }
+
+// CallSessionWithPartner joins a session with just the *other* party's
+// display name and photo (the caller already knows who they are), for a
+// user's own call-history list.
+type CallSessionWithPartner struct {
+	CallSession
+	PartnerName  *string
+	PartnerPhoto *string
+}

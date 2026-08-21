@@ -49,6 +49,24 @@ type CallHistoryResponse struct {
 	EndReason       *string `json:"end_reason"`
 }
 
+// MyCallHistoryResponse is one row of GET /calls/history — from the
+// caller's own point of view, so it names the *other* party once
+// (PartnerUserID/PartnerName/PartnerPhoto) plus Direction, rather than
+// making the client figure out which of caller/callee is "me".
+type MyCallHistoryResponse struct {
+	ID              string  `json:"id"`
+	PartnerUserID   string  `json:"partner_user_id"`
+	PartnerName     *string `json:"partner_name"`
+	PartnerPhoto    *string `json:"partner_photo"`
+	Direction       string  `json:"direction"` // "outgoing" | "incoming"
+	Status          string  `json:"status"`
+	IsVideo         bool    `json:"is_video"`
+	StartedAt       string  `json:"started_at"`
+	EndedAt         *string `json:"ended_at"`
+	DurationSeconds *int    `json:"duration_seconds"`
+	EndReason       *string `json:"end_reason"`
+}
+
 type ListMeta struct {
 	Page  int `json:"page"`
 	Limit int `json:"limit"`

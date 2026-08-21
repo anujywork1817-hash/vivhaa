@@ -21,6 +21,19 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
   // this is purely a local, per-screen overlay on top of it.
   final Set<String> _optimisticallyRemoved = {};
 
+  @override
+  void initState() {
+    super.initState();
+    // Defensive: force a fresh fetch every time this screen opens rather
+    // than trusting provider caching/invalidation from wherever the user
+    // blocked/unblocked someone. Scheduled after the first frame so it
+    // doesn't fire mid-build (invalidate() during build is unsafe) and
+    // runs only once on mount, not on every rebuild.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(blockedUsersListProvider);
+    });
+  }
+
   Future<void> _unblock(String profileId, String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
