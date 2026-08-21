@@ -65,6 +65,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    // Session-wide, so an interest accepted while the user is on any tab
+    // unlocks the chat there and then rather than on the next manual refresh.
+    ref.watch(matchLiveUpdatesProvider);
+
     final activeTab = ref.watch(appShellTabProvider);
     final pendingInterests = ref.watch(pendingReceivedCountProvider);
     final unreadChats = ref.watch(unreadConversationCountProvider);

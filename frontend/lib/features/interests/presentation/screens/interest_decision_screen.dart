@@ -15,6 +15,15 @@ class InterestDecisionScreen extends ConsumerWidget {
   const InterestDecisionScreen({super.key, required this.interestId});
 
   Future<void> _respond(BuildContext context, WidgetRef ref, bool accept, String profileId) async {
+    // Captured before responding: the record leaves receivedInterests once
+    // it stops being pending, so reading it afterwards finds nothing.
+    final partnerUserId = ref
+        .read(receivedInterestsProvider)
+        .valueOrNull
+        ?.where((r) => r.id == interestId)
+        .firstOrNull
+        ?.partnerUserId;
+
     await ref.read(interestsActionsProvider).respond(interestId, accept);
     if (!context.mounted) return;
 
@@ -30,11 +39,19 @@ class InterestDecisionScreen extends ConsumerWidget {
       const SnackBar(content: Text('Interest accepted — you can now chat.')),
     );
 
-    // Accepting creates a conversation server-side — refetch (rather than
-    // trust a possibly-stale cached list) so we can find the partner's
-    // conversation ID (the chat window is keyed by *user* ID, whereas the
-    // interest record only carries their *profile* ID) and open it
-    // directly instead of just popping back to the interests list.
+    // The chat window is keyed by *user* id while the interest record shows a
+    // *profile* id, so the thread can't be opened from profileId alone. The
+    // interest itself carries the partner's user id, which gets us there with
+    // no round trip and without depending on the conversation list's
+    // profile-id mapping having resolved.
+    if (partnerUserId != null) {
+      context.pushReplacement(AppRoutes.chatWindowPath(partnerUserId));
+      return;
+    }
+
+    // Older records predate partnerUserId: fall back to refetching the
+    // conversation list (rather than trusting a possibly-stale cached one)
+    // and matching on profile id.
     ref.invalidate(conversationsProvider);
     try {
       final conversations = await ref.read(conversationsProvider.future);

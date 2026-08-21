@@ -2,6 +2,7 @@ package interests
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"matrimony-backend/internal/blocked"
 	"matrimony-backend/internal/profiles"
 	"matrimony-backend/internal/queue"
+	"matrimony-backend/internal/websocket"
 )
 
 var (
@@ -24,10 +26,50 @@ type Service struct {
 	blockedRepo  *blocked.Repository
 	publisher    *queue.Publisher
 	analyticsSvc *analytics.Service
+	// hub pushes the accept straight down both parties' chat sockets. May
+	// be nil in tests, which only exercise the persistence side.
+	hub *websocket.Hub
 }
 
-func NewService(repo *Repository, profilesRepo *profiles.Repository, blockedRepo *blocked.Repository, publisher *queue.Publisher, analyticsSvc *analytics.Service) *Service {
-	return &Service{repo: repo, profilesRepo: profilesRepo, blockedRepo: blockedRepo, publisher: publisher, analyticsSvc: analyticsSvc}
+func NewService(repo *Repository, profilesRepo *profiles.Repository, blockedRepo *blocked.Repository, publisher *queue.Publisher, analyticsSvc *analytics.Service, hub *websocket.Hub) *Service {
+	return &Service{repo: repo, profilesRepo: profilesRepo, blockedRepo: blockedRepo, publisher: publisher, analyticsSvc: analyticsSvc, hub: hub}
+}
+
+// AcceptedEvent is pushed over the chat socket to both parties the moment
+// an interest is accepted.
+//
+// Chat unlocks on mutual accept, but nothing used to tell the sender that
+// it had happened — they sat on a stale screen until they pulled to
+// refresh. Both sides get this so either can open the thread immediately.
+type AcceptedEvent struct {
+	InterestID     string `json:"interest_id"`
+	SenderUserID   string `json:"sender_user_id"`
+	ReceiverUserID string `json:"receiver_user_id"`
+}
+
+// pushAccepted notifies both parties. Delivery is best-effort: a user who
+// is offline simply picks the match up from the conversation list on their
+// next fetch, which already includes accepted-but-unmessaged partners.
+func (s *Service) pushAccepted(interest Interest) {
+	if s.hub == nil {
+		return
+	}
+	payload, err := json.Marshal(struct {
+		Type string        `json:"type"`
+		Data AcceptedEvent `json:"data"`
+	}{
+		Type: "interest_accepted",
+		Data: AcceptedEvent{
+			InterestID:     interest.ID,
+			SenderUserID:   interest.SenderUserID,
+			ReceiverUserID: interest.ReceiverUserID,
+		},
+	})
+	if err != nil {
+		return
+	}
+	s.hub.SendToUser(interest.SenderUserID, payload)
+	s.hub.SendToUser(interest.ReceiverUserID, payload)
 }
 
 // Express creates an interest from senderUserID toward the owner of
@@ -96,6 +138,8 @@ func (s *Service) respond(ctx context.Context, userID, interestID, status string
 	}
 
 	if status == "accepted" {
+		s.pushAccepted(updated)
+
 		_ = s.publisher.PublishNotificationDispatch(ctx, queue.NotificationDispatchEvent{
 			UserID: updated.SenderUserID,
 			Type:   "match",

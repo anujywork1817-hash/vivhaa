@@ -129,6 +129,10 @@ class ApiInterestRepository implements InterestRepository {
       viewedAt: (json['viewed_at'] as String?) != null
           ? DateTime.tryParse(json['viewed_at'] as String)
           : null,
+      // Whichever end of the interest isn't the caller.
+      partnerUserId: direction == InterestDirection.sent
+          ? json['receiver_user_id'] as String?
+          : json['sender_user_id'] as String?,
     );
   }
 

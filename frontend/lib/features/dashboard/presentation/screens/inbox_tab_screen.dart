@@ -871,16 +871,19 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
                   icon: Icons.chat_bubble_rounded,
                   label: 'Chat',
                   color: context.colors.accent,
+                  // This card only exists for an accepted interest, so chat is
+                  // open by definition. Keying off the partner's user id goes
+                  // straight there; the conversation lookup is a fallback,
+                  // since it needs the list to have loaded and to have matched
+                  // on profile id — the reason this used to tell people to
+                  // pull to refresh.
                   onTap: _busy
                       ? null
                       : () {
-                          if (conversation != null) {
-                            context.push(AppRoutes.chatWindowPath(conversation.id));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text('Opening this chat — pull to refresh if it '
-                                    "doesn't appear yet.")));
-                          }
+                          final target =
+                              widget.record.partnerUserId ?? conversation?.id;
+                          if (target == null) return;
+                          context.push(AppRoutes.chatWindowPath(target));
                         },
                 ),
                 _CardAction(
@@ -1107,10 +1110,20 @@ class _SentCardState extends ConsumerState<_SentCard> {
                   icon: Icons.chat_bubble_rounded,
                   label: 'Chat',
                   color: context.colors.muted,
-                  onTap: conversation != null
-                      ? () => context.push(AppRoutes.chatWindowPath(conversation.id))
-                      : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Chat opens once they accept your interest.'))),
+                  // Unlocked the moment they accept — the record's own status
+                  // is the authority, not whether the conversation list has
+                  // caught up yet.
+                  onTap: () {
+                    final target = widget.record.status == InterestStatus.accepted
+                        ? (widget.record.partnerUserId ?? conversation?.id)
+                        : null;
+                    if (target == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Chat opens once they accept your interest.')));
+                      return;
+                    }
+                    context.push(AppRoutes.chatWindowPath(target));
+                  },
                 ),
                 _CardAction(
                   icon: Icons.call_rounded,

@@ -522,6 +522,10 @@ class _ActionBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversation = ref.watch(conversationForProfileProvider(profileId));
+    // An accepted interest unlocks chat even before the conversation list has
+    // caught up, so prefer it and fall back to the existing lookup.
+    final chatTarget =
+        ref.watch(acceptedPartnerUserIdProvider(profileId)) ?? conversation?.id;
 
     return SafeArea(
       top: false,
@@ -543,11 +547,11 @@ class _ActionBar extends ConsumerWidget {
             ),
             IconButton(
               icon: Icon(Icons.chat_bubble_outline_rounded,
-                  color: conversation != null ? context.colors.accent : context.colors.muted),
-              tooltip: conversation != null ? 'Chat' : 'Chat unlocks once interest is accepted',
+                  color: chatTarget != null ? context.colors.accent : context.colors.muted),
+              tooltip: chatTarget != null ? 'Chat' : 'Chat unlocks once interest is accepted',
               onPressed: () {
-                if (conversation != null) {
-                  context.push(AppRoutes.chatWindowPath(conversation.id));
+                if (chatTarget != null) {
+                  context.push(AppRoutes.chatWindowPath(chatTarget));
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

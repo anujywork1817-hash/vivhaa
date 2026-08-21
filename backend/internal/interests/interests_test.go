@@ -57,7 +57,9 @@ func newTestService(t *testing.T) *Service {
 	// unreachable-address trick chat/auth's tests use.
 	publisher := queue.NewPublisher(kafka.NewProducer([]string{"localhost:59092"}))
 
-	return NewService(repo, profilesRepo, blockedRepo, publisher, analyticsSvc)
+	// nil hub: these tests cover persistence and the accept/decline
+	// state machine, not socket delivery.
+	return NewService(repo, profilesRepo, blockedRepo, publisher, analyticsSvc, nil)
 }
 
 func newTestUser(t *testing.T) string {

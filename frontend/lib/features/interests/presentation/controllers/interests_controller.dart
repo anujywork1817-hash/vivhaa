@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../shared/models/interest.dart';
 import '../../../../shared/models/match_profile.dart';
+import '../../../chat/data/chat_socket_service.dart';
+import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../../data/api_interest_repository.dart';
 
 final sentInterestsProvider = FutureProvider.autoDispose<List<InterestRecord>>((ref) async {
@@ -27,6 +29,27 @@ final isInterestSentProvider = Provider.autoDispose.family<bool, String>((ref, p
   return sent.any((r) => r.profile.id == profileId);
 });
 
+/// The partner's user id when this profile is an accepted match in either
+/// direction, else null — i.e. "can I chat with them, and where".
+///
+/// Chat entry points used to test the conversation list instead, which only
+/// works once that list has loaded *and* its profile-id mapping resolved. The
+/// interest's own status is the authority on whether chat is unlocked, so
+/// screens can offer it the instant an accept lands.
+final acceptedPartnerUserIdProvider =
+    Provider.autoDispose.family<String?, String>((ref, profileId) {
+  final records = [
+    ...ref.watch(receivedInterestsProvider).valueOrNull ?? const [],
+    ...ref.watch(sentInterestsProvider).valueOrNull ?? const [],
+  ];
+  for (final r in records) {
+    if (r.profile.id == profileId && r.status == InterestStatus.accepted) {
+      return r.partnerUserId;
+    }
+  }
+  return null;
+});
+
 final pendingReceivedCountProvider = Provider.autoDispose<int>((ref) {
   final received = ref.watch(receivedInterestsProvider).valueOrNull ?? const [];
   return received.where((r) => r.status == InterestStatus.pending).length;
@@ -41,9 +64,14 @@ class InterestsActions {
     ref.invalidate(sentInterestsProvider);
   }
 
+  /// Accepting unlocks chat on the backend immediately, so the conversation
+  /// list is refreshed here too. Without that, the thread only appeared
+  /// after a manual pull-to-refresh, which made a freshly accepted match
+  /// look like chat still wasn't available.
   Future<void> respond(String interestId, bool accept) async {
     await ref.read(interestRepositoryProvider).respond(interestId, accept);
     ref.invalidate(receivedInterestsProvider);
+    if (accept) ref.invalidate(conversationsProvider);
   }
 
   /// Deletes an interest in either direction, so both lists are refreshed
@@ -65,3 +93,24 @@ class InterestsActions {
 }
 
 final interestsActionsProvider = Provider((ref) => InterestsActions(ref));
+
+/// Keeps both parties' interest and conversation lists current the moment an
+/// interest is accepted.
+///
+/// The accepter refreshes their own lists in [InterestsActions.respond], but
+/// the *sender* has no idea it happened — they used to sit on a stale screen
+/// until they pulled to refresh. The backend pushes `interest_accepted` down
+/// the chat socket to both sides; this turns that into a refresh wherever the
+/// user happens to be in the app.
+///
+/// Deliberately not autoDispose, and watched by the app shell rather than one
+/// screen: the point is that it works while the user is anywhere.
+final matchLiveUpdatesProvider = Provider<void>((ref) {
+  final subscription = ref.watch(chatSocketServiceProvider).events.listen((event) {
+    if (event['type'] != 'interest_accepted') return;
+    ref.invalidate(conversationsProvider);
+    ref.invalidate(receivedInterestsProvider);
+    ref.invalidate(sentInterestsProvider);
+  });
+  ref.onDispose(subscription.cancel);
+});

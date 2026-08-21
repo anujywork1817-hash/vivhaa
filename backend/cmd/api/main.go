@@ -273,8 +273,12 @@ func main() {
 	aiService := ai.NewService(groqClient, aiRepo, profilesRepo)
 	aiHandler := ai.NewHandler(aiService)
 
+	// Built before the services that push through it — chat, calls, and
+	// interests all send events over the same hub.
+	wsHub := appwebsocket.NewHub(ctx, redisClient, log)
+
 	interestsRepo := interests.NewRepository(dbPool)
-	interestsService := interests.NewService(interestsRepo, profilesRepo, blockedRepo, publisher, analyticsService)
+	interestsService := interests.NewService(interestsRepo, profilesRepo, blockedRepo, publisher, analyticsService, wsHub)
 	interestsHandler := interests.NewHandler(interestsService)
 
 	favouritesRepo := favourites.NewRepository(dbPool)
@@ -293,7 +297,6 @@ func main() {
 	recommendationService := recommendation.NewService(matchRepo, profilesRepo, preferencesRepo, redisClient)
 	recommendationHandler := recommendation.NewHandler(recommendationService)
 
-	wsHub := appwebsocket.NewHub(ctx, redisClient, log)
 	chatRepo := chat.NewRepository(dbPool)
 	chatService := chat.NewService(chatRepo, interestsRepo, blockedRepo, profilesService, publisher, subscriptionsService, analyticsService, wsHub)
 	chatHandler := chat.NewHandler(chatService)

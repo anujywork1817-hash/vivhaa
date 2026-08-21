@@ -20,6 +20,11 @@ class InterestRecord {
   /// Only meaningful on interests you sent.
   final DateTime? viewedAt;
 
+  /// The other party's *user* id — distinct from `profile.id`, which is a
+  /// profile id. Chat threads are keyed by user id, so this is what lets an
+  /// accepted interest open its conversation without a lookup round trip.
+  final String? partnerUserId;
+
   const InterestRecord({
     required this.id,
     required this.profile,
@@ -28,6 +33,7 @@ class InterestRecord {
     required this.timestamp,
     this.otherGender,
     this.viewedAt,
+    this.partnerUserId,
   });
 
   bool get isViewed => viewedAt != null;
@@ -49,6 +55,7 @@ class InterestRecord {
       timestamp: timestamp,
       otherGender: otherGender,
       viewedAt: viewedAt,
+      partnerUserId: partnerUserId,
     );
   }
 }
