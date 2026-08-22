@@ -137,164 +137,185 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
     final isLoading = ref.watch(authControllerProvider).isLoading;
 
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, AppSpacing.xl),
-            child: Column(
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 700),
-                  curve: Curves.easeOutBack,
-                  builder: (context, t, child) => Opacity(
-                    opacity: t.clamp(0.0, 1.0),
-                    child:
-                        Transform.scale(scale: 0.7 + (0.3 * t), child: child),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        margin: const EdgeInsets.only(right: 8, bottom: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.favorite_rounded,
-                            color: Colors.white, size: 18),
+      // The gradient is a full-screen background layer, independent of the
+      // scrollable content's own height. A Stack alone isn't enough here:
+      // Scaffold gives its body loose (not tight) height constraints, so
+      // with no tightly-constrained child, the Stack — and so its
+      // Positioned.fill background — sizes itself down to whatever height
+      // the form content actually needs, leaving the rest of the screen
+      // showing the Scaffold's plain background color underneath.
+      // SizedBox.expand forces the Stack to the full available size
+      // regardless of its children's own height.
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            const Positioned.fill(
+              child: DecoratedBox(
+                  decoration: BoxDecoration(gradient: AppColors.heroGradient)),
+            ),
+            SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xl,
+                    AppSpacing.xxl, AppSpacing.xl, AppSpacing.xl),
+                child: Column(
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeOutBack,
+                      builder: (context, t, child) => Opacity(
+                        opacity: t.clamp(0.0, 1.0),
+                        child: Transform.scale(
+                            scale: 0.7 + (0.3 * t), child: child),
                       ),
-                      const Text(
-                        'Vivah',
-                        style: TextStyle(
-                          fontFamily: 'Georgia',
-                          fontSize: 40,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                _ModeToggle(
-                  mode: _mode,
-                  onChanged:
-                      isLoading ? null : (mode) => setState(() => _mode = mode),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.96),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autofillHints: const [AutofillHints.email],
-                          validator: _validateEmail,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            hintText: 'you@example.com',
-                            prefixIcon: Icon(Icons.mail_outline_rounded),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
+                            margin: const EdgeInsets.only(right: 8, bottom: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.favorite_rounded,
+                                color: Colors.white, size: 18),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          autofillHints: [
-                            _mode == _AuthMode.signUp
-                                ? AutofillHints.newPassword
-                                : AutofillHints.password,
+                          const Text(
+                            'Vivah',
+                            style: TextStyle(
+                              fontFamily: 'Georgia',
+                              fontSize: 40,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    _ModeToggle(
+                      mode: _mode,
+                      onChanged: isLoading
+                          ? null
+                          : (mode) => setState(() => _mode = mode),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusLg),
+                      ),
+                      child: Form(
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [AutofillHints.email],
+                              validator: _validateEmail,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                hintText: 'you@example.com',
+                                prefixIcon: Icon(Icons.mail_outline_rounded),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              autofillHints: [
+                                _mode == _AuthMode.signUp
+                                    ? AutofillHints.newPassword
+                                    : AutofillHints.password,
+                              ],
+                              validator: _validatePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                hintText: _mode == _AuthMode.signUp
+                                    ? 'At least 8 characters'
+                                    : null,
+                                prefixIcon:
+                                    const Icon(Icons.lock_outline_rounded),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(() =>
+                                      _obscurePassword = !_obscurePassword),
+                                ),
+                              ),
+                            ),
+                            if (_mode == _AuthMode.logIn) ...[
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed:
+                                      isLoading ? null : _openForgotPassword,
+                                  child: const Text('Forgot password?'),
+                                ),
+                              ),
+                            ] else
+                              const SizedBox(height: AppSpacing.sm),
+                            const SizedBox(height: AppSpacing.sm),
+                            SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: isLoading ? null : _submit,
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Colors.white),
+                                      )
+                                    : Text(_mode == _AuthMode.signUp
+                                        ? 'Sign Up'
+                                        : 'Log In'),
+                              ),
+                            ),
                           ],
-                          validator: _validatePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            hintText: _mode == _AuthMode.signUp
-                                ? 'At least 8 characters'
-                                : null,
-                            prefixIcon: const Icon(Icons.lock_outline_rounded),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined),
-                              onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
                         ),
-                        if (_mode == _AuthMode.logIn) ...[
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: isLoading ? null : _openForgotPassword,
-                              child: const Text('Forgot password?'),
-                            ),
-                          ),
-                        ] else
-                          const SizedBox(height: AppSpacing.sm),
-                        const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: isLoading ? null : _submit,
-                            child: isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2.2, color: Colors.white),
-                                  )
-                                : Text(_mode == _AuthMode.signUp
-                                    ? 'Sign Up'
-                                    : 'Log In'),
-                          ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Divider(
+                                color: Colors.white.withValues(alpha: 0.4))),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm),
+                          child: Text('or',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85))),
                         ),
+                        Expanded(
+                            child: Divider(
+                                color: Colors.white.withValues(alpha: 0.4))),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
-                  children: [
-                    Expanded(
-                        child: Divider(
-                            color: Colors.white.withValues(alpha: 0.4))),
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                      child: Text('or',
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85))),
+                    const SizedBox(height: AppSpacing.lg),
+                    _ChoicePill(
+                      icon: Icons.g_mobiledata_rounded,
+                      label: 'Continue with Google',
+                      loading: isLoading,
+                      onTap: isLoading ? null : _signInWithGoogle,
                     ),
-                    Expanded(
-                        child: Divider(
-                            color: Colors.white.withValues(alpha: 0.4))),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                _ChoicePill(
-                  icon: Icons.g_mobiledata_rounded,
-                  label: 'Continue with Google',
-                  loading: isLoading,
-                  onTap: isLoading ? null : _signInWithGoogle,
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
