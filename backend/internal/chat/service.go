@@ -215,7 +215,14 @@ func (s *Service) RespondContact(ctx context.Context, responderID, messageID str
 	// GetContactInfoRaw is the same lookup GetContactInfo does, minus
 	// the premium gate, which belongs at *read* time (below and in
 	// GetHistory/ListConversations), not at storage time.
-	contact, err := s.profilesSvc.GetContactInfoRaw(ctx, m.SenderUserID)
+	// BUG: this fetched m.SenderUserID's (the requester's) own contact
+	// info instead of responderID's (the target who's actually sharing
+	// theirs) — a requester with no phone/email on file got a blank
+	// "haven't added a contact number yet" message back even though the
+	// responder genuinely had shared a real number, and any requester who
+	// DID have contact info on file was handed their own number back
+	// instead of the responder's.
+	contact, err := s.profilesSvc.GetContactInfoRaw(ctx, responderID)
 	var sharedBody string
 	if err != nil {
 		if !errors.Is(err, profiles.ErrNotFound) {
