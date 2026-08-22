@@ -5,7 +5,7 @@ import '../../../shared/models/conversation.dart';
 abstract class ChatRepository {
   Future<ApiResult<List<Conversation>>> getConversations();
   Future<ApiResult<List<ChatMessage>>> getMessages(String conversationId);
-  Future<ApiResult<ChatMessage>> sendMessage(String conversationId, String text);
+  Future<ApiResult<ChatMessage>> sendMessage(String conversationId, String text, {String? replyToMessageId});
 
   /// Sends a contact-request message to the partner — does not reveal
   /// anything by itself. The partner must accept or decline via

@@ -18,7 +18,8 @@ func NewHandler(service *Service) *Handler {
 }
 
 type sendMessageRequest struct {
-	Body string `json:"body" validate:"required,min=1,max=4000"`
+	Body      string  `json:"body" validate:"required,min=1,max=4000"`
+	ReplyToID *string `json:"reply_to_message_id"`
 }
 
 func (h *Handler) SendMessage(c *gin.Context) {
@@ -29,7 +30,7 @@ func (h *Handler) SendMessage(c *gin.Context) {
 	}
 
 	userID := c.GetString("user_id")
-	resp, err := h.service.SendMessage(c.Request.Context(), userID, c.Param("userId"), req.Body)
+	resp, err := h.service.SendMessage(c.Request.Context(), userID, c.Param("userId"), req.Body, req.ReplyToID)
 	if err != nil {
 		writeServiceError(c, err)
 		return

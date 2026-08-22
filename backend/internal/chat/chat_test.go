@@ -89,7 +89,7 @@ func TestSendMessage_NoMutualInterest_ReturnsErrChatNotAllowed(t *testing.T) {
 	userA := testdb.NewUser(t, deps.pool, uniquePhone(t))
 	userB := testdb.NewUser(t, deps.pool, uniquePhone(t))
 
-	_, err := deps.svc.SendMessage(context.Background(), userA, userB, "hi there")
+	_, err := deps.svc.SendMessage(context.Background(), userA, userB, "hi there", nil)
 	if !errors.Is(err, ErrChatNotAllowed) {
 		t.Errorf("SendMessage() between unmatched users = %v, want ErrChatNotAllowed", err)
 	}
@@ -101,7 +101,7 @@ func TestSendMessage_MutualInterest_Succeeds(t *testing.T) {
 	userB := testdb.NewUser(t, deps.pool, uniquePhone(t))
 	mustMutualMatch(t, deps, userA, userB)
 
-	resp, err := deps.svc.SendMessage(context.Background(), userA, userB, "hello!")
+	resp, err := deps.svc.SendMessage(context.Background(), userA, userB, "hello!", nil)
 	if err != nil {
 		t.Fatalf("SendMessage() between matched users: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestSendMessage_DeletedMatch_ReturnsErrChatNotAllowed(t *testing.T) {
 	}
 
 	// Sanity: chat works while the match is live.
-	if _, err := deps.svc.SendMessage(ctx, userA, userB, "before unmatch"); err != nil {
+	if _, err := deps.svc.SendMessage(ctx, userA, userB, "before unmatch", nil); err != nil {
 		t.Fatalf("SendMessage() before unmatch: %v", err)
 	}
 
@@ -137,7 +137,7 @@ func TestSendMessage_DeletedMatch_ReturnsErrChatNotAllowed(t *testing.T) {
 		t.Fatalf("interests.Delete (unmatch): %v", err)
 	}
 
-	_, err = deps.svc.SendMessage(ctx, userA, userB, "after unmatch")
+	_, err = deps.svc.SendMessage(ctx, userA, userB, "after unmatch", nil)
 	if !errors.Is(err, ErrChatNotAllowed) {
 		t.Errorf("SendMessage() after unmatch = %v, want ErrChatNotAllowed", err)
 	}
@@ -154,7 +154,7 @@ func TestSendMessage_BlockedUser_ReturnsErrBlocked(t *testing.T) {
 		t.Fatalf("blocked.Create: %v", err)
 	}
 
-	_, err := deps.svc.SendMessage(ctx, userA, userB, "can you see this?")
+	_, err := deps.svc.SendMessage(ctx, userA, userB, "can you see this?", nil)
 	if !errors.Is(err, ErrBlocked) {
 		t.Errorf("SendMessage() to a user who blocked the sender = %v, want ErrBlocked", err)
 	}
@@ -164,7 +164,7 @@ func TestSendMessage_SelfMessage_ReturnsErrSelfMessage(t *testing.T) {
 	deps := newTestDeps(t)
 	userA := testdb.NewUser(t, deps.pool, uniquePhone(t))
 
-	_, err := deps.svc.SendMessage(context.Background(), userA, userA, "hi me")
+	_, err := deps.svc.SendMessage(context.Background(), userA, userA, "hi me", nil)
 	if !errors.Is(err, ErrSelfMessage) {
 		t.Errorf("SendMessage() to self = %v, want ErrSelfMessage", err)
 	}

@@ -49,7 +49,7 @@ func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRe
 	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub}
 }
 
-func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string) (MessageResponse, error) {
+func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string, replyToID *string) (MessageResponse, error) {
 	if senderID == receiverID {
 		return MessageResponse{}, ErrSelfMessage
 	}
@@ -85,9 +85,30 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 		return MessageResponse{}, ErrPremiumRequired
 	}
 
-	m, err := s.repo.CreateMessage(ctx, senderID, receiverID, body, MessageKindText)
+	// A reply target must actually belong to this conversation — otherwise
+	// fail soft (drop the link, still send the message) rather than reject
+	// the whole send over what's a minor UX feature, not a validation the
+	// user did anything wrong to trigger (e.g. the quoted message could've
+	// been deleted/moderated between the swipe and the send completing).
+	var repliedMsg *Message
+	if replyToID != nil {
+		if replied, err := s.repo.GetMessageByID(ctx, *replyToID); err == nil &&
+			(replied.SenderUserID == senderID || replied.SenderUserID == receiverID) &&
+			(replied.ReceiverUserID == senderID || replied.ReceiverUserID == receiverID) {
+			repliedMsg = &replied
+		} else {
+			replyToID = nil
+		}
+	}
+
+	m, err := s.repo.CreateMessage(ctx, senderID, receiverID, body, MessageKindText, replyToID)
 	if err != nil {
 		return MessageResponse{}, err
+	}
+
+	if repliedMsg != nil {
+		m.ReplyToBody = &repliedMsg.Body
+		m.ReplyToSenderUserID = &repliedMsg.SenderUserID
 	}
 
 	resp := toResponse(m)
@@ -141,7 +162,7 @@ func (s *Service) RequestContact(ctx context.Context, requesterID, targetID stri
 	}
 
 	m, err := s.repo.CreateMessage(ctx, requesterID, targetID,
-		"Requested your contact number.", MessageKindContactRequest)
+		"Requested your contact number.", MessageKindContactRequest, nil)
 	if err != nil {
 		return MessageResponse{}, err
 	}
@@ -237,7 +258,7 @@ func (s *Service) RespondContact(ctx context.Context, responderID, messageID str
 		sharedBody = "They accepted, but haven't added a contact number yet."
 	}
 
-	shared, err := s.repo.CreateMessage(ctx, responderID, m.SenderUserID, sharedBody, MessageKindContactShared)
+	shared, err := s.repo.CreateMessage(ctx, responderID, m.SenderUserID, sharedBody, MessageKindContactShared, nil)
 	if err != nil {
 		return resp, err
 	}
@@ -275,7 +296,7 @@ func (s *Service) HandleIncoming(ctx context.Context, userID string, raw []byte)
 		return
 	}
 
-	if _, err := s.SendMessage(ctx, userID, in.ReceiverUserID, in.Body); err != nil {
+	if _, err := s.SendMessage(ctx, userID, in.ReceiverUserID, in.Body, in.ReplyToID); err != nil {
 		s.pushEvent(userID, "error", map[string]string{"message": err.Error()})
 	}
 }
@@ -375,7 +396,7 @@ func (s *Service) pushEvent(userID, eventType string, data any) {
 }
 
 func toResponse(m Message) MessageResponse {
-	return MessageResponse{
+	resp := MessageResponse{
 		ID:             m.ID,
 		SenderUserID:   m.SenderUserID,
 		ReceiverUserID: m.ReceiverUserID,
@@ -384,6 +405,14 @@ func toResponse(m Message) MessageResponse {
 		Read:           m.ReadAt != nil,
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
 	}
+	if m.ReplyToMessageID != nil && m.ReplyToBody != nil && m.ReplyToSenderUserID != nil {
+		resp.ReplyTo = &ReplyToResponse{
+			ID:           *m.ReplyToMessageID,
+			Body:         truncate(*m.ReplyToBody, 140),
+			SenderUserID: *m.ReplyToSenderUserID,
+		}
+	}
+	return resp
 }
 
 func truncate(s string, max int) string {

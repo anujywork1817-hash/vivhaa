@@ -99,12 +99,14 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
   }
 
   ChatMessage _messageFromJson(Map<String, dynamic> data, bool fromPeer) {
+    final replyToJson = data['reply_to'] as Map<String, dynamic>?;
     return ChatMessage(
       id: data['id'] as String,
       text: data['body'] as String,
       fromMe: !fromPeer,
       timestamp: DateTime.parse(data['created_at'] as String),
       kind: _kindFromBackend(data['kind'] as String?),
+      replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
     );
   }
 
@@ -137,10 +139,14 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
   /// it — silently dropping it here previously made a failed send (e.g.
   /// backend rejection) look identical to a successful one that just never
   /// arrived, with no indication of what went wrong.
-  Future<AppFailure?> send(String text) async {
+  Future<AppFailure?> send(String text, {String? replyToMessageId}) async {
     if (text.trim().isEmpty) return null;
     sending = true;
-    final result = await _repository.sendMessage(conversationId, text.trim());
+    final result = await _repository.sendMessage(
+      conversationId,
+      text.trim(),
+      replyToMessageId: replyToMessageId,
+    );
     sending = false;
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
@@ -183,3 +189,11 @@ final messagesControllerProvider = StateNotifierProvider.autoDispose
     conversationId,
   );
 });
+
+/// The message currently being replied to in a given conversation's
+/// composer — set by swiping a bubble, cleared on send or explicit
+/// cancel. Kept separate from [messagesControllerProvider]'s state (the
+/// message list itself) since it's purely local UI state, not something
+/// fetched from or echoed by the backend.
+final replyTargetProvider =
+    StateProvider.autoDispose.family<ChatMessage?, String>((ref, conversationId) => null);

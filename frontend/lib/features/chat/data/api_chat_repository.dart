@@ -70,11 +70,14 @@ class ApiChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ApiResult<ChatMessage>> sendMessage(String conversationId, String text) async {
+  Future<ApiResult<ChatMessage>> sendMessage(String conversationId, String text, {String? replyToMessageId}) async {
     try {
       final response = await _client.dio.post(
         ApiEndpoints.messages(conversationId),
-        data: {'body': text},
+        data: {
+          'body': text,
+          if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
+        },
       );
       final data = response.data['data'] as Map<String, dynamic>;
       return ApiResult.success(_fromJson(data, conversationId));
@@ -111,12 +114,14 @@ class ApiChatRepository implements ChatRepository {
   }
 
   ChatMessage _fromJson(Map<String, dynamic> json, String conversationId) {
+    final replyToJson = json['reply_to'] as Map<String, dynamic>?;
     return ChatMessage(
       id: json['id'] as String,
       text: json['body'] as String,
       fromMe: json['sender_user_id'] != conversationId,
       timestamp: DateTime.parse(json['created_at'] as String),
       kind: _kindFromBackend(json['kind'] as String?),
+      replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
     );
   }
 

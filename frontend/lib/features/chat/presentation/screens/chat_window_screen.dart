@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/exceptions/app_exception.dart';
@@ -50,14 +51,17 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
   Future<void> _send() async {
     final text = _textController.text;
     if (text.trim().isEmpty) return;
-    final failure =
-        await ref.read(messagesControllerProvider(widget.conversationId).notifier).send(text);
+    final replyTarget = ref.read(replyTargetProvider(widget.conversationId));
+    final failure = await ref
+        .read(messagesControllerProvider(widget.conversationId).notifier)
+        .send(text, replyToMessageId: replyTarget?.id);
     if (!mounted) return;
     if (failure == null) {
       // Only clear on success — losing what was typed on a failed send
       // (e.g. a premium_required rejection) would force the member to
       // retype it.
       _textController.clear();
+      ref.read(replyTargetProvider(widget.conversationId).notifier).state = null;
       _scrollToBottom();
       return;
     }
@@ -147,6 +151,8 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
     // premium_required response from an actual send is still caught as a
     // safety net in _send().
     final isPremium = ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? true;
+    final replyTarget = ref.watch(replyTargetProvider(widget.conversationId));
+    final partnerName = conversation?.withProfile.name ?? 'Member';
 
     ref.listen(messagesControllerProvider(widget.conversationId), (_, __) => _scrollToBottom());
 
@@ -204,6 +210,10 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
               itemBuilder: (context, i) => _MessageBubble(
                 message: messages[i],
                 conversationId: widget.conversationId,
+                partnerName: partnerName,
+                onReply: () => ref
+                    .read(replyTargetProvider(widget.conversationId).notifier)
+                    .state = messages[i],
               ),
             ),
           ),
@@ -217,6 +227,10 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
               onSend: _send,
               onRequestContact: _requestContact,
               contactAlreadyShared: conversation?.contactShared ?? false,
+              replyTarget: replyTarget,
+              partnerName: partnerName,
+              onCancelReply: () =>
+                  ref.read(replyTargetProvider(widget.conversationId).notifier).state = null,
             ),
         ],
       ),
@@ -302,14 +316,94 @@ class _UpgradeComposerBar extends StatelessWidget {
 class _MessageBubble extends ConsumerStatefulWidget {
   final ChatMessage message;
   final String conversationId;
-  const _MessageBubble({required this.message, required this.conversationId});
+  final String partnerName;
+  final VoidCallback onReply;
+  const _MessageBubble({
+    required this.message,
+    required this.conversationId,
+    required this.partnerName,
+    required this.onReply,
+  });
 
   @override
   ConsumerState<_MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends ConsumerState<_MessageBubble> {
+class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTickerProviderStateMixin {
   bool _busy = false;
+
+  // WhatsApp-style swipe-to-reply. A GestureDetector (not Dismissible) is
+  // used here because the gesture never actually dismisses anything — the
+  // bubble always returns to x=0, whether the swipe crossed the reply
+  // threshold or not, so Dismissible's confirmDismiss-always-false trick
+  // would just be fighting Dismissible's own dismiss/resize machinery for
+  // no benefit. onHorizontalDragUpdate tracks the raw drag delta, but the
+  // bubble's visual offset is a *resisted* function of it (see
+  // _resistedOffset) so it decelerates rather than tracking 1:1, and an
+  // AnimationController drives the snap-back on release so the bubble
+  // eases back to 0 instead of jumping.
+  late final AnimationController _snapController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+  Animation<double>? _snapAnimation;
+
+  double _dragExtent = 0; // raw, unresisted cumulative drag distance
+  double _offset = 0; // resisted offset actually applied to the bubble
+  bool _triggered = false;
+
+  static const double _maxOffset = 72;
+  static const double _triggerThreshold = 44;
+
+  // Only messages from the peer swipe left-to-right and vice versa in real
+  // WhatsApp, but this app's bubbles can be swiped either horizontal
+  // direction — simpler and still reads fine since the reply icon fades in
+  // on whichever side the drag reveals.
+  double _resistedOffset(double dragExtent) {
+    final direction = dragExtent.sign;
+    final magnitude = dragExtent.abs();
+    // Rubber-band curve: approaches _maxOffset asymptotically rather than
+    // clamping hard, so the last bit of drag still feels alive instead of
+    // hitting a wall.
+    final resisted = _maxOffset * (1 - (1 / ((magnitude / _maxOffset) + 1)));
+    return direction * resisted;
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragExtent += details.delta.dx;
+      _offset = _resistedOffset(_dragExtent);
+      final crossedThreshold = _offset.abs() >= _triggerThreshold;
+      if (crossedThreshold && !_triggered) {
+        _triggered = true;
+        HapticFeedback.selectionClick();
+      } else if (!crossedThreshold) {
+        _triggered = false;
+      }
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_triggered) widget.onReply();
+    _snapBack();
+  }
+
+  void _snapBack() {
+    _snapAnimation = Tween<double>(begin: _offset, end: 0).animate(
+      CurvedAnimation(parent: _snapController, curve: Curves.easeOut),
+    )..addListener(() => setState(() => _offset = _snapAnimation!.value));
+    _snapController
+      ..reset()
+      ..forward();
+    _dragExtent = 0;
+    _triggered = false;
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    super.dispose();
+  }
 
   Future<void> _respond(bool accept) async {
     setState(() => _busy = true);
@@ -359,70 +453,144 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> {
       _ => (null, message.text),
     };
 
-    return Align(
-      alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-        decoration: BoxDecoration(
-          color: message.fromMe ? context.colors.accent : context.colors.surface,
-          border: message.fromMe ? null : Border.all(color: context.colors.line),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(message.fromMe ? 14 : 2),
-            bottomRight: Radius.circular(message.fromMe ? 2 : 14),
-          ),
+    final replyTo = message.replyTo;
+    // Only text/special messages get the swipe-to-reply affordance and a
+    // reply icon — a swipeable system bubble wouldn't make sense (handled
+    // by the early return above), and every remaining kind here is a real
+    // message row that can be replied to.
+    final revealProgress = (_offset.abs() / _triggerThreshold).clamp(0.0, 1.0);
+
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+      decoration: BoxDecoration(
+        color: message.fromMe ? context.colors.accent : context.colors.surface,
+        border: message.fromMe ? null : Border.all(color: context.colors.line),
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(14),
+          topRight: const Radius.circular(14),
+          bottomLeft: Radius.circular(message.fromMe ? 14 : 2),
+          bottomRight: Radius.circular(message.fromMe ? 2 : 14),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isSpecial)
-              Row(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (replyTo != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: (message.fromMe ? Colors.white : context.colors.accent).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+                border: Border(
+                  left: BorderSide(
+                    color: message.fromMe ? Colors.white : context.colors.accent,
+                    width: 3,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 14, color: message.fromMe ? Colors.white : context.colors.accent),
-                    const SizedBox(width: 4),
-                  ],
+                  Text(
+                    // conversationId is the partner's *user* ID — a
+                    // reply's quoted sender is "them" if it matches that,
+                    // "You" otherwise (the only other possibility, since a
+                    // reply can only quote one of the two participants).
+                    replyTo.senderUserId == widget.conversationId ? widget.partnerName : 'You',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: message.fromMe ? Colors.white : context.colors.accent,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    replyTo.body,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: (message.fromMe ? Colors.white : context.colors.ink).withValues(alpha: 0.75),
+                    ),
+                  ),
                 ],
-              ),
-            Text(
-              label,
-              style: TextStyle(
-                color: message.fromMe ? Colors.white : context.colors.ink,
-                fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
-            if (awaitingMyResponse) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy ? null : () => _respond(false),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 32),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    child: const Text('Decline'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _busy ? null : () => _respond(true),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 32),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
-                    child: const Text('Accept'),
-                  ),
+          if (isSpecial)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 14, color: message.fromMe ? Colors.white : context.colors.accent),
+                  const SizedBox(width: 4),
                 ],
-              ),
-            ],
+              ],
+            ),
+          Text(
+            label,
+            style: TextStyle(
+              color: message.fromMe ? Colors.white : context.colors.ink,
+              fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          if (awaitingMyResponse) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  onPressed: _busy ? null : () => _respond(false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('Decline'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _busy ? null : () => _respond(true),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text('Accept'),
+                ),
+              ],
+            ),
           ],
-        ),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragCancel: _snapBack,
+      child: Stack(
+        alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
+        children: [
+          if (_offset != 0)
+            Positioned(
+              left: _offset > 0 ? 0 : null,
+              right: _offset < 0 ? 0 : null,
+              child: Opacity(
+                opacity: revealProgress,
+                child: Icon(Icons.reply_rounded, color: context.colors.muted, size: 20),
+              ),
+            ),
+          Transform.translate(
+            offset: Offset(_offset, 0),
+            child: Align(
+              alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: bubble,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -433,12 +601,18 @@ class _Composer extends ConsumerWidget {
   final VoidCallback onSend;
   final VoidCallback onRequestContact;
   final bool contactAlreadyShared;
+  final ChatMessage? replyTarget;
+  final String partnerName;
+  final VoidCallback onCancelReply;
 
   const _Composer({
     required this.controller,
     required this.onSend,
     required this.onRequestContact,
     required this.contactAlreadyShared,
+    required this.replyTarget,
+    required this.partnerName,
+    required this.onCancelReply,
   });
 
   @override
@@ -451,7 +625,15 @@ class _Composer extends ConsumerWidget {
           color: context.colors.surface,
           border: Border(top: BorderSide(color: context.colors.line)),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (replyTarget != null) _ReplyPreviewBar(
+              message: replyTarget!,
+              partnerName: partnerName,
+              onCancel: onCancelReply,
+            ),
+            Row(
           children: [
             IconButton(
               icon: Icon(
@@ -478,8 +660,71 @@ class _Composer extends ConsumerWidget {
               icon: Icon(Icons.send_rounded, color: context.colors.accent),
               onPressed: onSend,
             ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Compact quote-style preview shown above the composer while a reply is
+/// pending — mirrors the quoted block rendered inside a reply bubble
+/// itself, but neutral-toned since it isn't tied to a bubble's own color.
+class _ReplyPreviewBar extends StatelessWidget {
+  final ChatMessage message;
+  final String partnerName;
+  final VoidCallback onCancel;
+
+  const _ReplyPreviewBar({
+    required this.message,
+    required this.partnerName,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.colors.accentSoft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border(left: BorderSide(color: context.colors.accent, width: 3)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message.fromMe ? 'You' : partnerName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: context.colors.accent,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.close_rounded, size: 18, color: context.colors.muted),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: onCancel,
+          ),
+        ],
       ),
     );
   }

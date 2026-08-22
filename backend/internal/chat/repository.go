@@ -18,14 +18,14 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) CreateMessage(ctx context.Context, senderID, receiverID, body, kind string) (Message, error) {
+func (r *Repository) CreateMessage(ctx context.Context, senderID, receiverID, body, kind string, replyToID *string) (Message, error) {
 	const q = `
-		INSERT INTO chat_messages (sender_user_id, receiver_user_id, body, kind)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, sender_user_id, receiver_user_id, body, kind, read_at, created_at`
+		INSERT INTO chat_messages (sender_user_id, receiver_user_id, body, kind, reply_to_message_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, sender_user_id, receiver_user_id, body, kind, read_at, created_at, reply_to_message_id`
 	var m Message
-	err := r.db.QueryRow(ctx, q, senderID, receiverID, body, kind).Scan(
-		&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt)
+	err := r.db.QueryRow(ctx, q, senderID, receiverID, body, kind, replyToID).Scan(
+		&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt, &m.ReplyToMessageID)
 	return m, err
 }
 
@@ -33,11 +33,14 @@ func (r *Repository) CreateMessage(ctx context.Context, senderID, receiverID, bo
 // most recent `limit` messages.
 func (r *Repository) History(ctx context.Context, userID, partnerID string, limit int) ([]Message, error) {
 	const q = `
-		SELECT id, sender_user_id, receiver_user_id, body, kind, read_at, created_at FROM (
-			SELECT id, sender_user_id, receiver_user_id, body, kind, read_at, created_at
-			FROM chat_messages
-			WHERE (sender_user_id = $1 AND receiver_user_id = $2) OR (sender_user_id = $2 AND receiver_user_id = $1)
-			ORDER BY created_at DESC
+		SELECT id, sender_user_id, receiver_user_id, body, kind, read_at, created_at,
+		       reply_to_message_id, reply_body, reply_sender_user_id FROM (
+			SELECT cm.id, cm.sender_user_id, cm.receiver_user_id, cm.body, cm.kind, cm.read_at, cm.created_at,
+			       cm.reply_to_message_id, rt.body AS reply_body, rt.sender_user_id AS reply_sender_user_id
+			FROM chat_messages cm
+			LEFT JOIN chat_messages rt ON rt.id = cm.reply_to_message_id
+			WHERE (cm.sender_user_id = $1 AND cm.receiver_user_id = $2) OR (cm.sender_user_id = $2 AND cm.receiver_user_id = $1)
+			ORDER BY cm.created_at DESC
 			LIMIT $3
 		) recent
 		ORDER BY created_at ASC`
@@ -50,7 +53,10 @@ func (r *Repository) History(ctx context.Context, userID, partnerID string, limi
 	var messages []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt,
+			&m.ReplyToMessageID, &m.ReplyToBody, &m.ReplyToSenderUserID,
+		); err != nil {
 			return nil, err
 		}
 		messages = append(messages, m)

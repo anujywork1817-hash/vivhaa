@@ -24,6 +24,15 @@ type Message struct {
 	Kind           string
 	ReadAt         *time.Time
 	CreatedAt      time.Time
+
+	// ReplyToMessageID is set when this message was sent as a reply to an
+	// earlier one (swipe-to-reply). ReplyToBody/ReplyToSenderUserID are a
+	// brief snapshot of that earlier message for display — populated by
+	// History's join, or filled in by hand right after CreateMessage in
+	// SendMessage (which has no join to draw from), never both at once.
+	ReplyToMessageID    *string
+	ReplyToBody         *string
+	ReplyToSenderUserID *string
 }
 
 // ConversationSummary describes one chat partner for a conversation list.

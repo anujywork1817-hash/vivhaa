@@ -1,13 +1,23 @@
 package chat
 
 type MessageResponse struct {
-	ID             string `json:"id"`
-	SenderUserID   string `json:"sender_user_id"`
-	ReceiverUserID string `json:"receiver_user_id"`
-	Body           string `json:"body"`
-	Kind           string `json:"kind"`
-	Read           bool   `json:"read"`
-	CreatedAt      string `json:"created_at"`
+	ID             string           `json:"id"`
+	SenderUserID   string           `json:"sender_user_id"`
+	ReceiverUserID string           `json:"receiver_user_id"`
+	Body           string           `json:"body"`
+	Kind           string           `json:"kind"`
+	Read           bool             `json:"read"`
+	CreatedAt      string           `json:"created_at"`
+	ReplyTo        *ReplyToResponse `json:"reply_to,omitempty"`
+}
+
+// ReplyToResponse is a brief snapshot of the message being replied to —
+// just enough for the client to render the quoted preview (swipe-to-reply,
+// WhatsApp-style) without a second round trip to fetch the original.
+type ReplyToResponse struct {
+	ID           string `json:"id"`
+	Body         string `json:"body"`
+	SenderUserID string `json:"sender_user_id"`
 }
 
 type ConversationResponse struct {
@@ -23,8 +33,9 @@ type ConversationResponse struct {
 // IncomingWSMessage is the JSON payload a client sends over the WS
 // connection to send a chat message: {"receiver_user_id": "...", "body": "..."}
 type IncomingWSMessage struct {
-	ReceiverUserID string `json:"receiver_user_id"`
-	Body           string `json:"body"`
+	ReceiverUserID string  `json:"receiver_user_id"`
+	Body           string  `json:"body"`
+	ReplyToID      *string `json:"reply_to_message_id,omitempty"`
 }
 
 // OutgoingWSEvent is the JSON payload pushed to clients over the WS
