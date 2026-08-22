@@ -305,28 +305,35 @@ func (s *Service) googleAuthForEmail(ctx context.Context, email, userAgent, ip s
 	user, err := s.repo.GetUserByIdentifier(ctx, email)
 	switch {
 	case errors.Is(err, ErrNotFound):
-		if _, err := s.repo.CreateUser(ctx, nil, &email, nil); err != nil {
+		created, err := s.repo.CreateUser(ctx, nil, &email, nil)
+		if err != nil {
 			return GoogleAuthResponse{}, err
 		}
+		user = created
 		_ = s.analyticsSvc.Track(ctx, "signup_started", nil, map[string]string{"channel": "google"})
-		return s.challengeGoogleSignup(ctx, email)
 	case err != nil:
 		return GoogleAuthResponse{}, err
 	case user.Status == "suspended":
 		return GoogleAuthResponse{}, ErrAccountSuspended
-	case user.Status != "active":
-		// Left pending by an earlier, unfinished phone/email signup for the
-		// same address — finishing via Google still goes through the same
-		// OTP gate as finishing any other way would.
-		return s.challengeGoogleSignup(ctx, email)
 	}
 
-	// An existing, already-active account: Google vouched for this sign-in
-	// once already, at account creation, so a returning user isn't made to
-	// verify again on every single login.
-	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
+	// Google already verified this email as part of issuing the ID token
+	// (GoogleAuth rejects it above otherwise), so — unlike phone/email
+	// signup, which has nothing else vouching for the address — there's
+	// nothing left for a follow-up OTP to actually prove. A brand-new
+	// account, or one left pending by an earlier unfinished phone/email
+	// signup for the same address, goes straight to active here instead
+	// of being challenged again.
+	if user.Status != "active" {
+		if err := s.repo.MarkVerified(ctx, user.ID, "email"); err != nil {
+			return GoogleAuthResponse{}, err
+		}
+		user.Status = "active"
+		_ = s.analyticsSvc.Track(ctx, "signup", &user.ID, map[string]string{"channel": "google"})
+	} else if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
 		return GoogleAuthResponse{}, err
 	}
+
 	auth, err := s.issueTokens(ctx, user, userAgent, ip)
 	if err != nil {
 		return GoogleAuthResponse{}, err
@@ -337,22 +344,6 @@ func (s *Service) googleAuthForEmail(ctx context.Context, email, userAgent, ip s
 		ExpiresAt:    auth.ExpiresAt,
 		User:         &auth.User,
 	}, nil
-}
-
-// challengeGoogleSignup sends the same signup OTP RequestOTP/Signup would,
-// so the caller finishes with the existing, unmodified /auth/verify-otp —
-// no new code path for verification, only for how the challenge gets
-// triggered.
-func (s *Service) challengeGoogleSignup(ctx context.Context, email string) (GoogleAuthResponse, error) {
-	code, err := s.sendOTP(ctx, email, "email", "signup")
-	if err != nil {
-		return GoogleAuthResponse{}, err
-	}
-	resp := GoogleAuthResponse{OTPRequired: true, Identifier: email}
-	if s.devMode {
-		resp.DevOTP = code
-	}
-	return resp, nil
 }
 
 // Login authenticates with identifier + password.

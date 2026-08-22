@@ -336,7 +336,13 @@ func mustCreatePendingEmailUser(t *testing.T, ctx context.Context, pool *pgxpool
 // ---- googleAuthForEmail: the part of GoogleAuth reachable without a live
 // Google ID token (see the comment on googleAuthForEmail itself) ----
 
-func TestGoogleAuthForEmail_NewUser_RequiresOTPInsteadOfIssuingTokens(t *testing.T) {
+// TestGoogleAuthForEmail_NewUser_SignsInDirectly pins the fix for a bug
+// where a brand-new Google signup was challenged with a second OTP even
+// though Google already verified the email as part of issuing the ID
+// token (GoogleAuth rejects the token otherwise) — there was nothing left
+// for that OTP to actually prove, and it contradicted this very function's
+// own doc comment, which always said sign-in should be direct.
+func TestGoogleAuthForEmail_NewUser_SignsInDirectly(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 	email := uniqueEmail(t)
@@ -346,17 +352,14 @@ func TestGoogleAuthForEmail_NewUser_RequiresOTPInsteadOfIssuingTokens(t *testing
 		t.Fatalf("googleAuthForEmail() error: %v", err)
 	}
 
-	if !resp.OTPRequired {
-		t.Fatal("a brand-new Google signup must require OTP, not sign in directly")
+	if resp.OTPRequired {
+		t.Fatal("a brand-new Google signup should sign in directly, not require a second OTP")
 	}
-	if resp.Identifier != email {
-		t.Errorf("resp.Identifier = %q, want %q", resp.Identifier, email)
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
+		t.Error("tokens should be issued immediately for a new Google signup")
 	}
-	if resp.DevOTP == "" {
-		t.Error("devMode should echo the OTP back, same as Signup/RequestOTP")
-	}
-	if resp.AccessToken != "" || resp.RefreshToken != "" {
-		t.Error("no tokens should be issued until the OTP is verified")
+	if resp.User == nil || resp.User.Email == nil || *resp.User.Email != email {
+		t.Errorf("resp.User = %+v, want email %q", resp.User, email)
 	}
 
 	user, err := svc.repo.GetUserByIdentifier(ctx, email)
@@ -364,45 +367,12 @@ func TestGoogleAuthForEmail_NewUser_RequiresOTPInsteadOfIssuingTokens(t *testing
 		t.Fatalf("GetUserByIdentifier() error: %v", err)
 	}
 	t.Cleanup(func() { _, _ = svc.repo.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID) })
-	if user.Status != "pending" {
-		t.Errorf("new Google signup's status = %q, want pending until OTP verified", user.Status)
+	if user.Status != "active" {
+		t.Errorf("new Google signup's status = %q, want active immediately", user.Status)
 	}
 }
 
-// TestGoogleAuthForEmail_NewUser_OTPVerifiesLikeAnyOtherSignup pins that the
-// OTP challengeGoogleSignup sends is a real signup OTP: it activates the
-// account through the exact same, unmodified VerifyOTP used by phone/email
-// signup, with no separate code path.
-func TestGoogleAuthForEmail_NewUser_OTPVerifiesLikeAnyOtherSignup(t *testing.T) {
-	svc := newTestService(t)
-	ctx := context.Background()
-	email := uniqueEmail(t)
-
-	started, err := svc.googleAuthForEmail(ctx, email, "test-agent", "127.0.0.1")
-	if err != nil {
-		t.Fatalf("googleAuthForEmail() error: %v", err)
-	}
-	user, _ := svc.repo.GetUserByIdentifier(ctx, email)
-	t.Cleanup(func() { _, _ = svc.repo.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID) })
-
-	verified, err := svc.VerifyOTP(ctx, VerifyOTPRequest{Identifier: email, Code: started.DevOTP}, "test-agent", "127.0.0.1")
-	if err != nil {
-		t.Fatalf("VerifyOTP() with the Google-signup OTP failed: %v", err)
-	}
-	if verified.AccessToken == "" {
-		t.Error("VerifyOTP() should issue tokens once the Google-signup OTP is correct")
-	}
-
-	activated, err := svc.repo.GetUserByIdentifier(ctx, email)
-	if err != nil {
-		t.Fatalf("GetUserByIdentifier() error: %v", err)
-	}
-	if activated.Status != "active" {
-		t.Errorf("status after verifying = %q, want active", activated.Status)
-	}
-}
-
-func TestGoogleAuthForEmail_PendingUser_RequiresOTP(t *testing.T) {
+func TestGoogleAuthForEmail_PendingUser_ActivatesDirectly(t *testing.T) {
 	svc := newTestService(t)
 	ctx := context.Background()
 	email := uniqueEmail(t)
@@ -412,11 +382,19 @@ func TestGoogleAuthForEmail_PendingUser_RequiresOTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("googleAuthForEmail() error: %v", err)
 	}
-	if !resp.OTPRequired {
-		t.Error("an account left pending by an earlier signup attempt must still clear the OTP gate")
+	if resp.OTPRequired {
+		t.Error("finishing a pending phone/email signup via Google should not require another OTP")
 	}
-	if resp.AccessToken != "" {
-		t.Error("no tokens should be issued for a still-pending account")
+	if resp.AccessToken == "" {
+		t.Error("tokens should be issued once Google activates the pending account")
+	}
+
+	activated, err := svc.repo.GetUserByIdentifier(ctx, email)
+	if err != nil {
+		t.Fatalf("GetUserByIdentifier() error: %v", err)
+	}
+	if activated.Status != "active" {
+		t.Errorf("status after Google auth = %q, want active", activated.Status)
 	}
 }
 
