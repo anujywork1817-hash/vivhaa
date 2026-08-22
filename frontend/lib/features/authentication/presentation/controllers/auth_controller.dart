@@ -123,6 +123,85 @@ class AuthController extends StateNotifier<AuthState> {
     return result;
   }
 
+  Future<bool> signup(String email, String password) async {
+    state = state.copyWith(isLoading: true, clearFailure: true);
+    final result = await _repository.signup(email, password);
+    return result.when(
+      success: (user) {
+        state = state.copyWith(isLoading: false, user: user);
+        unawaited(_push.registerDevice());
+        return true;
+      },
+      failure: (f) {
+        state = state.copyWith(isLoading: false, failure: f);
+        return false;
+      },
+    );
+  }
+
+  Future<bool> login(String email, String password) async {
+    state = state.copyWith(isLoading: true, clearFailure: true);
+    final result = await _repository.login(email, password);
+    return result.when(
+      success: (user) {
+        state = state.copyWith(isLoading: false, user: user);
+        unawaited(_push.registerDevice());
+        return true;
+      },
+      failure: (f) {
+        state = state.copyWith(isLoading: false, failure: f);
+        return false;
+      },
+    );
+  }
+
+  /// Kicks off the forgot-password flow. Always resolves true on a
+  /// successful call (the backend always returns 200 regardless of whether
+  /// the account exists), stashing [email] as pendingContact so
+  /// [resetPassword] knows what to verify the code against.
+  Future<bool> forgotPassword(String email) async {
+    state = state.copyWith(isLoading: true, clearFailure: true, clearDevOtp: true);
+    final result = await _repository.forgotPassword(email);
+    return result.when(
+      success: (devOtp) {
+        state = state.copyWith(
+          isLoading: false,
+          pendingContact: email,
+          lastDevOtp: devOtp,
+          clearDevOtp: devOtp == null,
+        );
+        return true;
+      },
+      failure: (f) {
+        state = state.copyWith(isLoading: false, failure: f);
+        return false;
+      },
+    );
+  }
+
+  Future<bool> resetPassword(String code, String newPassword) async {
+    final contact = state.pendingContact;
+    if (contact == null) {
+      state = state.copyWith(
+        failure: AppFailure.unknown('Start the forgot-password flow again.'),
+      );
+      return false;
+    }
+    state = state.copyWith(isLoading: true, clearFailure: true);
+    final result = await _repository.resetPassword(contact, code, newPassword);
+    return result.when(
+      success: (user) {
+        state = state.copyWith(isLoading: false, user: user);
+        unawaited(_push.registerDevice());
+        return true;
+      },
+      failure: (f) {
+        state = state.copyWith(isLoading: false, failure: f);
+        return false;
+      },
+    );
+  }
+
   /// Runs the real Google account picker, then exchanges the ID token it
   /// returns for a real backend session (the backend verifies the token
   /// itself — this app never trusts the picker result on its own).

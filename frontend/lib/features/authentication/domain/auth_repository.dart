@@ -49,6 +49,26 @@ abstract class AuthRepository {
   Future<ApiResult<AppUser>> verifyOtp(String phoneOrEmail, String code);
   Future<ApiResult<String?>> resendOtp(String phoneOrEmail);
 
+  /// Creates a new account with an email + password and signs it in
+  /// immediately — the new UI always sends a password, so the backend's
+  /// legacy passwordless (`otp_required: true`) branch is never expected
+  /// here; if it's ever hit anyway this surfaces as a plain failure rather
+  /// than a second OTP flow, since nothing in this UI can trigger it.
+  Future<ApiResult<AppUser>> signup(String email, String password);
+
+  /// Logs in with an existing email + password account.
+  Future<ApiResult<AppUser>> login(String email, String password);
+
+  /// Always succeeds (the backend deliberately responds 200 whether or not
+  /// the account exists, to avoid leaking which emails are registered).
+  /// The returned String is the backend's dev_otp — same null-outside-dev
+  /// contract as [requestOtp].
+  Future<ApiResult<String?>> forgotPassword(String email);
+
+  /// Verifies the code [forgotPassword] sent and sets a new password,
+  /// logging the account in immediately on success.
+  Future<ApiResult<AppUser>> resetPassword(String email, String code, String newPassword);
+
   /// Exchanges a Google-issued ID token for a real backend session. The
   /// backend verifies the token itself (signature, issuer, audience) —
   /// this call is only ever as trustworthy as that verification.

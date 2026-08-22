@@ -39,6 +39,10 @@ class ApiEndpoints {
   // returning users (see internal/auth.Service.RequestOTP on the backend).
   static const String requestOtp = '/auth/request-otp';
   static const String verifyOtp = '/auth/verify-otp';
+  static const String signup = '/auth/signup';
+  static const String login = '/auth/login';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String resetPassword = '/auth/reset-password';
   static const String googleAuth = '/auth/google';
   static const String refreshToken = '/auth/refresh-token';
   static const String logout = '/auth/logout';

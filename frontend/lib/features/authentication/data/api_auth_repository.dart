@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
 import '../../../core/api/api_result.dart';
+import '../../../core/exceptions/app_exception.dart';
 import '../../../core/network/api_error_mapper.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import '../../../shared/models/user.dart';
 import '../domain/auth_repository.dart';
 
-/// Talks to the real matrimony_backend `/auth/*` endpoints. Passwordless
-/// only: [requestOtp] covers both signup and login (the backend infers
-/// which one applies from whether the identifier already has an active
-/// account), and [verifyOtp] auto-logs-in on success either way.
+/// Talks to the real matrimony_backend `/auth/*` endpoints. [signup]/
+/// [login] are the primary email+password path; [requestOtp]/[verifyOtp]
+/// remain for the legacy passwordless flow that Google sign-in can still
+/// fall into ([loginWithGoogle]'s [GoogleOtpRequired] outcome).
 class ApiAuthRepository implements AuthRepository {
   final ApiClient _client;
   final SecureStorageService _storage;
@@ -43,6 +44,68 @@ class ApiAuthRepository implements AuthRepository {
         data: {'identifier': phoneOrEmail, 'code': code},
       );
       return await _completeLogin(response, fallbackIdentifier: phoneOrEmail);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<AppUser>> signup(String email, String password) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.signup,
+        data: {'email': email, 'password': password},
+      );
+      final data = response.data['data'] as Map<String, dynamic>;
+      if (data['otp_required'] == true) {
+        // Only the legacy passwordless signup shape hits this — this UI
+        // always sends a password, so the backend should never take this
+        // branch for a request that originated here.
+        return ApiResult.failure(AppFailure.unknown(
+          'Something went wrong creating your account. Please try again.',
+        ));
+      }
+      return await _completeLogin(response, fallbackIdentifier: email);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<AppUser>> login(String email, String password) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.login,
+        data: {'identifier': email, 'password': password},
+      );
+      return await _completeLogin(response, fallbackIdentifier: email);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<String?>> forgotPassword(String email) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.forgotPassword,
+        data: {'identifier': email},
+      );
+      final data = response.data['data'] as Map<String, dynamic>?;
+      return ApiResult.success(data?['dev_otp'] as String?);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<AppUser>> resetPassword(String email, String code, String newPassword) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.resetPassword,
+        data: {'identifier': email, 'code': code, 'new_password': newPassword},
+      );
+      return await _completeLogin(response, fallbackIdentifier: email);
     } on DioException catch (e) {
       return ApiResult.failure(mapDioException(e));
     }

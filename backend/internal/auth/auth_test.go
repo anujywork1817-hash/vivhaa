@@ -132,14 +132,51 @@ func newTestService(t *testing.T) *Service {
 	)
 }
 
-func TestSignup_CreatesPendingUserAndSendsOTP(t *testing.T) {
+// TestSignup_WithPassword_ActivatesAndSignsInImmediately pins the current
+// behavior: a password is proof enough to start using the app right away,
+// no OTP challenge — unlike the legacy passwordless path.
+func TestSignup_WithPassword_ActivatesAndSignsInImmediately(t *testing.T) {
 	svc := newTestService(t)
 	phone := uniquePhone(t)
 	ctx := context.Background()
 
-	resp, err := svc.Signup(ctx, SignupRequest{Phone: phone, Password: "correct-horse-1"})
+	resp, err := svc.Signup(ctx, SignupRequest{Phone: phone, Password: "correct-horse-1"}, "test-agent", "127.0.0.1")
 	if err != nil {
 		t.Fatalf("Signup() error: %v", err)
+	}
+	if resp.OTPRequired {
+		t.Fatal("a password signup should not require OTP")
+	}
+	if resp.AccessToken == "" || resp.RefreshToken == "" {
+		t.Error("Signup() with a password should issue tokens immediately")
+	}
+	if resp.User == nil || resp.User.Phone == nil || *resp.User.Phone != phone {
+		t.Errorf("resp.User = %+v, want phone %q", resp.User, phone)
+	}
+
+	user, err := svc.repo.GetUserByIdentifier(ctx, phone)
+	if err != nil {
+		t.Fatalf("GetUserByIdentifier() error: %v", err)
+	}
+	if user.Status != "active" {
+		t.Errorf("password signup's status = %q, want active immediately", user.Status)
+	}
+	t.Cleanup(func() { _, _ = svc.repo.db.Exec(ctx, `DELETE FROM users WHERE id = $1`, user.ID) })
+}
+
+// TestSignup_NoPassword_CreatesPendingUserAndSendsOTP pins the legacy
+// passwordless path still used by RequestOTP-only callers.
+func TestSignup_NoPassword_CreatesPendingUserAndSendsOTP(t *testing.T) {
+	svc := newTestService(t)
+	phone := uniquePhone(t)
+	ctx := context.Background()
+
+	resp, err := svc.Signup(ctx, SignupRequest{Phone: phone}, "test-agent", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("Signup() error: %v", err)
+	}
+	if !resp.OTPRequired {
+		t.Fatal("a passwordless signup should require OTP")
 	}
 	if resp.Identifier != phone || resp.Channel != "phone" {
 		t.Errorf("Signup() response = %+v, want identifier=%s channel=phone", resp, phone)
@@ -165,7 +202,7 @@ func TestSignup_AlreadyActiveAccount_ReturnsErrAlreadyRegistered(t *testing.T) {
 
 	mustCreateActiveUser(t, ctx, svc.repo.db, phone, "some-password-1")
 
-	_, err := svc.Signup(ctx, SignupRequest{Phone: phone, Password: "another-password-1"})
+	_, err := svc.Signup(ctx, SignupRequest{Phone: phone, Password: "another-password-1"}, "test-agent", "127.0.0.1")
 	if !errors.Is(err, ErrAlreadyRegistered) {
 		t.Errorf("Signup() for an already-active identifier = %v, want ErrAlreadyRegistered", err)
 	}

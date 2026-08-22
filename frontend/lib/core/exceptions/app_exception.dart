@@ -18,10 +18,17 @@ class AppFailure implements Exception {
   final String message;
   final Map<String, String>? fieldErrors;
 
+  /// The backend's machine-readable `error.code` (e.g. `already_registered`,
+  /// `invalid_credentials`, `otp_not_found`), when the response carried one.
+  /// Lets a screen branch on the specific error (switch to login mode, show
+  /// a field-specific message) without parsing [message] text.
+  final String? code;
+
   const AppFailure({
     required this.type,
     required this.message,
     this.fieldErrors,
+    this.code,
   });
 
   factory AppFailure.network([String? message]) => AppFailure(
@@ -39,8 +46,8 @@ class AppFailure implements Exception {
         message: message ?? 'Your session has expired. Please sign in again.',
       );
 
-  factory AppFailure.validation(String message, [Map<String, String>? fields]) =>
-      AppFailure(type: AppFailureType.validation, message: message, fieldErrors: fields);
+  factory AppFailure.validation(String message, [Map<String, String>? fields, String? code]) =>
+      AppFailure(type: AppFailureType.validation, message: message, fieldErrors: fields, code: code);
 
   factory AppFailure.server([String? message]) => AppFailure(
         type: AppFailureType.server,

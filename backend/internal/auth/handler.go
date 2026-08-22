@@ -51,12 +51,50 @@ func (h *Handler) Signup(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Signup(c.Request.Context(), req)
+	resp, err := h.service.Signup(c.Request.Context(), req, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		writeServiceError(c, err)
 		return
 	}
+	if !resp.OTPRequired {
+		h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
+	}
 	response.Success(c, http.StatusCreated, resp, nil)
+}
+
+// ForgotPassword always responds 200 regardless of whether identifier
+// belongs to a real account — see Service.ForgotPassword's doc on why.
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if !bindAndValidate(c, &req) {
+		return
+	}
+
+	code, err := h.service.ForgotPassword(c.Request.Context(), req.Identifier)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	resp := ForgotPasswordResponse{Message: "If that account has a password set, a reset code has been sent."}
+	if code != "" {
+		resp.DevOTP = code
+	}
+	response.OK(c, resp)
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if !bindAndValidate(c, &req) {
+		return
+	}
+
+	resp, err := h.service.ResetPassword(c.Request.Context(), req, c.Request.UserAgent(), c.ClientIP())
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	h.setAuthCookies(c, resp.AccessToken, resp.RefreshToken)
+	response.OK(c, resp)
 }
 
 // RequestLinkPhoneOTP starts attaching a phone number to the caller's own

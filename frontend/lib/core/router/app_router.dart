@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/authentication/presentation/screens/auth_choice_screen.dart';
-import '../../features/authentication/presentation/screens/login_screen.dart';
+import '../../features/authentication/presentation/screens/forgot_password_screen.dart';
 import '../../features/authentication/presentation/screens/otp_screen.dart';
+import '../../features/authentication/presentation/screens/reset_password_screen.dart';
 import '../../features/authentication/presentation/screens/splash_screen.dart';
 import '../../features/calls/presentation/screens/call_history_screen.dart';
 import '../../features/chat/presentation/screens/chat_window_screen.dart';
@@ -63,12 +64,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: AppRoutes.authChoice, builder: (_, __) => const AuthChoiceScreen()),
-      GoRoute(
-        path: AppRoutes.login,
-        builder: (_, state) =>
-            LoginScreen(mode: (state.extra as ContactMode?) ?? ContactMode.login),
-      ),
       GoRoute(path: AppRoutes.otp, builder: (_, __) => const OtpScreen()),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        builder: (_, state) => ForgotPasswordScreen(initialEmail: state.extra as String?),
+      ),
+      GoRoute(path: AppRoutes.resetPassword, builder: (_, __) => const ResetPasswordScreen()),
 
       GoRoute(path: AppRoutes.profileFor, builder: (_, __) => const ProfileForScreen()),
       GoRoute(path: AppRoutes.nameDob, builder: (_, __) => const NameDobScreen()),

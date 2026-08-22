@@ -83,6 +83,17 @@ func (r *Repository) LinkPhone(ctx context.Context, userID, phone string) error 
 	return err
 }
 
+// ActivateUser flips status straight to active with no channel-verified
+// flag set — used by password signup, which treats a chosen password as
+// proof enough to start using the app, deferring proof of the email/phone
+// itself to whenever the forgot-password flow actually needs it. Refuses
+// to reactivate a suspended account, same guard as MarkVerified.
+func (r *Repository) ActivateUser(ctx context.Context, userID string) error {
+	const q = `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status <> 'suspended'`
+	_, err := r.db.Exec(ctx, q, userID)
+	return err
+}
+
 func (r *Repository) UpdateLastLogin(ctx context.Context, userID string) error {
 	const q = `UPDATE users SET last_login_at = now() WHERE id = $1`
 	_, err := r.db.Exec(ctx, q, userID)

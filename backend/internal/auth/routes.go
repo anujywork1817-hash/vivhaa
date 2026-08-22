@@ -39,6 +39,12 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter
 	auth.POST("/login",
 		middleware.RateLimit(limiter, "login:ip", loginIPLimit, loginIPWindow, middleware.ByIP()),
 		h.Login)
+	auth.POST("/forgot-password",
+		middleware.RateLimit(limiter, "otp_request:ip", otpRequestIPLimit, otpRequestIPWindow, middleware.ByIP()),
+		h.ForgotPassword)
+	auth.POST("/reset-password",
+		middleware.RateLimit(limiter, "otp_verify:ip", otpVerifyIPLimit, otpVerifyIPWindow, middleware.ByIP()),
+		h.ResetPassword)
 	auth.POST("/refresh-token", h.Refresh)
 	auth.POST("/logout", middleware.RequireAuth(issuer), h.Logout)
 

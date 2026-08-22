@@ -27,7 +27,7 @@ AppFailure mapDioException(DioException e) {
   switch (status) {
     case 400:
     case 422:
-      return AppFailure.validation(message ?? 'That input isn\'t valid.', fieldErrors);
+      return AppFailure.validation(message ?? 'That input isn\'t valid.', fieldErrors, code);
     case 401:
       return AppFailure.unauthorized(message);
     case 402:
@@ -40,11 +40,24 @@ AppFailure mapDioException(DioException e) {
       return AppFailure(
         type: AppFailureType.forbidden,
         message: message ?? 'You don\'t have access to do that.',
+        code: code,
       );
     case 404:
       return AppFailure(
         type: AppFailureType.notFound,
         message: message ?? 'That couldn\'t be found.',
+      );
+    case 409:
+      return AppFailure(
+        type: AppFailureType.validation,
+        message: message ?? 'That account already exists.',
+        code: code,
+      );
+    case 429:
+      return AppFailure(
+        type: AppFailureType.validation,
+        message: message ?? 'Too many attempts. Please try again later.',
+        code: code,
       );
     case null:
       return AppFailure.network();

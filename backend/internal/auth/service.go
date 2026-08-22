@@ -80,8 +80,11 @@ func channelFor(phone, email string) (identifier, channel string) {
 	return email, "email"
 }
 
-// Signup creates (or resumes) a pending user and sends a signup OTP.
-func (s *Service) Signup(ctx context.Context, req SignupRequest) (SignupResponse, error) {
+// Signup creates (or resumes) a user for identifier. A password-based
+// signup activates and signs the caller in immediately (see
+// SignupResponse's doc); one with no password falls back to the legacy
+// passwordless OTP challenge.
+func (s *Service) Signup(ctx context.Context, req SignupRequest, userAgent, ip string) (SignupResponse, error) {
 	identifier, channel := channelFor(req.Phone, req.Email)
 
 	var passwordHash *string
@@ -94,6 +97,7 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (SignupResponse
 		passwordHash = &h
 	}
 
+	var userID string
 	existing, err := s.repo.GetUserByIdentifier(ctx, identifier)
 	switch {
 	case err == nil && existing.Status == "active":
@@ -101,6 +105,7 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (SignupResponse
 	case err == nil && existing.Status == "suspended":
 		return SignupResponse{}, ErrAccountSuspended
 	case err == nil && existing.Status == "pending":
+		userID = existing.ID
 		if passwordHash != nil {
 			if err := s.repo.UpdateUserPassword(ctx, existing.ID, passwordHash); err != nil {
 				return SignupResponse{}, err
@@ -113,11 +118,34 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (SignupResponse
 		} else {
 			emailPtr = &identifier
 		}
-		if _, err := s.repo.CreateUser(ctx, phonePtr, emailPtr, passwordHash); err != nil {
+		created, err := s.repo.CreateUser(ctx, phonePtr, emailPtr, passwordHash)
+		if err != nil {
 			return SignupResponse{}, err
 		}
+		userID = created.ID
 	case err != nil:
 		return SignupResponse{}, err
+	}
+
+	if passwordHash != nil {
+		if err := s.repo.ActivateUser(ctx, userID); err != nil {
+			return SignupResponse{}, err
+		}
+		user, err := s.repo.GetUserByID(ctx, userID)
+		if err != nil {
+			return SignupResponse{}, err
+		}
+		auth, err := s.issueTokens(ctx, user, userAgent, ip)
+		if err != nil {
+			return SignupResponse{}, err
+		}
+		_ = s.analyticsSvc.Track(ctx, "signup", &user.ID, map[string]string{"channel": channel})
+		return SignupResponse{
+			AccessToken:  auth.AccessToken,
+			RefreshToken: auth.RefreshToken,
+			ExpiresAt:    auth.ExpiresAt,
+			User:         &auth.User,
+		}, nil
 	}
 
 	code, err := s.sendOTP(ctx, identifier, channel, "signup")
@@ -126,9 +154,10 @@ func (s *Service) Signup(ctx context.Context, req SignupRequest) (SignupResponse
 	}
 
 	resp := SignupResponse{
-		Identifier: identifier,
-		Channel:    channel,
-		Message:    "OTP sent, verify to activate your account",
+		OTPRequired: true,
+		Identifier:  identifier,
+		Channel:     channel,
+		Message:     "OTP sent, verify to activate your account",
 	}
 	if s.devMode {
 		resp.DevOTP = code
@@ -441,6 +470,77 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ip str
 	}
 
 	if err := s.repo.UpdateLastLogin(ctx, user.ID); err != nil {
+		return AuthResponse{}, err
+	}
+
+	return s.issueTokens(ctx, user, userAgent, ip)
+}
+
+// ForgotPassword sends a reset code to identifier if — and only
+// observably if the caller can't tell the difference — it belongs to an
+// account with a password set. Deliberately never distinguishes "no such
+// account" / "account has no password" / "OTP send failed" in what it
+// returns, so a caller can't enumerate registered emails by trying
+// addresses here; genuine send failures are only visible in server logs.
+func (s *Service) ForgotPassword(ctx context.Context, identifier string) (string, error) {
+	if err := s.limiter.Allow(ctx, "forgot_password:identifier:"+identifier, otpRequestLimit, otpRequestWindow); err != nil {
+		return "", err
+	}
+
+	user, err := s.repo.GetUserByIdentifier(ctx, identifier)
+	if err != nil || user.PasswordHash == nil || user.Status == "suspended" {
+		return "", nil
+	}
+
+	code, err := s.sendOTP(ctx, identifier, inferChannel(identifier), "password_reset")
+	if err != nil {
+		// A real send failure is still worth surfacing as an error (retry-
+		// able, not "this account doesn't exist") — only the *existence*
+		// of the account is what stays hidden from the response shape.
+		return "", err
+	}
+	if !s.devMode {
+		return "", nil
+	}
+	return code, nil
+}
+
+// ResetPassword verifies the code ForgotPassword sent and, on success,
+// replaces the account's password — logging the caller in immediately
+// after, the same convenience a fresh signup gets.
+func (s *Service) ResetPassword(ctx context.Context, req ResetPasswordRequest, userAgent, ip string) (AuthResponse, error) {
+	otp, err := s.repo.GetActiveOTP(ctx, req.Identifier, "password_reset")
+	if errors.Is(err, ErrNotFound) {
+		return AuthResponse{}, ErrOTPNotFound
+	}
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if otp.Attempts >= otp.MaxAttempts {
+		return AuthResponse{}, ErrOTPTooManyAttempts
+	}
+	if !compareOTP(req.Code, otp.CodeHash) {
+		_ = s.repo.IncrementOTPAttempts(ctx, otp.ID)
+		return AuthResponse{}, ErrOTPInvalid
+	}
+	if err := s.repo.ConsumeOTP(ctx, otp.ID); err != nil {
+		return AuthResponse{}, err
+	}
+
+	user, err := s.repo.GetUserByIdentifier(ctx, req.Identifier)
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if user.Status == "suspended" {
+		return AuthResponse{}, ErrAccountSuspended
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	h := string(hash)
+	if err := s.repo.UpdateUserPassword(ctx, user.ID, &h); err != nil {
 		return AuthResponse{}, err
 	}
 

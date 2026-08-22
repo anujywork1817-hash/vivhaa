@@ -15,11 +15,44 @@ type SignupRequest struct {
 	Password string `json:"password" validate:"omitempty,min=8"`
 }
 
+// SignupResponse is one of two shapes depending on OTPRequired, same
+// convention as GoogleAuthResponse:
+//
+//   - OTPRequired true: the legacy passwordless path (no password given)
+//     — Identifier/Channel/Message/DevOTP are set, and the client must
+//     call /auth/verify-otp to finish, same as before this field existed.
+//   - OTPRequired false: a password was given. The account activates
+//     immediately and the client is signed in right away — a password is
+//     proof enough for this platform's threat model going forward;
+//     verifying the email/phone is real is deferred to whenever the
+//     password is actually needed (see the forgot-password flow, which
+//     re-proves the address the same way signup used to for everyone).
 type SignupResponse struct {
-	Identifier string `json:"identifier"`
-	Channel    string `json:"channel"`
-	Message    string `json:"message"`
-	DevOTP     string `json:"dev_otp,omitempty"`
+	OTPRequired bool   `json:"otp_required"`
+	Identifier  string `json:"identifier,omitempty"`
+	Channel     string `json:"channel,omitempty"`
+	Message     string `json:"message,omitempty"`
+	DevOTP      string `json:"dev_otp,omitempty"`
+
+	AccessToken  string     `json:"access_token,omitempty"`
+	RefreshToken string     `json:"refresh_token,omitempty"`
+	ExpiresAt    string     `json:"expires_at,omitempty"`
+	User         *UserBrief `json:"user,omitempty"`
+}
+
+type ForgotPasswordRequest struct {
+	Identifier string `json:"identifier" validate:"required"`
+}
+
+type ForgotPasswordResponse struct {
+	Message string `json:"message"`
+	DevOTP  string `json:"dev_otp,omitempty"`
+}
+
+type ResetPasswordRequest struct {
+	Identifier  string `json:"identifier" validate:"required"`
+	Code        string `json:"code" validate:"required,len=6,numeric"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
 
 // RequestOTPRequest is the single passwordless entry point: send an OTP to

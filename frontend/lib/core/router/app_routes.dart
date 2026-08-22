@@ -4,8 +4,9 @@ class AppRoutes {
   // Phase 1 — Onboarding & Registration
   static const String splash = '/';
   static const String authChoice = '/auth';
-  static const String login = '/auth/login';
   static const String otp = '/auth/otp';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String resetPassword = '/auth/reset-password';
 
   static const String profileFor = '/onboarding/profile-for';
   static const String nameDob = '/onboarding/name-dob';
