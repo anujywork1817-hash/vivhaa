@@ -20,8 +20,16 @@ class PhotoUploadScreen extends ConsumerWidget {
     try {
       final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
       if (picked == null) return;
+      // Replaces, not appends: this screen shows a single photo circle —
+      // there's no indication picking again adds a second photo instead
+      // of changing the choice. Appending here meant anyone who picked
+      // twice (e.g. changed their mind about which photo to use) silently
+      // ended up with an extra, unwanted photo in their gallery once
+      // review_confirm_screen.dart's submit uploaded everything still in
+      // photoUrls — invisible until someone else viewed the profile and
+      // saw more photos than the user ever meant to add.
       ref.read(profileCreationControllerProvider.notifier).update((p) => p.copyWith(
-            photoUrls: [...p.photoUrls, picked.path],
+            photoUrls: [picked.path],
             profilePhotoUrl: picked.path,
           ));
     } catch (_) {

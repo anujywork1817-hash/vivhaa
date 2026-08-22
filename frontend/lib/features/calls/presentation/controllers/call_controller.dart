@@ -537,11 +537,29 @@ class CallController extends StateNotifier<CallState> {
     return statuses.values.every((s) => s.isGranted);
   }
 
+  /// A call placed the moment permission is granted (i.e. every "first
+  /// call" on a fresh install, before Android has had any other chance to
+  /// grant camera/mic) can have getUserMedia throw even though
+  /// _ensurePermissions already awaited a granted status — a known
+  /// flutter_webrtc/Android timing quirk where the OS hasn't finished
+  /// propagating the just-granted permission to this process by the time
+  /// the very next call tries to open the camera. It works instantly on
+  /// every later call because the permission is already settled by then,
+  /// which is exactly the "works the second time" symptom this fixes:
+  /// one retry after a brief delay, rather than failing the call outright
+  /// over what's actually just still-catching-up OS state.
   Future<void> _openLocalMedia(bool isVideo) async {
-    _localStream = await navigator.mediaDevices.getUserMedia({
+    final constraints = {
       'audio': true,
       'video': isVideo ? {'facingMode': 'user'} : false,
-    });
+    };
+    try {
+      _localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      debugPrint('CallController: getUserMedia failed on first attempt ($e), retrying once');
+      await Future.delayed(const Duration(milliseconds: 400));
+      _localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    }
     _localStreamController.add(_localStream);
   }
 

@@ -12,6 +12,7 @@ import '../../../../shared/widgets/inputs/app_text_field.dart';
 import '../../../../shared/widgets/misc/app_file_image.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
 import '../../../onboarding/presentation/screens/name_dob_screen.dart' show minSignupAge, maxSignupAge;
+import '../../data/api_profile_photos_repository.dart';
 
 const _maritalOptions = MaritalStatus.values;
 const _dietOptions = DietType.values;
@@ -106,6 +107,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   /// Picks a new profile photo and saves immediately — a photo change is
   /// its own action, so it shouldn't sit unsaved behind the form's Save
   /// button (and the upload has to happen server-side either way).
+  ///
+  /// This circle is a single-photo "change my main picture" control (the
+  /// full gallery lives behind "Manage all photos"), so picking again
+  /// replaces the current main photo rather than silently keeping the old
+  /// one around as an extra, invisible gallery entry — which is what used
+  /// to happen: the new pick became primary, but the previous primary was
+  /// only ever demoted, never removed, so anyone who changed their main
+  /// photo more than once quietly accumulated leftovers nobody but a
+  /// visitor to their profile would ever see.
   Future<void> _pickPhoto(ImageSource source) async {
     final XFile? picked;
     try {
@@ -120,12 +130,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (picked == null) return;
 
     setState(() => _saving = true);
+
+    final photosRepo = ref.read(profilePhotosRepositoryProvider);
+    final beforeResult = await photosRepo.list();
+    final oldPrimaryId = beforeResult.when(
+      success: (photos) {
+        final primaries = photos.where((p) => p.isPrimary);
+        return primaries.isEmpty ? null : primaries.first.id;
+      },
+      failure: (_) => null,
+    );
+
     final controller = ref.read(profileCreationControllerProvider.notifier);
     controller.update((p) => p.copyWith(
           photoUrls: [...p.photoUrls, picked!.path],
           profilePhotoUrl: picked.path,
         ));
     final ok = await controller.submit();
+    if (ok && oldPrimaryId != null) {
+      await photosRepo.delete(oldPrimaryId);
+      await ref.read(profileCreationControllerProvider.notifier).loadExisting();
+    }
     if (!mounted) return;
     setState(() => _saving = false);
     final photoFailures = ref.read(profileCreationControllerProvider).photoUploadFailures;
