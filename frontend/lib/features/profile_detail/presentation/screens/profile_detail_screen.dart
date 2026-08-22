@@ -681,6 +681,7 @@ class _ActionBar extends ConsumerWidget {
                 builder: (_) => ProfileActionsSheet(
                   profileId: profileId,
                   name: name,
+                  isBlocked: conversation?.isBlocked ?? false,
                   onBlocked: () => Navigator.of(context).pop(),
                 ),
               ),

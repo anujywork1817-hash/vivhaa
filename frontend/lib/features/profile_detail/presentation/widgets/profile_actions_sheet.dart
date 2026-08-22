@@ -14,19 +14,29 @@ const _reportReasons = [
   'Other',
 ];
 
-/// "More" menu on the profile-detail screen: favourite toggle, report,
-/// block. Block is a semi-destructive action (they immediately lose
-/// access to message you or view your profile) so it goes behind a
-/// confirmation dialog rather than firing on a single tap, and — since
-/// the profile/chat this sheet was opened from becomes unreachable once
-/// blocked — [onBlocked] lets the caller navigate somewhere sensible
-/// after a successful block instead of leaving a dead screen behind.
+/// "More" menu on the profile-detail screen (and chat window's own "More"):
+/// favourite toggle, report, block/unblock. Block is a semi-destructive
+/// action (they immediately lose access to message you or view your
+/// profile) so it goes behind a confirmation dialog rather than firing on
+/// a single tap, and — since the profile/chat this sheet was opened from
+/// becomes unreachable once blocked — [onBlocked] lets the caller navigate
+/// somewhere sensible after a successful block instead of leaving a dead
+/// screen behind. [isBlocked] switches the row to Unblock (no confirmation
+/// needed — restoring access isn't destructive) when the caller already
+/// knows this member is blocked, e.g. a chat that's currently locked.
 class ProfileActionsSheet extends ConsumerWidget {
   final String profileId;
   final String name;
+  final bool isBlocked;
   final VoidCallback? onBlocked;
 
-  const ProfileActionsSheet({super.key, required this.profileId, required this.name, this.onBlocked});
+  const ProfileActionsSheet({
+    super.key,
+    required this.profileId,
+    required this.name,
+    this.isBlocked = false,
+    this.onBlocked,
+  });
 
   Future<void> _report(BuildContext context, WidgetRef ref) async {
     final reason = await showDialog<String>(
@@ -87,6 +97,22 @@ class ProfileActionsSheet extends ConsumerWidget {
     );
   }
 
+  Future<void> _unblock(BuildContext context, WidgetRef ref) async {
+    final result = await ref.read(blockedUsersActionsProvider).unblock(profileId);
+    if (!context.mounted) return;
+
+    Navigator.of(context).pop(); // close the actions sheet
+    result.when(
+      success: (_) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$name has been unblocked.')));
+      },
+      failure: (f) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavourited = ref.watch(favouriteActionsProvider.select(
@@ -120,11 +146,18 @@ class ProfileActionsSheet extends ConsumerWidget {
             title: const Text('Report'),
             onTap: () => _report(context, ref),
           ),
-          ListTile(
-            leading: Icon(Icons.block_rounded, color: context.colors.danger),
-            title: Text('Block', style: TextStyle(color: context.colors.danger)),
-            onTap: () => _block(context, ref),
-          ),
+          if (isBlocked)
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Unblock'),
+              onTap: () => _unblock(context, ref),
+            )
+          else
+            ListTile(
+              leading: Icon(Icons.block_rounded, color: context.colors.danger),
+              title: Text('Block', style: TextStyle(color: context.colors.danger)),
+              onTap: () => _block(context, ref),
+            ),
           const SizedBox(height: AppSpacing.sm),
         ],
       ),

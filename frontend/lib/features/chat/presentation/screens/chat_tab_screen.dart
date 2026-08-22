@@ -35,13 +35,6 @@ class ChatTabScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history_rounded),
-            tooltip: 'Call history',
-            onPressed: () => context.push(AppRoutes.callHistory),
-          ),
-        ],
       ),
       body: Column(
         children: [

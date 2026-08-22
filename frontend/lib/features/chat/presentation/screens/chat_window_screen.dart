@@ -194,6 +194,7 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
                       builder: (_) => ProfileActionsSheet(
                         profileId: conversation.withProfile.id,
                         name: conversation.withProfile.name,
+                        isBlocked: conversation.isBlocked,
                         onBlocked: () => Navigator.of(context).pop(),
                       ),
                     ),
