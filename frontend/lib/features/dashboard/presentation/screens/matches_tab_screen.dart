@@ -82,7 +82,6 @@ class MatchesTabScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: const Icon(Icons.menu_rounded),
         title: const Text('Matches'),
         centerTitle: false,
       ),
