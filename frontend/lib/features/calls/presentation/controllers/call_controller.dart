@@ -614,13 +614,25 @@ class CallController extends StateNotifier<CallState> {
   /// 'disconnected' that outlasts the grace period both attempt an ICE
   /// restart (_attemptIceRestart) before the call is torn down — only
   /// once those attempts are exhausted does this actually end the call.
+  ///
+  /// Only the caller may renegotiate/restart ICE (avoids both sides
+  /// racing to offer at once) — but that used to mean the CALLEE had no
+  /// fallback at all: _attemptIceRestart no-ops for a non-caller, so if
+  /// the signaling call:end message ever got lost (a dropped socket, the
+  /// app backgrounded right as the other side hung up — the WS delivery
+  /// here is fire-and-forget with no retry, see websocket.Hub.SendToUser),
+  /// the callee's screen was stuck reading "Connected" forever with
+  /// nothing left to notice the call was actually over. The callee now
+  /// gets its own give-up path: it can't restart the connection, but it
+  /// can still declare the call over once it's clear nothing is coming
+  /// back, the same way the caller eventually does.
   void _onIceConnectionStateChange(RTCIceConnectionState iceState) {
     switch (iceState) {
       case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
         _reconnectGraceTimer?.cancel();
         _reconnectGraceTimer = Timer(const Duration(seconds: 8), () {
           if (state.status == CallStatus.connected) {
-            _attemptIceRestart();
+            _giveUpOnConnection();
           }
         });
       case RTCIceConnectionState.RTCIceConnectionStateConnected:
@@ -631,10 +643,24 @@ class CallController extends StateNotifier<CallState> {
         _reconnectGraceTimer?.cancel();
         // 'failed' is already terminal — unlike 'disconnected', there's
         // no self-healing grace period worth waiting out.
-        _attemptIceRestart();
+        _giveUpOnConnection();
       default:
         break;
     }
+  }
+
+  Future<void> _giveUpOnConnection() async {
+    if (state.isCaller) {
+      await _attemptIceRestart();
+      return;
+    }
+    if (!state.isActive) return;
+    debugPrint('CallController: connection lost with no restart path (callee) — ending call locally');
+    // Best-effort notice in case the other side is the one actually stuck
+    // (e.g. its own signaling channel is still fine but media died) — not
+    // required for this side to stop showing a dead call as connected.
+    _socket.send({'type': 'call:end', 'call_id': state.callId, 'reason': 'connection_failed'});
+    await _onRemoteEnded(CallEndReason.connectionFailed);
   }
 
   void toggleMic() {
