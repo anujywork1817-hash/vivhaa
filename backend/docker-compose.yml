@@ -300,6 +300,13 @@ services:
       # under configs/ wouldn't exist at runtime — and secrets shouldn't
       # live in an image layer regardless. Read-only; the worker only reads it.
       - ./configs/secrets:/app/configs/secrets:ro
+      # Fallback mount for hosts where ./configs/secrets ended up owned by
+      # a different user (e.g. created once by a root-run container) and
+      # can no longer be written to by the deploying account — point
+      # FCM_CREDENTIALS_FILE here instead of fighting that directory's
+      # permissions. Unused (and harmless) wherever configs/secrets itself
+      # is writable.
+      - ./configs/fcm-secret:/app/configs/fcm-secret:ro
 
   # One-off ops tool: rebuilds the Elasticsearch index from every profile
   # row in Postgres. Run with `docker compose run --rm reindex` after a
