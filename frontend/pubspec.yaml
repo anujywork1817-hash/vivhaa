@@ -17,6 +17,7 @@ dependencies:
 
   # Navigation
   go_router: ^14.2.0
+  app_links: ^6.3.3
 
   # Networking (ready for real backend; mock services used for now)
   dio: ^5.5.0

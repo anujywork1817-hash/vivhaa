@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -80,9 +81,36 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
   DateTime? _lastBackPressAt;
   Timer? _exitWindowTimer;
 
+  // Handles an incoming shared-profile App Link (see
+  // core/config/deep_link_config.dart — not reachable from outside the
+  // app until a real domain/Play Store listing exist, but the app is
+  // ready to act on one the moment the OS delivers it, cold-start or
+  // while already running). Lives here rather than a separate widget
+  // since this is already the one root-level StatefulWidget wrapping the
+  // whole router.
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _linkSubscription = _appLinks.uriLinkStream.listen(_handleIncomingLink);
+    _appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleIncomingLink(uri);
+    });
+  }
+
+  void _handleIncomingLink(Uri uri) {
+    final segments = uri.pathSegments;
+    if (segments.length == 2 && segments[0] == 'p' && segments[1].isNotEmpty) {
+      widget.router.go(AppRoutes.sharedProfileLinkPath(segments[1]));
+    }
+  }
+
   @override
   void dispose() {
     _exitWindowTimer?.cancel();
+    _linkSubscription?.cancel();
     super.dispose();
   }
 

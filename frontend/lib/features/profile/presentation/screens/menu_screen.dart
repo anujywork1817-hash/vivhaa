@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../../core/config/deep_link_config.dart';
 import '../../../../core/rating/app_rating_controller.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/tour/app_tour_controller.dart';
@@ -31,6 +32,11 @@ class MenuScreen extends ConsumerWidget {
       if (draft.city != null) 'City: ${draft.city}',
       if (draft.profession != null) 'Profession: ${draft.profession}',
       if (code.isNotEmpty) 'Profile ID: $code',
+      // Not live yet — see core/config/deep_link_config.dart for what's
+      // still needed before this actually opens the app/Play Store for a
+      // recipient. Harmless to include meanwhile: the Profile ID line
+      // above is still the real, working fallback.
+      if (code.isNotEmpty) DeepLinkConfig.buildShareLink(code),
     ];
     await Share.share(lines.join('\n'));
   }

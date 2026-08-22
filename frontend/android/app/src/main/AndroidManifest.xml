@@ -39,6 +39,24 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Shared-profile App Link — see
+                 lib/core/config/deep_link_config.dart for what's still
+                 needed before this actually verifies/works: a real domain
+                 (host below MUST match DeepLinkConfig.host exactly), a
+                 hosted assetlinks.json signed with the app's real release
+                 certificate, and a landing page for when the app isn't
+                 installed. autoVerify only succeeds once all of that is
+                 live; until then this intent-filter is harmless but
+                 inert. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="vivah.example.com"
+                    android:pathPrefix="/p"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

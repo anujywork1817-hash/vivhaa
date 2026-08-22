@@ -66,6 +66,14 @@ class AppRoutes {
   static String profileDetailPath(String id) => '/profile/$id';
   static String photoGalleryPath(String id) => '/profile/$id/photos';
 
+  // Shared-profile deep link (see core/config/deep_link_config.dart for
+  // why this isn't reachable from outside the app yet) — the path an
+  // incoming https://<host>/p/:code App Link resolves to; a bare route
+  // rather than a query param so it matches exactly what a browser/OS
+  // hands the app for that URL shape.
+  static const String sharedProfileLink = '/p/:code';
+  static String sharedProfileLinkPath(String code) => '/p/$code';
+
   // Phase 5 — Communication
   static const String interests = '/interests';
   static const String interestDecision = '/interests/decision/:id';

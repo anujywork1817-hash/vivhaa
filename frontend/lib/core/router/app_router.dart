@@ -44,6 +44,7 @@ import '../../features/premium/presentation/screens/order_summary_screen.dart';
 import '../../features/premium/presentation/screens/premium_paywall_screen.dart';
 import '../../features/profile/presentation/screens/menu_screen.dart';
 import '../../features/profile_detail/presentation/screens/profile_detail_screen.dart';
+import '../../features/profile_detail/presentation/screens/shared_profile_link_screen.dart';
 import '../../shared/models/subscription_plan.dart';
 import '../../features/verification/presentation/screens/confirm_selfie_screen.dart';
 import '../../features/verification/presentation/screens/take_selfie_screen.dart';
@@ -157,6 +158,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.profileDetail,
         builder: (_, state) =>
             ProfileDetailScreen(profileId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: AppRoutes.sharedProfileLink,
+        builder: (_, state) =>
+            SharedProfileLinkScreen(code: state.pathParameters['code']!),
       ),
 
       GoRoute(

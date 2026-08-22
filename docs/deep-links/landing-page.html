@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vivah</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background: #FBF3EE; color: #3A2A22;
+         display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .card { text-align: center; padding: 32px; max-width: 360px; }
+  .btn { display: inline-block; margin-top: 20px; padding: 12px 28px; background: #C9836B;
+         color: #fff; border-radius: 999px; text-decoration: none; font-weight: 600; }
+  p { color: #6B5A50; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Vivah</h1>
+    <p>This profile link opens directly in the Vivah app. If you don't have it installed
+       yet, get it here:</p>
+    <!-- Replace with the real Play Store listing URL once published (step 4 in README.md). -->
+    <a class="btn" id="playStoreLink" href="PLAY_STORE_URL">Get the app</a>
+  </div>
+  <script>
+    // Verified App Links open the app directly when it's installed — a
+    // human only ever sees this page's static content when it isn't
+    // (or when a platform other than the OS's own link handling, e.g. a
+    // desktop browser, loaded it directly). No auto-redirect needed;
+    // the button above is the one real thing to click.
+  </script>
+</body>
+</html>
