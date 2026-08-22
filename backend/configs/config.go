@@ -222,7 +222,7 @@ func Load() (*Config, error) {
 			AccessKey:      getEnv("S3_ACCESS_KEY", "minioadmin"),
 			SecretKey:      getEnv("S3_SECRET_KEY", "minioadmin123"),
 			UsePathStyle:   getEnv("S3_USE_PATH_STYLE", "true") == "true",
-			PublicBaseURL:  getEnv("S3_PUBLIC_BASE_URL", "http://localhost:59000/matrimony-photos"),
+			PublicBaseURL:  resolvePublicBaseURL(),
 		},
 		Razorpay: RazorpayConfig{
 			KeyID:         getEnv("RAZORPAY_KEY_ID", ""),
@@ -276,6 +276,31 @@ func splitAndTrim(s string) []string {
 		}
 	}
 	return out
+}
+
+// resolvePublicBaseURL is the address a browser/phone follows to actually
+// view an uploaded profile photo — it gets embedded directly into every
+// photo URL the API returns, so "localhost" here is only ever correct on
+// the machine running the API itself. S3_PUBLIC_HOST (this machine's real
+// LAN IP, per its .env.example docs) already drives S3_PUBLIC_ENDPOINT for
+// the docker-compose deployment path, but that derivation only happens in
+// docker-compose.yml — a natively-run binary (`go run`, or any non-Docker
+// deployment) never saw S3_PUBLIC_HOST at all and silently fell back to
+// the unreachable localhost default, which is why every profile photo
+// failed to load for anyone not on the API server itself. An explicit
+// S3_PUBLIC_BASE_URL always wins if set; otherwise this derives the same
+// thing docker-compose does, from the same S3_PUBLIC_HOST var, so setting
+// just that one var is enough regardless of how the API is actually run.
+func resolvePublicBaseURL() string {
+	if v, ok := os.LookupEnv("S3_PUBLIC_BASE_URL"); ok && v != "" {
+		return v
+	}
+	if host, ok := os.LookupEnv("S3_PUBLIC_HOST"); ok && host != "" {
+		port := getEnv("S3_HOST_PORT", "59000")
+		bucket := getEnv("S3_BUCKET", "matrimony-photos")
+		return fmt.Sprintf("http://%s:%s/%s", host, port, bucket)
+	}
+	return "http://localhost:59000/matrimony-photos"
 }
 
 func getEnv(key, fallback string) string {

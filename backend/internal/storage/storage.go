@@ -53,6 +53,11 @@ func (u *PhotoUploader) UploadProfilePhoto(ctx context.Context, userID string, d
 	return key, url, nil
 }
 
+// PublicURL rebuilds key's URL from the live S3 config — see s3.Client.PublicURL.
+func (u *PhotoUploader) PublicURL(key string) string {
+	return u.client.PublicURL(key)
+}
+
 func (u *PhotoUploader) Delete(ctx context.Context, key string) error {
 	return u.client.Delete(ctx, key)
 }

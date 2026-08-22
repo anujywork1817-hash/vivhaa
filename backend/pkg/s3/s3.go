@@ -108,6 +108,18 @@ func (c *Client) Upload(ctx context.Context, key string, body []byte, contentTyp
 	return fmt.Sprintf("%s/%s", c.publicBaseURL, key), nil
 }
 
+// PublicURL builds key's public URL from the *current* publicBaseURL
+// config rather than trusting whatever was stored at upload time — a
+// photo uploaded while S3_PUBLIC_BASE_URL (or the S3_PUBLIC_HOST it can be
+// derived from) was misconfigured would otherwise stay permanently
+// unreachable even after the config is fixed, since Upload's returned URL
+// gets frozen into the DB. Recomputing it on every read self-heals any
+// such row automatically, the same way verification documents already do
+// via presigned URLs.
+func (c *Client) PublicURL(key string) string {
+	return fmt.Sprintf("%s/%s", c.publicBaseURL, key)
+}
+
 func (c *Client) Delete(ctx context.Context, key string) error {
 	_, err := c.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),

@@ -302,7 +302,7 @@ func (s *Service) UploadPhoto(ctx context.Context, userID string, data []byte, c
 
 	s.publishUpdated(ctx, profile.ID, userID)
 
-	return PhotoResponse{ID: photo.ID, URL: photo.URL, IsPrimary: photo.IsPrimary}, nil
+	return PhotoResponse{ID: photo.ID, URL: s.uploader.PublicURL(photo.ObjectKey), IsPrimary: photo.IsPrimary}, nil
 }
 
 // SetPrimaryPhoto marks one of the caller's own photos as their profile
@@ -327,7 +327,7 @@ func (s *Service) SetPrimaryPhoto(ctx context.Context, userID, photoID string) (
 
 	s.publishUpdated(ctx, profile.ID, userID)
 
-	return PhotoResponse{ID: photo.ID, URL: photo.URL, IsPrimary: true}, nil
+	return PhotoResponse{ID: photo.ID, URL: s.uploader.PublicURL(photo.ObjectKey), IsPrimary: true}, nil
 }
 
 func (s *Service) DeletePhoto(ctx context.Context, userID, photoID string) error {
@@ -380,7 +380,7 @@ func (s *Service) toResponse(ctx context.Context, p Profile) (ProfileResponse, e
 
 	photoResponses := make([]PhotoResponse, 0, len(photos))
 	for _, ph := range photos {
-		photoResponses = append(photoResponses, PhotoResponse{ID: ph.ID, URL: ph.URL, IsPrimary: ph.IsPrimary})
+		photoResponses = append(photoResponses, PhotoResponse{ID: ph.ID, URL: s.uploader.PublicURL(ph.ObjectKey), IsPrimary: ph.IsPrimary})
 	}
 
 	var dobStr *string
