@@ -226,10 +226,23 @@ func (h *Hub) presenceRefreshLoop(ctx context.Context) {
 
 func (h *Hub) refreshPresenceFor(ctx context.Context, userID string) {
 	expiry := time.Now().Add(presenceTTL)
-	if err := h.redis.ZAdd(ctx, presenceKey(userID), redis.Z{
+	key := presenceKey(userID)
+	if err := h.redis.ZAdd(ctx, key, redis.Z{
 		Score: float64(expiry.Unix()), Member: h.instanceID,
 	}).Err(); err != nil {
 		h.log.Warn("websocket: failed to refresh presence", "user_id", userID, "error", err)
+		return
+	}
+	// BUG-M04: IsOnline's ZCount only ever counts score-expired members
+	// out, never removes them, so without a key-level TTL a presence key
+	// was created once per user who ever connected and then sat in Redis
+	// forever — a permanently growing key count, not a permanently
+	// growing set (each key stays tiny, bounded by fleet size). Expire
+	// comfortably past presenceTTL so a normal heartbeat gap can't lapse
+	// it mid-connection; a user who never reconnects has their key
+	// reclaimed shortly after, instead of never.
+	if err := h.redis.Expire(ctx, key, presenceTTL*2).Err(); err != nil {
+		h.log.Warn("websocket: failed to set presence key TTL", "user_id", userID, "error", err)
 	}
 }
 

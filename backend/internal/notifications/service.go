@@ -7,6 +7,7 @@ import (
 )
 
 const defaultLimit = 20
+const maxLimit = 100
 
 type Service struct {
 	repo *Repository
@@ -37,6 +38,11 @@ func (s *Service) List(ctx context.Context, userID string, page, limit int) (Lis
 	}
 	if limit < 1 {
 		limit = defaultLimit
+	}
+	// BUG-L01: no upper bound meant a client (or a probe) could ask for
+	// limit=1000000 and force a full-table-ish scan and a huge response.
+	if limit > maxLimit {
+		limit = maxLimit
 	}
 
 	rows, err := s.repo.List(ctx, userID, limit, (page-1)*limit)

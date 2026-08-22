@@ -227,6 +227,28 @@ func (s *Service) GetContactInfo(ctx context.Context, profileID, requestingUserI
 	return ContactInfoResponse{Phone: owner.Phone, Email: owner.Email}, nil
 }
 
+// GetContactInfoRaw returns targetUserID's phone/email with none of
+// GetContactInfo's gating (block check, visibility, premium feature) —
+// callers must have their own basis for skipping those checks.
+//
+// The only caller is chat.Service.RespondContact, once the contact's
+// owner has explicitly consented to share by accepting the request:
+// that consent is what stands in for GetContactInfo's normal checks,
+// not an oversight. What still must be premium-gated is whether the
+// *requester* is shown the real value, which the caller decides at
+// read time — see contactSharedPaywallBody in package chat.
+func (s *Service) GetContactInfoRaw(ctx context.Context, targetUserID string) (ContactInfoResponse, error) {
+	p, err := s.repo.GetByUserID(ctx, targetUserID)
+	if err != nil {
+		return ContactInfoResponse{}, err
+	}
+	owner, err := s.usersRepo.GetByID(ctx, p.UserID)
+	if err != nil {
+		return ContactInfoResponse{}, err
+	}
+	return ContactInfoResponse{Phone: owner.Phone, Email: owner.Email}, nil
+}
+
 // GetContactInfoByUserID is GetContactInfo keyed by the profile owner's
 // user ID rather than profile ID — used by the chat contact-request
 // accept flow, which only knows the two participants' user IDs.
@@ -259,20 +281,21 @@ func (s *Service) UploadPhoto(ctx context.Context, userID string, data []byte, c
 		return PhotoResponse{}, fmt.Errorf("%w: %v", ErrInvalidImage, err)
 	}
 
-	count, err := s.repo.CountPhotos(ctx, profile.ID)
-	if err != nil {
-		return PhotoResponse{}, err
-	}
-	if count >= maxPhotosPerProfile {
-		return PhotoResponse{}, ErrTooManyPhotos
-	}
-
+	// BUG-M05: the max-photos check and the "is this the first photo"
+	// decision both used to read CountPhotos here, separately from the
+	// insert that followed — two concurrent uploads could each read a
+	// count that was true at read time but stale by the time either
+	// insert committed (both under the limit, or both seeing zero
+	// existing photos). CreatePhoto now does the count check, the
+	// max-photos check, and the insert as one transaction locked on the
+	// profile row, so this is the S3 upload only, kept outside that
+	// transaction so a slow upload never holds the row lock.
 	key, url, err := s.uploader.UploadProfilePhoto(ctx, userID, data, contentType)
 	if err != nil {
 		return PhotoResponse{}, err
 	}
 
-	photo, err := s.repo.CreatePhoto(ctx, profile.ID, key, url, count == 0)
+	photo, err := s.repo.CreatePhoto(ctx, profile.ID, key, url)
 	if err != nil {
 		return PhotoResponse{}, err
 	}

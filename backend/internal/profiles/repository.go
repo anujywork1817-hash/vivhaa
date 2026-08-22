@@ -177,15 +177,52 @@ func (r *Repository) SetSelfieVerified(ctx context.Context, userID string, verif
 	return err
 }
 
-func (r *Repository) CreatePhoto(ctx context.Context, profileID, objectKey, url string, isPrimary bool) (Photo, error) {
+// CreatePhoto inserts a new photo, marking it primary when it's the
+// profile's first. BUG-M05: the caller used to CountPhotos and pass the
+// result in as isPrimary separately — two concurrent first-uploads (the
+// common case: onboarding uploads several photos back to back) could
+// both read count==0 before either insert committed, giving a profile two
+// primary photos with no defined "the" primary. Locking the parent
+// profiles row for the duration of the count+insert serializes concurrent
+// uploads for the same profile without needing a schema change; uploads
+// for different profiles never contend since each locks its own row.
+func (r *Repository) CreatePhoto(ctx context.Context, profileID, objectKey, url string) (Photo, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return Photo{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, `SELECT id FROM profiles WHERE id = $1 FOR UPDATE`, profileID); err != nil {
+		return Photo{}, err
+	}
+
+	var count int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM profile_photos WHERE profile_id = $1`, profileID).Scan(&count); err != nil {
+		return Photo{}, err
+	}
+	// Same lock also closes the max-photos race: two concurrent uploads
+	// at 5-of-6 existing photos used to both read count<max before
+	// either insert committed, letting a profile end up with 7+.
+	if count >= maxPhotosPerProfile {
+		return Photo{}, ErrTooManyPhotos
+	}
+
 	const q = `
 		INSERT INTO profile_photos (profile_id, object_key, url, is_primary)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, profile_id, object_key, url, is_primary, sort_order, created_at`
 	var ph Photo
-	err := r.db.QueryRow(ctx, q, profileID, objectKey, url, isPrimary).Scan(
-		&ph.ID, &ph.ProfileID, &ph.ObjectKey, &ph.URL, &ph.IsPrimary, &ph.SortOrder, &ph.CreatedAt)
-	return ph, err
+	if err := tx.QueryRow(ctx, q, profileID, objectKey, url, count == 0).Scan(
+		&ph.ID, &ph.ProfileID, &ph.ObjectKey, &ph.URL, &ph.IsPrimary, &ph.SortOrder, &ph.CreatedAt); err != nil {
+		return Photo{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Photo{}, err
+	}
+	return ph, nil
 }
 
 // SetPrimaryPhoto makes photoID the profile's primary photo, clearing the

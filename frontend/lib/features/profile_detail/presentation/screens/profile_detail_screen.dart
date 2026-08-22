@@ -605,18 +605,22 @@ class _ActionBar extends ConsumerWidget {
                 onPressed: isInterested
                     ? null
                     : () async {
-                        await ref.read(interestsActionsProvider).send(profile);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Interest sent to $name.'),
-                              action: SnackBarAction(
-                                label: 'VIEW',
-                                onPressed: () => _goToInbox(context, ref),
-                              ),
-                            ),
-                          );
+                        final failure = await ref.read(interestsActionsProvider).send(profile);
+                        if (!context.mounted) return;
+                        if (failure != null) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text(failure.message)));
+                          return;
                         }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Interest sent to $name.'),
+                            action: SnackBarAction(
+                              label: 'VIEW',
+                              onPressed: () => _goToInbox(context, ref),
+                            ),
+                          ),
+                        );
                       },
                 trailingIcon: isInterested ? Icons.check_rounded : Icons.favorite_rounded,
               ),

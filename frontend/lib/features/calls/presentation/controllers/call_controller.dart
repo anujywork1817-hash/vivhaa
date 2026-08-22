@@ -364,7 +364,19 @@ class CallController extends StateNotifier<CallState> {
     _reset(afterDelay: true);
   }
 
-  void _onAccepted(Map<String, dynamic> data) {
+  // BUG-CRIT-02: setRemoteDescription and _flushPendingCandidates were
+  // both fired without awaiting, from a sync method. Dart runs an async
+  // call synchronously only up to its first internal await, then returns
+  // control immediately — setRemoteDescription's native/plugin call
+  // hadn't actually completed by the time _flushPendingCandidates ran
+  // addCandidate calls right after it, so the underlying WebRTC layer
+  // saw candidates arrive before the remote description was applied and
+  // threw "remote description must be set before adding candidates".
+  // Making this async and awaiting each step in order is the fix; it's
+  // still called fire-and-forget from the sync WS event switch above,
+  // which is fine — nothing there needs to block on a call being fully
+  // connected.
+  Future<void> _onAccepted(Map<String, dynamic> data) async {
     if (state.status != CallStatus.calling) return;
     _ringTimeoutTimer?.cancel();
     // Defensive — call:ringing should already have set this, but an
@@ -375,10 +387,10 @@ class CallController extends StateNotifier<CallState> {
       _flushPendingLocalCandidates();
     }
     final answer = data['answer'] as Map<String, dynamic>;
-    _peerConnection?.setRemoteDescription(
+    await _peerConnection?.setRemoteDescription(
       RTCSessionDescription(answer['sdp'] as String, answer['type'] as String),
     );
-    _flushPendingCandidates();
+    await _flushPendingCandidates();
     _markConnected();
   }
 

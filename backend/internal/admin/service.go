@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"time"
 
 	"matrimony-backend/internal/profiles"
@@ -172,9 +172,18 @@ func (s *Service) getVerificationSummary(ctx context.Context, userID string) (*V
 	// BUG-C06: document lives in a private bucket now — mint a fresh
 	// short-lived signed URL rather than trusting anything stored in the
 	// DB (v.DocumentURL is legacy/stale, never read).
+	//
+	// BUG-M02: a presign failure here (transient S3 hiccup, a missing
+	// object) used to fail the whole GetUser call, which blocked an
+	// admin from viewing or suspending an account over nothing more
+	// than a thumbnail not loading. Degrading to an empty DocumentURL
+	// lets the rest of the page — and every admin action on it — work
+	// regardless.
 	docURL, err := s.docUploader.PresignURL(ctx, v.DocumentKey)
 	if err != nil {
-		return nil, fmt.Errorf("presign document url: %w", err)
+		slog.Default().Warn("presign verification document url failed",
+			"user_id", userID, "verification_id", v.ID, "error", err)
+		docURL = ""
 	}
 	return &VerificationSummary{
 		Status:       v.Status,

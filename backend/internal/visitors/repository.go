@@ -36,6 +36,14 @@ func (r *Repository) ListVisitors(ctx context.Context, userID string, limit int)
 		FROM profile_visits v
 		JOIN profiles p ON p.user_id = v.visitor_user_id
 		WHERE v.visited_user_id = $1
+		  -- BUG-M03: unfiltered, a blocked visitor's name/photo/city and the
+		  -- fact that they'd visited at all still leaked into this list —
+		  -- exactly the kind of thing blocking someone is meant to prevent.
+		  AND NOT EXISTS (
+		      SELECT 1 FROM blocked_users b
+		      WHERE (b.user_id = $1 AND b.blocked_user_id = v.visitor_user_id)
+		         OR (b.user_id = v.visitor_user_id AND b.blocked_user_id = $1)
+		  )
 		ORDER BY v.visited_at DESC
 		LIMIT $2`
 	rows, err := r.db.Query(ctx, q, userID, limit)

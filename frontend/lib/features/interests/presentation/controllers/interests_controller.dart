@@ -59,9 +59,16 @@ class InterestsActions {
   final Ref ref;
   InterestsActions(this.ref);
 
-  Future<void> send(MatchProfile profile) async {
-    await ref.read(interestRepositoryProvider).sendInterest(profile);
+  // BUG-M06: this discarded the ApiResult entirely, so a failed send
+  // (rate limited, already interested, blocked) was indistinguishable
+  // from success at every call site — two of them show "Interest sent"
+  // unconditionally right after awaiting this. Returning the failure (or
+  // null on success), same as withdraw() below, lets callers actually
+  // branch on the outcome.
+  Future<AppFailure?> send(MatchProfile profile) async {
+    final result = await ref.read(interestRepositoryProvider).sendInterest(profile);
     ref.invalidate(sentInterestsProvider);
+    return result.when(success: (_) => null, failure: (f) => f);
   }
 
   /// Accepting unlocks chat on the backend immediately, so the conversation

@@ -105,6 +105,18 @@ func (r *Repository) CountByStatus(ctx context.Context, status string) (int, err
 	return total, err
 }
 
+// HasApproved reports whether userID has at least one currently-approved
+// verification of any document type — used to recompute the profile
+// verified badge after a review, rather than assuming this one action
+// alone determines it (a user can hold more than one approved document).
+func (r *Repository) HasApproved(ctx context.Context, userID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM verifications WHERE user_id = $1 AND status = 'approved')`,
+		userID).Scan(&exists)
+	return exists, err
+}
+
 func (r *Repository) Review(ctx context.Context, id, status, reviewerID string, notes *string) (Verification, error) {
 	q := `
 		UPDATE verifications SET status = $2, reviewed_by = $3, review_notes = $4, reviewed_at = now()

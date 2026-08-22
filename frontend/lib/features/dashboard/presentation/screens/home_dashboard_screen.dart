@@ -344,7 +344,14 @@ class _HomeMatchCard extends ConsumerWidget {
                         child: OutlinedButton.icon(
                           onPressed: isInterested
                               ? null
-                              : () => ref.read(interestsActionsProvider).send(profile),
+                              : () async {
+                                  final failure =
+                                      await ref.read(interestsActionsProvider).send(profile);
+                                  if (context.mounted && failure != null) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(content: Text(failure.message)));
+                                  }
+                                },
                           icon: Icon(
                               isInterested ? Icons.check_rounded : Icons.favorite_rounded,
                               size: 13),

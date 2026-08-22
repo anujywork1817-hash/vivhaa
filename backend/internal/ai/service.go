@@ -46,10 +46,6 @@ func (s *Service) Chat(ctx context.Context, userID, message string) (MessageResp
 		return MessageResponse{}, err
 	}
 
-	if _, err := s.repo.Append(ctx, userID, "user", message); err != nil {
-		return MessageResponse{}, err
-	}
-
 	messages := []groq.Message{{Role: "system", Content: systemPrompt}}
 	for _, m := range history {
 		messages = append(messages, groq.Message{Role: m.Role, Content: m.Content})
@@ -61,6 +57,19 @@ func (s *Service) Chat(ctx context.Context, userID, message string) (MessageResp
 		return MessageResponse{}, err
 	}
 
+	// BUG-H03: the user's turn used to be persisted *before* this call,
+	// so any failure here (rate limit, timeout, network blip) left an
+	// orphaned user message with no reply. The next Chat() call would
+	// load that dangling turn as history and append another user
+	// message right after it — two consecutive user-role entries with
+	// no assistant reply between them, which several providers reject
+	// outright and all of them handle as a malformed conversation.
+	// Persisting both turns together, only once the call has actually
+	// succeeded, means a failed request leaves no trace instead of a
+	// permanently broken thread.
+	if _, err := s.repo.Append(ctx, userID, "user", message); err != nil {
+		return MessageResponse{}, err
+	}
 	saved, err := s.repo.Append(ctx, userID, "assistant", reply)
 	if err != nil {
 		return MessageResponse{}, err

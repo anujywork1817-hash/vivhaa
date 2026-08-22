@@ -33,8 +33,21 @@ func (r *Repository) CandidatePool(ctx context.Context, userID string, opposingG
 		  AND NOT p.matchmaking_opt_out
 		  AND ($2::text IS NULL OR p.gender = $2)
 		  AND NOT EXISTS (
+		      -- BUG-H02: missing "deleted_at IS NULL" meant a withdrawn or
+		      -- unmatched interest permanently excluded that candidate from
+		      -- every future recommendation, forever — the soft-delete was
+		      -- meant to let both sides start over (see migration 000016),
+		      -- but this query never honored it.
+		      --
+		      -- Checking both directions (not just $1 as sender) is
+		      -- deliberate too: someone who already sent $1 an interest
+		      -- belongs in $1's Received Interests inbox to accept or
+		      -- decline, not recommended again as a fresh candidate to
+		      -- express interest to.
 		      SELECT 1 FROM interests i
-		      WHERE i.sender_user_id = $1 AND i.receiver_user_id = p.user_id
+		      WHERE i.deleted_at IS NULL
+		        AND ((i.sender_user_id = $1 AND i.receiver_user_id = p.user_id)
+		          OR (i.sender_user_id = p.user_id AND i.receiver_user_id = $1))
 		  )
 		  AND NOT EXISTS (
 		      SELECT 1 FROM blocked_users b

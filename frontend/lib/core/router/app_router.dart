@@ -109,7 +109,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, state) => PremiumPaywallScreen(forceShowPlans: state.extra == true)),
       GoRoute(
         path: AppRoutes.orderSummary,
-        builder: (_, state) => OrderSummaryScreen(plan: state.extra as SubscriptionPlan),
+        // BUG-H04: `extra` is never serialized — a deep link, a process
+        // restart that restores navigation state, or any other path that
+        // reaches this route without going through the paywall's own
+        // push (the only call site that sets it) arrives with extra
+        // null, and the old `as SubscriptionPlan` crashed outright.
+        // Falling back to the plan picker is recoverable; a hard crash
+        // was not.
+        builder: (_, state) {
+          final plan = state.extra;
+          if (plan is! SubscriptionPlan) return const PremiumPaywallScreen();
+          return OrderSummaryScreen(plan: plan);
+        },
       ),
       GoRoute(path: AppRoutes.reviewConfirm, builder: (_, __) => const ReviewConfirmScreen()),
       GoRoute(path: AppRoutes.welcomePending, builder: (_, __) => const WelcomePendingScreen()),

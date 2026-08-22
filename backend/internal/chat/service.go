@@ -29,6 +29,11 @@ var (
 
 const historyLimit = 50
 
+// contactSharedPaywallBody is shown in place of a contact_shared message's
+// real body to a non-premium viewer — computed fresh on every read, never
+// stored, so it can never go stale the way a persisted placeholder would.
+const contactSharedPaywallBody = "Upgrade to Premium to view the contact number they shared."
+
 type Service struct {
 	repo          *Repository
 	interestsRepo *interests.Repository
@@ -199,27 +204,49 @@ func (s *Service) RespondContact(ctx context.Context, responderID, messageID str
 		return resp, nil
 	}
 
-	contact, err := s.profilesSvc.GetContactInfoByUserID(ctx, responderID, m.SenderUserID)
-	sharedBody := "Upgrade to Premium to view the contact number they shared."
-	if err == nil {
-		if contact.Phone != nil && *contact.Phone != "" {
-			sharedBody = "Contact number: " + *contact.Phone
-		} else if contact.Email != nil && *contact.Email != "" {
-			sharedBody = "Contact email: " + *contact.Email
-		} else {
-			sharedBody = "They accepted, but haven't added a contact number yet."
+	// BUG-CRIT-01: this used to run the requester's (m.SenderUserID's)
+	// view_contact premium check *before* creating the message, and
+	// store its outcome as the message's permanent body — so a
+	// non-premium requester's row literally persisted the string
+	// "Upgrade to Premium..." forever, with the real number never
+	// written down anywhere. Upgrading later couldn't recover it: it
+	// was never saved. The responder already consented to share by
+	// accepting, so the real value is always fetched and stored now —
+	// GetContactInfoRaw is the same lookup GetContactInfo does, minus
+	// the premium gate, which belongs at *read* time (below and in
+	// GetHistory/ListConversations), not at storage time.
+	contact, err := s.profilesSvc.GetContactInfoRaw(ctx, m.SenderUserID)
+	var sharedBody string
+	if err != nil {
+		if !errors.Is(err, profiles.ErrNotFound) {
+			return resp, err
 		}
-	} else if !errors.Is(err, profiles.ErrPremiumRequired) {
-		return resp, err
+		sharedBody = "They accepted, but haven't added a contact number yet."
+	} else if contact.Phone != nil && *contact.Phone != "" {
+		sharedBody = "Contact number: " + *contact.Phone
+	} else if contact.Email != nil && *contact.Email != "" {
+		sharedBody = "Contact email: " + *contact.Email
+	} else {
+		sharedBody = "They accepted, but haven't added a contact number yet."
 	}
 
 	shared, err := s.repo.CreateMessage(ctx, responderID, m.SenderUserID, sharedBody, MessageKindContactShared)
 	if err != nil {
 		return resp, err
 	}
-	sharedResp := toResponse(shared)
-	s.pushEvent(m.SenderUserID, "message", sharedResp)
-	s.pushEvent(m.ReceiverUserID, "message", sharedResp)
+
+	// The requester (m.SenderUserID) only sees the real value live if
+	// currently premium — re-checked on every later read too, so
+	// upgrading afterward reveals what was actually shared instead of a
+	// frozen paywall string. The responder always sees their own shared
+	// value: they already know it, and they are the one who agreed to
+	// share it.
+	requesterResp, err := s.viewerFacingResponse(ctx, m.SenderUserID, shared)
+	if err != nil {
+		return resp, err
+	}
+	s.pushEvent(m.SenderUserID, "message", requesterResp)
+	s.pushEvent(m.ReceiverUserID, "message", toResponse(shared))
 
 	_ = s.publisher.PublishNotificationDispatch(ctx, queue.NotificationDispatchEvent{
 		UserID: m.SenderUserID,
@@ -254,11 +281,45 @@ func (s *Service) GetHistory(ctx context.Context, userID, partnerID string) ([]M
 
 	_ = s.repo.MarkConversationRead(ctx, userID, partnerID)
 
+	// Cached per call: every contact_shared row addressed to userID needs
+	// the same premium check, and a conversation can hold more than one
+	// (a contact could be requested, declined, and re-requested).
+	var hasContactAccessChecked, hasContactAccess bool
+
 	out := make([]MessageResponse, 0, len(messages))
 	for _, m := range messages {
+		if m.Kind == MessageKindContactShared && m.ReceiverUserID == userID {
+			if !hasContactAccessChecked {
+				hasContactAccess, err = s.subsSvc.HasFeature(ctx, userID, "view_contact")
+				if err != nil {
+					return nil, err
+				}
+				hasContactAccessChecked = true
+			}
+			if !hasContactAccess {
+				m.Body = contactSharedPaywallBody
+			}
+		}
 		out = append(out, toResponse(m))
 	}
 	return out, nil
+}
+
+// viewerFacingResponse masks m's body for viewerID exactly as GetHistory
+// does for a single message — used for the live WS push sent to the
+// contact-shared message's receiver right when it's created, so what they
+// see immediately matches what a later GetHistory call would show them.
+func (s *Service) viewerFacingResponse(ctx context.Context, viewerID string, m Message) (MessageResponse, error) {
+	if m.Kind == MessageKindContactShared && m.ReceiverUserID == viewerID {
+		hasAccess, err := s.subsSvc.HasFeature(ctx, viewerID, "view_contact")
+		if err != nil {
+			return MessageResponse{}, err
+		}
+		if !hasAccess {
+			m.Body = contactSharedPaywallBody
+		}
+	}
+	return toResponse(m), nil
 }
 
 func (s *Service) ListConversations(ctx context.Context, userID string) ([]ConversationResponse, error) {
@@ -267,13 +328,29 @@ func (s *Service) ListConversations(ctx context.Context, userID string) ([]Conve
 		return nil, err
 	}
 
+	// Same premium check as GetHistory, cached across rows for one caller.
+	var hasContactAccessChecked, hasContactAccess bool
+
 	out := make([]ConversationResponse, 0, len(rows))
 	for _, r := range rows {
+		lastMessage := r.LastMessage
+		if r.LastMessageKind == MessageKindContactShared && r.LastMessageReceiverUserID == userID {
+			if !hasContactAccessChecked {
+				hasContactAccess, err = s.subsSvc.HasFeature(ctx, userID, "view_contact")
+				if err != nil {
+					return nil, err
+				}
+				hasContactAccessChecked = true
+			}
+			if !hasContactAccess {
+				lastMessage = contactSharedPaywallBody
+			}
+		}
 		out = append(out, ConversationResponse{
 			PartnerUserID:   r.PartnerUserID,
 			PartnerName:     r.PartnerName,
 			PartnerPhotoURL: r.PartnerPhotoURL,
-			LastMessage:     r.LastMessage,
+			LastMessage:     lastMessage,
 			LastMessageAt:   r.LastMessageAt.Format(time.RFC3339),
 			UnreadCount:     r.UnreadCount,
 			IsBlocked:       r.IsBlocked,

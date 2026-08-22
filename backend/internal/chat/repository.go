@@ -112,7 +112,7 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 		WITH convo AS (
 			SELECT
 				CASE WHEN sender_user_id = $1 THEN receiver_user_id ELSE sender_user_id END AS partner_id,
-				body, created_at,
+				body, kind, receiver_user_id, created_at,
 				ROW_NUMBER() OVER (
 					PARTITION BY CASE WHEN sender_user_id = $1 THEN receiver_user_id ELSE sender_user_id END
 					ORDER BY created_at DESC
@@ -128,16 +128,16 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 			WHERE status = 'accepted' AND (sender_user_id = $1 OR receiver_user_id = $1)
 		),
 		combined AS (
-			SELECT partner_id, body, created_at FROM convo WHERE rn = 1
+			SELECT partner_id, body, kind, receiver_user_id, created_at FROM convo WHERE rn = 1
 			UNION ALL
-			SELECT ap.partner_id, '' AS body, ap.accepted_at AS created_at
+			SELECT ap.partner_id, '' AS body, '' AS kind, NULL AS receiver_user_id, ap.accepted_at AS created_at
 			FROM accepted_partners ap
 			WHERE NOT EXISTS (SELECT 1 FROM convo c WHERE c.partner_id = ap.partner_id)
 		)
 		SELECT
 			c.partner_id, p.full_name,
 			(SELECT url FROM profile_photos pp WHERE pp.profile_id = p.id ORDER BY pp.is_primary DESC, pp.sort_order ASC LIMIT 1),
-			c.body, c.created_at,
+			c.body, c.kind, COALESCE(c.receiver_user_id, ''), c.created_at,
 			(SELECT COUNT(*) FROM chat_messages WHERE receiver_user_id = $1 AND sender_user_id = c.partner_id AND read_at IS NULL),
 			EXISTS (
 				SELECT 1 FROM blocked_users b
@@ -159,7 +159,8 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 		var cs ConversationSummary
 		if err := rows.Scan(
 			&cs.PartnerUserID, &cs.PartnerName, &cs.PartnerPhotoURL,
-			&cs.LastMessage, &cs.LastMessageAt, &cs.UnreadCount, &cs.IsBlocked,
+			&cs.LastMessage, &cs.LastMessageKind, &cs.LastMessageReceiverUserID,
+			&cs.LastMessageAt, &cs.UnreadCount, &cs.IsBlocked,
 		); err != nil {
 			return nil, err
 		}

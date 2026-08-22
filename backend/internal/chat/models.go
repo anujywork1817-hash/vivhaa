@@ -32,8 +32,15 @@ type ConversationSummary struct {
 	PartnerName     *string
 	PartnerPhotoURL *string
 	LastMessage     string
-	LastMessageAt   time.Time
-	UnreadCount     int
+	// LastMessageKind and LastMessageReceiverUserID exist only so the
+	// service layer can decide whether LastMessage needs the same
+	// premium-gate masking GetHistory applies to a contact_shared
+	// message — otherwise the inbox preview would show a shared contact
+	// number in plaintext even to a non-premium viewer.
+	LastMessageKind           string
+	LastMessageReceiverUserID string
+	LastMessageAt             time.Time
+	UnreadCount               int
 	// IsBlocked is true when either side has blocked the other. The
 	// conversation still appears (message history isn't deleted on
 	// block, so hiding it would look like it vanished) — the frontend

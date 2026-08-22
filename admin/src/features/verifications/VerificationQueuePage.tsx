@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { ErrorState } from '../../components/ErrorState';
 import { useVerificationsList } from '../../hooks/useVerifications';
 import type { VerificationResponse } from '../../types/api';
-import { documentLabel, VerificationDetailDrawer } from './VerificationDetailDrawer';
+import { documentLabel } from './documentLabels';
+import { VerificationDetailDrawer } from './VerificationDetailDrawer';
 
 export function VerificationQueuePage() {
   const [page, setPage] = useState(1);

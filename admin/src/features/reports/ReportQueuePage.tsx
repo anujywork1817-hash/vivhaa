@@ -6,6 +6,13 @@ import { useReportsList } from '../../hooks/useReports';
 import type { ReportResponse } from '../../types/api';
 import { ReportDetailDrawer } from './ReportDetailDrawer';
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'gold',
+  reviewed: 'blue',
+  dismissed: 'default',
+  action_taken: 'green',
+};
+
 export function ReportQueuePage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -18,7 +25,7 @@ export function ReportQueuePage() {
     {
       title: 'Status',
       dataIndex: 'status',
-      render: (value: string) => <Tag color="gold">{value}</Tag>,
+      render: (value: string) => <Tag color={STATUS_COLORS[value] ?? 'default'}>{value}</Tag>,
     },
     {
       title: 'Submitted',

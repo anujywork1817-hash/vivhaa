@@ -55,6 +55,10 @@ async function refreshAccessToken(): Promise<string> {
     { refresh_token: refreshToken },
   );
   tokenStorage.setTokens(data.data.access_token, data.data.refresh_token);
+  // The refresh response carries the same user object login does, but it
+  // was being dropped here — if a role/status changed server-side, the
+  // cached user in localStorage stayed stale until the next full login.
+  tokenStorage.setUser(data.data.user);
   return data.data.access_token;
 }
 

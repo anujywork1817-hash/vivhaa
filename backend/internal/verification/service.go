@@ -151,14 +151,22 @@ func (s *Service) review(ctx context.Context, id, status, reviewerID string, not
 	if err != nil {
 		return Response{}, err
 	}
-	// BUG-C05: approval must actually flip the profile's verified badge —
-	// previously this only updated the verifications row, leaving the
-	// (also-fixed) user-settable profiles.selfie_verified field as the
-	// only thing that ever controlled the badge.
-	if status == "approved" {
-		if err := s.profileVerifier.SetSelfieVerified(ctx, v.UserID, true); err != nil {
-			return Response{}, fmt.Errorf("set profile verified: %w", err)
-		}
+
+	// BUG-C05 (approve) / BUG-H05 (reject): the badge has to reflect
+	// whatever the user's approved-document set looks like *after* this
+	// review, not just "did this one action approve something." Setting
+	// it unconditionally to true on approve and never touching it on
+	// reject meant rejecting (or revoking) a previously-approved
+	// verification left the badge on forever — recomputing from the
+	// actual current state means both directions self-correct, and a
+	// user with more than one approved document keeps the badge if only
+	// one of them is later rejected.
+	hasApproved, err := s.repo.HasApproved(ctx, v.UserID)
+	if err != nil {
+		return Response{}, fmt.Errorf("check approved verifications: %w", err)
+	}
+	if err := s.profileVerifier.SetSelfieVerified(ctx, v.UserID, hasApproved); err != nil {
+		return Response{}, fmt.Errorf("set profile verified: %w", err)
 	}
 	return s.toResponse(ctx, v)
 }

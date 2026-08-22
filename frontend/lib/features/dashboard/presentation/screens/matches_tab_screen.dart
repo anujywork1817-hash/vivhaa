@@ -464,7 +464,14 @@ class _CompactMatchCard extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: isInterested
                         ? null
-                        : () => ref.read(interestsActionsProvider).send(profile),
+                        : () async {
+                            final failure =
+                                await ref.read(interestsActionsProvider).send(profile);
+                            if (context.mounted && failure != null) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(failure.message)));
+                            }
+                          },
                     icon: Icon(Icons.check_rounded,
                         size: 14,
                         color: isInterested ? context.colors.muted : context.colors.accent),
@@ -697,21 +704,26 @@ class _MatchGridCard extends ConsumerWidget {
                         onPressed: isInterested
                             ? null
                             : () async {
-                                await ref.read(interestsActionsProvider).send(profile);
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Interest sent to ${profile.name}.'),
-                                      action: SnackBarAction(
-                                        label: 'VIEW',
-                                        onPressed: () {
-                                          ref.read(appShellTabProvider.notifier).state =
-                                              AppTab.inbox;
-                                        },
-                                      ),
-                                    ),
-                                  );
+                                final failure =
+                                    await ref.read(interestsActionsProvider).send(profile);
+                                if (!context.mounted) return;
+                                if (failure != null) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(content: Text(failure.message)));
+                                  return;
                                 }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Interest sent to ${profile.name}.'),
+                                    action: SnackBarAction(
+                                      label: 'VIEW',
+                                      onPressed: () {
+                                        ref.read(appShellTabProvider.notifier).state =
+                                            AppTab.inbox;
+                                      },
+                                    ),
+                                  ),
+                                );
                               },
                         icon: Icon(isInterested ? Icons.check_rounded : Icons.favorite_rounded,
                             size: 13),
