@@ -123,7 +123,9 @@ class _UserRow extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(user.email ?? user.phone ?? user.id,
-                    style: context.textStyles.titleSmall, overflow: TextOverflow.ellipsis),
+                    maxLines: 1,
+                    style: context.textStyles.titleSmall,
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Text('${user.role} · ${user.status}',
                     style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
