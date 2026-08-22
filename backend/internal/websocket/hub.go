@@ -115,15 +115,26 @@ func (h *Hub) unregister(c *Client) {
 // matching the old local-only version's "never blocks/errors the caller"
 // contract.
 func (h *Hub) SendToUser(userID string, message []byte) {
+	PublishToUser(context.Background(), h.redis, h.log, userID, message)
+}
+
+// PublishToUser is SendToUser's body, usable by a process that only ever
+// publishes and never holds a local client connection of its own (e.g.
+// cmd/notification) — spinning up a full Hub there would start
+// subscribeLoop/presenceRefreshLoop for connections that will never
+// exist. Redis pub/sub doesn't care which process publishes: every API
+// instance's own Hub.subscribeLoop picks this up the same way it picks
+// up a same-process SendToUser call.
+func PublishToUser(ctx context.Context, redisClient *redis.Client, log *slog.Logger, userID string, message []byte) {
 	payload, err := json.Marshal(envelope{UserID: userID, Payload: message})
 	if err != nil {
-		h.log.Error("websocket: failed to marshal envelope", "user_id", userID, "error", err)
+		log.Error("websocket: failed to marshal envelope", "user_id", userID, "error", err)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := h.redis.Publish(ctx, broadcastChannel, payload).Err(); err != nil {
-		h.log.Error("websocket: failed to publish message", "user_id", userID, "error", err)
+	if err := redisClient.Publish(ctx, broadcastChannel, payload).Err(); err != nil {
+		log.Error("websocket: failed to publish message", "user_id", userID, "error", err)
 	}
 }
 

@@ -16,10 +16,12 @@ import (
 	"matrimony-backend/internal/devices"
 	"matrimony-backend/internal/notifications"
 	"matrimony-backend/internal/queue"
+	appwebsocket "matrimony-backend/internal/websocket"
 	"matrimony-backend/pkg/database"
 	"matrimony-backend/pkg/firebase"
 	"matrimony-backend/pkg/kafka"
 	"matrimony-backend/pkg/logger"
+	"matrimony-backend/pkg/redis"
 )
 
 func main() {
@@ -40,6 +42,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer dbPool.Close()
+
+	redisClient, err := redis.NewClient(ctx, cfg.Redis)
+	if err != nil {
+		log.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
 
 	notifRepo := notifications.NewRepository(dbPool)
 	notifService := notifications.NewService(notifRepo)
@@ -74,8 +83,23 @@ func main() {
 			return pushSender.SendData(ctx, event.UserID, event.PushData)
 		}
 
-		if err := notifService.Create(ctx, event.UserID, event.Type, event.Title, &event.Body, event.Data); err != nil {
+		created, err := notifService.Create(ctx, event.UserID, event.Type, event.Title, &event.Body, event.Data)
+		if err != nil {
 			return err
+		}
+
+		// Live-updates every notification type the moment it's created —
+		// interests already had its own ad hoc socket push for a couple of
+		// event types (accepted/received), but everything else (reminders,
+		// contact requests, new messages, etc.) only ever showed up on the
+		// bell/list after a manual refresh. This dispatcher is the one
+		// place every notification type already passes through, so pushing
+		// here covers all of them at once instead of one at a time.
+		if payload, err := json.Marshal(struct {
+			Type string                 `json:"type"`
+			Data notifications.Response `json:"data"`
+		}{Type: "notification", Data: notifications.ToResponse(created)}); err == nil {
+			appwebsocket.PublishToUser(ctx, redisClient, log, event.UserID, payload)
 		}
 
 		return pushSender.Send(ctx, event.UserID, event.Title, event.Body)

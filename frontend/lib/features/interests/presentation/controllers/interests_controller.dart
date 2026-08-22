@@ -4,6 +4,7 @@ import '../../../../shared/models/interest.dart';
 import '../../../../shared/models/match_profile.dart';
 import '../../../chat/data/chat_socket_service.dart';
 import '../../../chat/presentation/controllers/chat_controller.dart';
+import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 import '../../data/api_interest_repository.dart';
 
 final sentInterestsProvider = FutureProvider.autoDispose<List<InterestRecord>>((ref) async {
@@ -137,6 +138,13 @@ final matchLiveUpdatesProvider = Provider<void>((ref) {
         ref.invalidate(sentInterestsProvider);
       case 'interest_received':
         ref.invalidate(receivedInterestsProvider);
+      // Generic: every notification type (reminders, contact requests,
+      // new messages, etc.) is pushed live the moment it's created —
+      // cmd/notification's dispatcher pushes this alongside persisting it,
+      // so the bell/badge updates immediately instead of only after the
+      // Notifications screen is manually opened or pulled to refresh.
+      case 'notification':
+        ref.invalidate(notificationsProvider);
     }
   });
   ref.onDispose(subscription.cancel);

@@ -19,17 +19,16 @@ func NewService(repo *Repository) *Service {
 
 // Create persists a notification for userID. data is marshaled to JSON;
 // pass nil if there's no structured payload.
-func (s *Service) Create(ctx context.Context, userID, notifType, title string, body *string, data any) error {
+func (s *Service) Create(ctx context.Context, userID, notifType, title string, body *string, data any) (Notification, error) {
 	var raw []byte
 	if data != nil {
 		encoded, err := json.Marshal(data)
 		if err != nil {
-			return err
+			return Notification{}, err
 		}
 		raw = encoded
 	}
-	_, err := s.repo.Create(ctx, userID, notifType, title, body, raw)
-	return err
+	return s.repo.Create(ctx, userID, notifType, title, body, raw)
 }
 
 func (s *Service) List(ctx context.Context, userID string, page, limit int) (ListResponse, error) {
@@ -68,6 +67,15 @@ func (s *Service) MarkRead(ctx context.Context, userID, id string) error {
 
 func (s *Service) MarkAllRead(ctx context.Context, userID string) error {
 	return s.repo.MarkAllRead(ctx, userID)
+}
+
+// ToResponse builds the same wire shape GET /notifications returns for one
+// row — exported so cmd/notification can push a freshly created
+// notification live over the websocket in the exact shape the client
+// already knows how to render, without a second round trip back through
+// the REST endpoint.
+func ToResponse(n Notification) Response {
+	return toResponse(n)
 }
 
 func toResponse(n Notification) Response {
