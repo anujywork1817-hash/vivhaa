@@ -38,7 +38,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.initState();
     // The initial code was requested from the previous screen (before this
     // one even existed), so show its dev banner now rather than never.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowDevOtpBanner());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeShowDevOtpBanner());
   }
 
   @override
@@ -85,13 +86,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         } else {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(content: Text('Code resent')));
+            ..showSnackBar(const SnackBar(
+                duration: const Duration(seconds: 3),
+                content: Text('Code resent')));
         }
       },
       failure: (f) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(f.message)));
+          ..showSnackBar(SnackBar(
+              duration: const Duration(seconds: 3), content: Text(f.message)));
       },
     );
   }
@@ -103,7 +107,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     // Returning users (an existing backend profile) skip onboarding
     // entirely; new users go through it as usual.
-    final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
+    final hasProfile = await ref
+        .read(profileCreationControllerProvider.notifier)
+        .loadExisting();
     if (!mounted) return;
     context.go(hasProfile ? AppRoutes.home : AppRoutes.profileFor);
   }
@@ -120,18 +126,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Verify your number', style: context.textStyles.headlineMedium),
+              Text('Verify your number',
+                  style: context.textStyles.headlineMedium),
               const SizedBox(height: 6),
               Text(
                 'Enter the 6-digit code sent to ${authState.pendingContact ?? 'your number'}.',
-                style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                style: context.textStyles.bodyMedium
+                    ?.copyWith(color: context.colors.muted),
               ),
               const SizedBox(height: AppSpacing.xxl),
-              OtpInputField(onCompleted: (code) => setState(() => _code = code)),
+              OtpInputField(
+                  onCompleted: (code) => setState(() => _code = code)),
               if (authState.failure != null) ...[
                 const SizedBox(height: 14),
                 Text(authState.failure!.message,
-                    style: TextStyle(color: context.colors.danger, fontSize: 13)),
+                    style:
+                        TextStyle(color: context.colors.danger, fontSize: 13)),
               ],
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(

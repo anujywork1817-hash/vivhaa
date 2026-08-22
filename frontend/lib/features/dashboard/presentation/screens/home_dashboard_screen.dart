@@ -22,7 +22,8 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  ConsumerState<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+  ConsumerState<HomeDashboardScreen> createState() =>
+      _HomeDashboardScreenState();
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
@@ -69,7 +70,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         leading: Showcase(
           key: tourKeys.menu,
           title: 'Menu',
-          description: 'Open the menu to manage your profile, settings, and more.',
+          description:
+              'Open the menu to manage your profile, settings, and more.',
           child: IconButton(
             icon: const Icon(Icons.menu_rounded),
             onPressed: () => context.push(AppRoutes.menu),
@@ -114,7 +116,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       decoration: BoxDecoration(
                         color: context.colors.accent,
                         shape: BoxShape.circle,
-                        border: Border.all(color: context.colors.bg, width: 1.5),
+                        border:
+                            Border.all(color: context.colors.bg, width: 1.5),
                       ),
                     ),
                   ),
@@ -192,14 +195,16 @@ class _SearchBarEntry extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+                Icon(Icons.search_rounded,
+                    size: 20, color: context.colors.muted),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Search by name, city, profession…',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodyMedium
+                        ?.copyWith(color: context.colors.muted),
                   ),
                 ),
               ],
@@ -223,9 +228,15 @@ class _CompleteProfileCard extends ConsumerWidget {
     // itself as "astro details" while checking the About Me field.
     final missing = <({String label, VoidCallback onTap})>[
       if (draft.profilePhotoUrl == null)
-        (label: 'Add a profile photo', onTap: () => context.push(AppRoutes.managePhotos)),
+        (
+          label: 'Add a profile photo',
+          onTap: () => context.push(AppRoutes.managePhotos)
+        ),
       if (draft.aboutMe == null || draft.aboutMe!.isEmpty)
-        (label: 'Write about yourself', onTap: () => context.push(AppRoutes.editProfile)),
+        (
+          label: 'Write about yourself',
+          onTap: () => context.push(AppRoutes.editProfile)
+        ),
       if (draft.hobbies.isEmpty)
         (
           label: 'Add hobbies & interests',
@@ -242,7 +253,8 @@ class _CompleteProfileCard extends ConsumerWidget {
           Text('Complete your Profile', style: context.textStyles.titleMedium),
           const SizedBox(height: 2),
           Text('Completed Profiles get 2x more Connects and responses',
-              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+              style: context.textStyles.bodySmall
+                  ?.copyWith(color: context.colors.muted)),
           const SizedBox(height: AppSpacing.md),
           for (final item in missing)
             Padding(
@@ -251,10 +263,14 @@ class _CompleteProfileCard extends ConsumerWidget {
                 onTap: item.onTap,
                 child: Row(
                   children: [
-                    Icon(Icons.add_circle_outline_rounded, color: context.colors.accent, size: 20),
+                    Icon(Icons.add_circle_outline_rounded,
+                        color: context.colors.accent, size: 20),
                     const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: Text(item.label, style: context.textStyles.bodyMedium)),
-                    Icon(Icons.chevron_right_rounded, color: context.colors.muted),
+                    Expanded(
+                        child: Text(item.label,
+                            style: context.textStyles.bodyMedium)),
+                    Icon(Icons.chevron_right_rounded,
+                        color: context.colors.muted),
                   ],
                 ),
               ),
@@ -286,7 +302,8 @@ class _MatchesRailHeader extends ConsumerWidget {
           TextButton(
             // The rails here are a preview of the Matches tab, which is
             // where the full, browsable list already lives.
-            onPressed: () => ref.read(appShellTabProvider.notifier).state = AppTab.matches,
+            onPressed: () =>
+                ref.read(appShellTabProvider.notifier).state = AppTab.matches,
             child: const Text('See All'),
           ),
         ],
@@ -324,7 +341,8 @@ class _MatchesRail extends ConsumerWidget {
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        child: Text("Couldn't load matches.", style: TextStyle(color: context.colors.muted)),
+        child: Text("Couldn't load matches.",
+            style: TextStyle(color: context.colors.muted)),
       ),
       data: (matches) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -332,7 +350,8 @@ class _MatchesRail extends ConsumerWidget {
           children: [
             for (int i = 0; i < matches.length; i++) ...[
               _HomeMatchCard(profile: matches[i]),
-              if (i != matches.length - 1) const SizedBox(height: AppSpacing.md),
+              if (i != matches.length - 1)
+                const SizedBox(height: AppSpacing.md),
             ],
           ],
         ),
@@ -348,7 +367,8 @@ class _HomeMatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isInterested = ref.watch(isInterestSentProvider(profile.id));
-    final isConnected = ref.watch(conversationForProfileProvider(profile.id)) != null;
+    final isConnected =
+        ref.watch(conversationForProfileProvider(profile.id)) != null;
     final showLocked = profile.photoLocked && !isConnected;
     // Material wraps InkWell (not the other way round): an opaque
     // Container inside an InkWell paints over the ripple, so tapping the
@@ -405,17 +425,24 @@ class _HomeMatchCard extends ConsumerWidget {
                           onPressed: isInterested
                               ? null
                               : () async {
-                                  final failure =
-                                      await ref.read(interestsActionsProvider).send(profile);
+                                  final failure = await ref
+                                      .read(interestsActionsProvider)
+                                      .send(profile);
                                   if (context.mounted && failure != null) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(SnackBar(content: Text(failure.message)));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            duration:
+                                                const Duration(seconds: 3),
+                                            content: Text(failure.message)));
                                   }
                                 },
                           icon: Icon(
-                              isInterested ? Icons.check_rounded : Icons.favorite_rounded,
+                              isInterested
+                                  ? Icons.check_rounded
+                                  : Icons.favorite_rounded,
                               size: 13),
-                          label: Text(isInterested ? 'Requested' : 'Connect Now',
+                          label: Text(
+                              isInterested ? 'Requested' : 'Connect Now',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 12)),
@@ -452,7 +479,9 @@ class _FooterSocialRow extends StatelessWidget {
     ];
     return Column(
       children: [
-        Text('Follow us on', style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+        Text('Follow us on',
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: context.colors.muted)),
         const SizedBox(height: AppSpacing.sm),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

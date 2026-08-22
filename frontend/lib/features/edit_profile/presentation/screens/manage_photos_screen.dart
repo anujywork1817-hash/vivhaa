@@ -36,7 +36,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
 
   void _report(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(duration: const Duration(seconds: 3), content: Text(message)));
   }
 
   Future<void> _add(ImageSource source) async {
@@ -50,7 +51,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
     if (picked == null) return;
 
     setState(() => _busy = true);
-    final result = await ref.read(profilePhotosRepositoryProvider).upload(picked.path);
+    final result =
+        await ref.read(profilePhotosRepositoryProvider).upload(picked.path);
     await result.when(
       success: (_) async {
         await _refresh();
@@ -88,7 +90,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
   Future<void> _setPrimary(ProfilePhoto photo) async {
     if (photo.isPrimary) return;
     setState(() => _busy = true);
-    final result = await ref.read(profilePhotosRepositoryProvider).setPrimary(photo.id);
+    final result =
+        await ref.read(profilePhotosRepositoryProvider).setPrimary(photo.id);
     await result.when(
       success: (_) async {
         await _refresh();
@@ -113,7 +116,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Delete', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Delete',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
@@ -121,7 +125,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
     if (confirmed != true) return;
 
     setState(() => _busy = true);
-    final result = await ref.read(profilePhotosRepositoryProvider).delete(photo.id);
+    final result =
+        await ref.read(profilePhotosRepositoryProvider).delete(photo.id);
     await result.when(
       success: (_) async {
         await _refresh();
@@ -163,7 +168,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
                   photos.isEmpty
                       ? 'Add up to $_maxPhotos photos. Your first one becomes your profile picture.'
                       : 'Tap a photo to make it your profile picture. ${photos.length} of $_maxPhotos used.',
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 GridView.count(
@@ -187,7 +193,8 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'You\'ve reached the $_maxPhotos photo limit. Delete one to add another.',
-                    style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodySmall
+                        ?.copyWith(color: context.colors.muted),
                   ),
                 ],
                 if (_busy) ...[
@@ -244,7 +251,9 @@ class _PhotoTile extends StatelessWidget {
               ),
               child: const Text('PROFILE',
                   style: TextStyle(
-                      color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         Positioned(
@@ -255,8 +264,10 @@ class _PhotoTile extends StatelessWidget {
             onTap: enabled ? onDelete : null,
             child: Container(
               padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-              child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+              decoration: const BoxDecoration(
+                  color: Colors.black54, shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded,
+                  size: 14, color: Colors.white),
             ),
           ),
         ),

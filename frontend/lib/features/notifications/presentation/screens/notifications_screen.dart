@@ -23,13 +23,16 @@ class NotificationsScreen extends ConsumerWidget {
           if (hasUnread)
             TextButton(
               onPressed: () async {
-                final result =
-                    await ref.read(notificationsProvider.notifier).markAllAsRead();
+                final result = await ref
+                    .read(notificationsProvider.notifier)
+                    .markAllAsRead();
                 if (!context.mounted) return;
                 result.when(
                   success: (_) {},
-                  failure: (f) => ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(f.message))),
+                  failure: (f) => ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          duration: const Duration(seconds: 3),
+                          content: Text(f.message))),
                 );
               },
               child: Text(
@@ -44,8 +47,10 @@ class NotificationsScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: 5,
           separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-          itemBuilder: (_, __) =>
-              ShimmerBox(width: double.infinity, height: 64, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+          itemBuilder: (_, __) => ShimmerBox(
+              width: double.infinity,
+              height: 64,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
         ),
         error: (e, st) => ErrorStateView(
           failure: e is AppFailure ? e : AppFailure.unknown(e.toString()),
@@ -56,7 +61,8 @@ class NotificationsScreen extends ConsumerWidget {
             return const EmptyState(
               icon: Icons.notifications_none_rounded,
               title: 'Nothing yet',
-              message: 'Interests, visitors, and match updates will show up here.',
+              message:
+                  'Interests, visitors, and match updates will show up here.',
             );
           }
           return RefreshIndicator(
@@ -64,8 +70,10 @@ class NotificationsScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(AppSpacing.lg),
               itemCount: notifications.length,
-              separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-              itemBuilder: (context, i) => _NotificationTile(notification: notifications[i]),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.md),
+              itemBuilder: (context, i) =>
+                  _NotificationTile(notification: notifications[i]),
             ),
           );
         },
@@ -99,11 +107,15 @@ class _NotificationTile extends ConsumerWidget {
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       onTap: notification.read
           ? null
-          : () => ref.read(notificationsProvider.notifier).markAsRead(notification.id),
+          : () => ref
+              .read(notificationsProvider.notifier)
+              .markAsRead(notification.id),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: notification.read ? context.colors.surface : context.colors.accentSoft,
+          color: notification.read
+              ? context.colors.surface
+              : context.colors.accentSoft,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(color: context.colors.line),
         ),
@@ -120,13 +132,16 @@ class _NotificationTile extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(notification.title, style: context.textStyles.titleSmall),
+                  Text(notification.title,
+                      style: context.textStyles.titleSmall),
                   const SizedBox(height: 3),
                   Text(notification.body,
-                      style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                      style: context.textStyles.bodySmall
+                          ?.copyWith(color: context.colors.muted)),
                   const SizedBox(height: 6),
                   Text(_relativeTime,
-                      style: context.textStyles.bodySmall?.copyWith(fontSize: 11)),
+                      style:
+                          context.textStyles.bodySmall?.copyWith(fontSize: 11)),
                 ],
               ),
             ),
@@ -135,7 +150,8 @@ class _NotificationTile extends ConsumerWidget {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(top: 4),
-                decoration: BoxDecoration(color: context.colors.accent, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: context.colors.accent, shape: BoxShape.circle),
               ),
           ],
         ),

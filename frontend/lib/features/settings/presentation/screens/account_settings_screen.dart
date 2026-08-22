@@ -9,7 +9,8 @@ import '../../../authentication/domain/auth_repository.dart';
 import '../../../authentication/presentation/controllers/auth_controller.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
 
-final _accountInfoProvider = FutureProvider.autoDispose<AccountInfo>((ref) async {
+final _accountInfoProvider =
+    FutureProvider.autoDispose<AccountInfo>((ref) async {
   final result = await ref.watch(authRepositoryProvider).getAccount();
   return result.when(success: (data) => data, failure: (f) => throw f);
 });
@@ -22,7 +23,8 @@ class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
 
   @override
-  ConsumerState<AccountSettingsScreen> createState() => _AccountSettingsScreenState();
+  ConsumerState<AccountSettingsScreen> createState() =>
+      _AccountSettingsScreenState();
 }
 
 class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
@@ -51,7 +53,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(phoneController.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(phoneController.text.trim()),
             child: const Text('Send code'),
           ),
         ],
@@ -60,11 +63,15 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     phoneController.dispose();
     if (phone == null || phone.isEmpty || !mounted) return;
 
-    final requestResult = await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
+    final requestResult =
+        await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
     if (!mounted) return;
-    final requestFailure = requestResult.when(success: (_) => null, failure: (f) => f);
+    final requestFailure =
+        requestResult.when(success: (_) => null, failure: (f) => f);
     if (requestFailure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(requestFailure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(requestFailure.message)));
       return;
     }
 
@@ -85,7 +92,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel')),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(codeController.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(codeController.text.trim()),
             child: const Text('Verify'),
           ),
         ],
@@ -94,28 +102,33 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     codeController.dispose();
     if (code == null || code.isEmpty || !mounted) return;
 
-    final confirmResult = await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
+    final confirmResult =
+        await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
     if (!mounted) return;
     confirmResult.when(
       success: (_) {
         ref.invalidate(_accountInfoProvider);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Phone number added.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('Phone number added.')));
       },
-      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message))),
+      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3), content: Text(f.message))),
     );
   }
 
   Future<void> _setVisibility(bool public) async {
     setState(() => _saving = true);
     final controller = ref.read(profileCreationControllerProvider.notifier);
-    controller.update((p) => p.copyWith(visibility: public ? 'public' : 'private'));
+    controller
+        .update((p) => p.copyWith(visibility: public ? 'public' : 'private'));
     final ok = await controller.submit();
     if (!mounted) return;
     setState(() => _saving = false);
     if (!ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Could not save. Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text('Could not save. Please try again.')));
     }
   }
 
@@ -139,7 +152,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Continue', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Continue',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
@@ -166,8 +180,11 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             builder: (_, value, __) {
               final canDelete = value.text.trim().toUpperCase() == 'DELETE';
               return TextButton(
-                onPressed: canDelete ? () => Navigator.of(dialogContext).pop(true) : null,
-                child: Text('Delete my account', style: TextStyle(color: dialogContext.colors.danger)),
+                onPressed: canDelete
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                child: Text('Delete my account',
+                    style: TextStyle(color: dialogContext.colors.danger)),
               );
             },
           ),
@@ -178,11 +195,14 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _deleting = true);
-    final failure = await ref.read(authControllerProvider.notifier).deleteAccount();
+    final failure =
+        await ref.read(authControllerProvider.notifier).deleteAccount();
     if (!mounted) return;
     setState(() => _deleting = false);
     if (failure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
       return;
     }
     context.go(AppRoutes.splash);
@@ -204,7 +224,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           Text(
             'The number shared when someone you\'re chatting with requests your '
             'contact details.',
-            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: context.colors.muted),
           ),
           const SizedBox(height: AppSpacing.sm),
           accountInfo.when(
@@ -218,12 +239,15 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.add_ic_call_rounded),
                     title: const Text('Add phone number'),
-                    subtitle: const Text('Not set — sharing contact will offer your email instead'),
+                    subtitle: const Text(
+                        'Not set — sharing contact will offer your email instead'),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: _addPhoneNumber,
                   ),
             loading: () => const SizedBox(
-                height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                height: 48,
+                child:
+                    Center(child: CircularProgressIndicator(strokeWidth: 2))),
             error: (_, __) => const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.error_outline_rounded),
@@ -236,11 +260,13 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           Text(
             'Public profiles show up in search and match results. '
             'Private profiles are only visible to people you\'ve already connected with.',
-            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: context.colors.muted),
           ),
           const SizedBox(height: AppSpacing.sm),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: 4),
             decoration: BoxDecoration(
               color: context.colors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -264,12 +290,16 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.delete_forever_rounded, color: context.colors.danger),
-            title: Text('Delete account', style: TextStyle(color: context.colors.danger)),
+            leading: Icon(Icons.delete_forever_rounded,
+                color: context.colors.danger),
+            title: Text('Delete account',
+                style: TextStyle(color: context.colors.danger)),
             subtitle: const Text('Permanently deactivate your account'),
             trailing: _deleting
                 ? const SizedBox(
-                    width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : null,
             onTap: _deleting ? null : _deleteAccount,
           ),

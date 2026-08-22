@@ -112,23 +112,24 @@ class MatchesTabScreen extends ConsumerWidget {
                 _FilterChip(
                   label: 'New (${newAsync.valueOrNull?.length ?? 0})',
                   selected: filter == MatchesFilter.newMembers,
-                  onTap: () =>
-                      ref.read(matchesFilterProvider.notifier).state = MatchesFilter.newMembers,
+                  onTap: () => ref.read(matchesFilterProvider.notifier).state =
+                      MatchesFilter.newMembers,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _FilterChip(
                   icon: Icons.groups_rounded,
                   label: 'All Matches',
                   selected: filter == MatchesFilter.all,
-                  onTap: () => ref.read(matchesFilterProvider.notifier).state = MatchesFilter.all,
+                  onTap: () => ref.read(matchesFilterProvider.notifier).state =
+                      MatchesFilter.all,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _FilterChip(
                   icon: Icons.near_me_rounded,
                   label: 'Near Me',
                   selected: filter == MatchesFilter.nearby,
-                  onTap: () =>
-                      ref.read(matchesFilterProvider.notifier).state = MatchesFilter.nearby,
+                  onTap: () => ref.read(matchesFilterProvider.notifier).state =
+                      MatchesFilter.nearby,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _FilterChip(
@@ -162,7 +163,11 @@ class _FilterChip extends StatelessWidget {
   final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
-  const _FilterChip({required this.label, this.icon, required this.selected, required this.onTap});
+  const _FilterChip(
+      {required this.label,
+      this.icon,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +176,9 @@ class _FilterChip extends StatelessWidget {
     // which read as a totally different (and heavier) color language
     // than the rest of the app's rose accent.
     return ChoiceChip(
-      avatar: icon != null ? Icon(icon, size: 16, color: selected ? Colors.white : null) : null,
+      avatar: icon != null
+          ? Icon(icon, size: 16, color: selected ? Colors.white : null)
+          : null,
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
@@ -180,8 +187,10 @@ class _FilterChip extends StatelessWidget {
       labelStyle: TextStyle(
           color: selected ? Colors.white : context.colors.ink,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
-      side: BorderSide(color: selected ? context.colors.accent : context.colors.line),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
+      side: BorderSide(
+          color: selected ? context.colors.accent : context.colors.line),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
     );
   }
 }
@@ -243,13 +252,16 @@ class _MatchesBody extends ConsumerWidget {
                     height: railHeight,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                       itemCount: 3,
-                      separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: AppSpacing.md),
                       itemBuilder: (_, __) => ShimmerBox(
                           width: 168,
                           height: railHeight,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusLg)),
                     ),
                   )
                 : prefs.isEmpty
@@ -264,7 +276,8 @@ class _MatchesBody extends ConsumerWidget {
                     // a hard-coded/estimated height.
                     : SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg),
                         child: IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +320,8 @@ class _MatchesBody extends ConsumerWidget {
                     child: EmptyState(
                       icon: Icons.people_outline_rounded,
                       title: 'No matches here yet',
-                      message: 'Check back soon, or try Search to widen your criteria.',
+                      message:
+                          'Check back soon, or try Search to widen your criteria.',
                     ),
                   ),
                 ];
@@ -376,7 +390,8 @@ class _CompactMatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isInterested = ref.watch(isInterestSentProvider(profile.id));
-    final isConnected = ref.watch(conversationForProfileProvider(profile.id)) != null;
+    final isConnected =
+        ref.watch(conversationForProfileProvider(profile.id)) != null;
     final showLocked = profile.photoLocked && !isConnected;
 
     // Two lines, as in the reference: physical/language details on the
@@ -385,7 +400,8 @@ class _CompactMatchCard extends ConsumerWidget {
     final line1 = [
       if (profile.age > 0) '${profile.age} yrs',
       if (profile.heightCm > 0) profile.heightLabel,
-      if (profile.motherTongue != null && profile.motherTongue!.isNotEmpty) profile.motherTongue!,
+      if (profile.motherTongue != null && profile.motherTongue!.isNotEmpty)
+        profile.motherTongue!,
     ].join(', ');
     final line2 = [
       if (profile.city.isNotEmpty) profile.city,
@@ -438,10 +454,15 @@ class _CompactMatchCard extends ConsumerWidget {
                 if (showLocked)
                   ClipOval(
                     child: SizedBox(
-                        width: 72, height: 72, child: LockedProfilePhoto(name: profile.name)),
+                        width: 72,
+                        height: 72,
+                        child: LockedProfilePhoto(name: profile.name)),
                   )
                 else
-                  ProfileAvatar(name: profile.name, size: 72, photoUrl: profile.photoSeed),
+                  ProfileAvatar(
+                      name: profile.name,
+                      size: 72,
+                      photoUrl: profile.photoSeed),
                 const SizedBox(height: 8),
                 Text(profile.name,
                     style: context.textStyles.titleSmall,
@@ -468,16 +489,21 @@ class _CompactMatchCard extends ConsumerWidget {
                     onPressed: isInterested
                         ? null
                         : () async {
-                            final failure =
-                                await ref.read(interestsActionsProvider).send(profile);
+                            final failure = await ref
+                                .read(interestsActionsProvider)
+                                .send(profile);
                             if (context.mounted && failure != null) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(content: Text(failure.message)));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      duration: const Duration(seconds: 3),
+                                      content: Text(failure.message)));
                             }
                           },
                     icon: Icon(Icons.check_rounded,
                         size: 14,
-                        color: isInterested ? context.colors.muted : context.colors.accent),
+                        color: isInterested
+                            ? context.colors.muted
+                            : context.colors.accent),
                     label: Text(isInterested ? 'Requested' : 'Connect Now',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -495,7 +521,8 @@ class _CompactMatchCard extends ConsumerWidget {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusPill)),
                     ),
                   ),
                 ),
@@ -548,15 +575,17 @@ class _MatchGridCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isInterested = ref.watch(isInterestSentProvider(profile.id));
-    final isConnected = ref.watch(conversationForProfileProvider(profile.id)) != null;
+    final isConnected =
+        ref.watch(conversationForProfileProvider(profile.id)) != null;
     final showLocked = profile.photoLocked && !isConnected;
-    final isShortlisted = ref.watch(
-        interestActionsProvider.select((s) => s.shortlisted.contains(profile.id)));
+    final isShortlisted = ref.watch(interestActionsProvider
+        .select((s) => s.shortlisted.contains(profile.id)));
 
     final metaLine = [
       if (profile.age > 0) '${profile.age} yrs',
       if (profile.heightCm > 0) profile.heightLabel,
-      if (profile.motherTongue != null && profile.motherTongue!.isNotEmpty) profile.motherTongue!,
+      if (profile.motherTongue != null && profile.motherTongue!.isNotEmpty)
+        profile.motherTongue!,
     ].join(', ');
     final locationLine = [
       if (profile.city.isNotEmpty) profile.city,
@@ -582,7 +611,8 @@ class _MatchGridCard extends ConsumerWidget {
                   fit: StackFit.expand,
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(20)),
                       child: showLocked
                           ? LockedProfilePhoto(name: profile.name)
                           : ProfileAvatar(
@@ -600,30 +630,37 @@ class _MatchGridCard extends ConsumerWidget {
                           children: [
                             if (profile.matchScore > 0)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.55),
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusPill),
                                 ),
-                                child: Text('${profile.matchScore.round()}% match',
+                                child: Text(
+                                    '${profile.matchScore.round()}% match',
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w600)),
                               ),
-                            if (profile.matchScore > 0 && profile.distanceKm != null)
+                            if (profile.matchScore > 0 &&
+                                profile.distanceKm != null)
                               const SizedBox(height: 4),
                             if (profile.distanceKm != null)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.55),
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusPill),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.place_rounded, size: 10, color: Colors.white),
+                                    const Icon(Icons.place_rounded,
+                                        size: 10, color: Colors.white),
                                     const SizedBox(width: 2),
                                     Text(
                                         profile.distanceKm! < 1
@@ -643,18 +680,24 @@ class _MatchGridCard extends ConsumerWidget {
                       right: 6,
                       top: 6,
                       child: _RoundIconButton(
-                        icon: isShortlisted ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                        color: isShortlisted ? context.colors.accent : Colors.white,
+                        icon: isShortlisted
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: isShortlisted
+                            ? context.colors.accent
+                            : Colors.white,
                         background: Colors.black.withValues(alpha: 0.35),
-                        onTap: () =>
-                            ref.read(interestActionsProvider.notifier).toggleShortlist(profile.id),
+                        onTap: () => ref
+                            .read(interestActionsProvider.notifier)
+                            .toggleShortlist(profile.id),
                       ),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 8, 4, AppSpacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.sm, 8, 4, AppSpacing.sm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -675,11 +718,12 @@ class _MatchGridCard extends ConsumerWidget {
                                 size: 14, color: context.colors.accent),
                           ),
                         InkWell(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm),
                           onTap: () => showModalBottomSheet(
                             context: context,
-                            builder: (_) =>
-                                ProfileActionsSheet(profileId: profile.id, name: profile.name),
+                            builder: (_) => ProfileActionsSheet(
+                                profileId: profile.id, name: profile.name),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(2),
@@ -707,28 +751,37 @@ class _MatchGridCard extends ConsumerWidget {
                         onPressed: isInterested
                             ? null
                             : () async {
-                                final failure =
-                                    await ref.read(interestsActionsProvider).send(profile);
+                                final failure = await ref
+                                    .read(interestsActionsProvider)
+                                    .send(profile);
                                 if (!context.mounted) return;
                                 if (failure != null) {
-                                  ScaffoldMessenger.of(context)
-                                      .showSnackBar(SnackBar(content: Text(failure.message)));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          duration: const Duration(seconds: 3),
+                                          content: Text(failure.message)));
                                   return;
                                 }
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Interest sent to ${profile.name}.'),
+                                    duration: const Duration(seconds: 3),
+                                    content: Text(
+                                        'Interest sent to ${profile.name}.'),
                                     action: SnackBarAction(
                                       label: 'VIEW',
                                       onPressed: () {
-                                        ref.read(appShellTabProvider.notifier).state =
-                                            AppTab.inbox;
+                                        ref
+                                            .read(appShellTabProvider.notifier)
+                                            .state = AppTab.inbox;
                                       },
                                     ),
                                   ),
                                 );
                               },
-                        icon: Icon(isInterested ? Icons.check_rounded : Icons.favorite_rounded,
+                        icon: Icon(
+                            isInterested
+                                ? Icons.check_rounded
+                                : Icons.favorite_rounded,
                             size: 13),
                         label: Text(isInterested ? 'Requested' : 'Connect Now',
                             maxLines: 1,
@@ -815,7 +868,8 @@ class _NearbyMatchesBody extends ConsumerWidget {
                 EmptyState(
                   icon: Icons.near_me_outlined,
                   title: 'No one nearby yet',
-                  message: 'No members within range have shared their location. Check back later.',
+                  message:
+                      'No members within range have shared their location. Check back later.',
                 ),
               ],
             );
@@ -858,14 +912,16 @@ class _NearbyErrorState extends ConsumerWidget {
         case LocationFailureReason.permissionDenied:
           icon = Icons.location_disabled_rounded;
           title = 'Location permission needed';
-          message = 'Allow location access so we can show you matches near you.';
+          message =
+              'Allow location access so we can show you matches near you.';
           actionLabel = 'Allow location';
           action = () => ref.invalidate(nearbyMatchesProvider);
           break;
         case LocationFailureReason.permissionDeniedForever:
           icon = Icons.location_disabled_rounded;
           title = 'Location permission blocked';
-          message = 'You previously denied location access. Enable it in app settings to use Near Me.';
+          message =
+              'You previously denied location access. Enable it in app settings to use Near Me.';
           actionLabel = 'Open app settings';
           action = () => Geolocator.openAppSettings();
           break;
@@ -884,10 +940,13 @@ class _NearbyErrorState extends ConsumerWidget {
             children: [
               Icon(icon, size: 48, color: context.colors.muted),
               const SizedBox(height: AppSpacing.md),
-              Text(title, style: context.textStyles.titleMedium, textAlign: TextAlign.center),
+              Text(title,
+                  style: context.textStyles.titleMedium,
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.xs),
               Text(message,
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted),
                   textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.lg),
               FilledButton(onPressed: action, child: Text(actionLabel)),
@@ -925,14 +984,16 @@ class _MatchesSearchBarEntry extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+                Icon(Icons.search_rounded,
+                    size: 20, color: context.colors.muted),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     'Search by name, city, profession…',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodyMedium
+                        ?.copyWith(color: context.colors.muted),
                   ),
                 ),
               ],

@@ -47,13 +47,16 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
         .read(paymentsRepositoryProvider)
         .checkout(widget.plan.code, couponCode: coupon.isEmpty ? null : coupon);
 
-    final checkout = checkoutResult.when(success: (c) => c, failure: (f) => null);
+    final checkout =
+        checkoutResult.when(success: (c) => c, failure: (f) => null);
     if (checkout == null) {
       if (mounted) {
         setState(() => _processing = false);
-        final failure = checkoutResult.when(success: (_) => null, failure: (f) => f);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(failure?.message ?? 'Could not start checkout.')));
+        final failure =
+            checkoutResult.when(success: (_) => null, failure: (f) => f);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text(failure?.message ?? 'Could not start checkout.')));
       }
       return;
     }
@@ -76,13 +79,17 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
             paymentId: result.paymentId,
             signature: result.signature,
           );
-      final verified = verifyResult.when(success: (v) => v, failure: (f) => null);
+      final verified =
+          verifyResult.when(success: (v) => v, failure: (f) => null);
       if (verified == null) {
         if (mounted) {
           setState(() => _processing = false);
-          final failure = verifyResult.when(success: (_) => null, failure: (f) => f);
+          final failure =
+              verifyResult.when(success: (_) => null, failure: (f) => f);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(failure?.message ?? 'Payment succeeded but verification failed.')));
+              duration: const Duration(seconds: 3),
+              content: Text(failure?.message ??
+                  'Payment succeeded but verification failed.')));
         }
         return;
       }
@@ -93,13 +100,15 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
     } on PaymentFailure catch (f) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
       }
     } catch (e) {
       if (mounted) {
         setState(() => _processing = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Payment failed. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('Payment failed. Please try again.')));
       }
     }
   }
@@ -119,7 +128,8 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.verified_rounded, color: context.colors.success, size: 20),
+                      Icon(Icons.verified_rounded,
+                          color: context.colors.success, size: 20),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text('Secure checkout via Razorpay',
@@ -147,23 +157,28 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
                     ],
                   ),
                   Text('(${plan.durationLabel})',
-                      style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                      style: context.textStyles.bodySmall
+                          ?.copyWith(color: context.colors.muted)),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('Coupon code (optional)', style: context.textStyles.titleSmall),
+                  Text('Coupon code (optional)',
+                      style: context.textStyles.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
                   TextField(
                     controller: _couponController,
                     textCapitalization: TextCapitalization.characters,
                     decoration: InputDecoration(
                       hintText: 'Enter coupon code',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
+                      border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm)),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'The final amount (including any coupon discount) is confirmed by the server '
                     'when you tap Proceed, right before checkout opens.',
-                    style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodySmall
+                        ?.copyWith(color: context.colors.muted),
                   ),
                 ],
               ),
@@ -171,7 +186,8 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            child: PrimaryButton(label: 'Proceed', loading: _processing, onPressed: _proceed),
+            child: PrimaryButton(
+                label: 'Proceed', loading: _processing, onPressed: _proceed),
           ),
         ],
       ),

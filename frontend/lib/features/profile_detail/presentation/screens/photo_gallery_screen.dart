@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../shared/widgets/misc/profile_avatar.dart';
+import '../../../../shared/widgets/misc/app_file_image.dart';
 
 class PhotoGalleryArgs {
   final List<String> photoIds;
@@ -13,9 +13,8 @@ class PhotoGalleryArgs {
   });
 }
 
-/// Full-screen photo viewer — swipe between photos, tap to toggle chrome.
-/// Photos are placeholder tiles (no real image pipeline yet) but the
-/// interaction — paging, indicator, index tracking — is real.
+/// Full-screen photo viewer — swipe between photos, tap to toggle chrome,
+/// pinch to zoom.
 class PhotoGalleryScreen extends StatefulWidget {
   final PhotoGalleryArgs args;
   const PhotoGalleryScreen({super.key, required this.args});
@@ -52,12 +51,14 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                 return GestureDetector(
                   onTap: () => setState(() => _chromeVisible = !_chromeVisible),
                   child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 0.8,
-                      child: ProfileAvatar(
-                        name: '${widget.args.name}$i',
-                        size: double.infinity,
-                        borderRadius: BorderRadius.zero,
+                    child: InteractiveViewer(
+                      minScale: 1,
+                      maxScale: 4,
+                      child: AppFileImage(
+                        path: photos[i],
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        height: double.infinity,
                       ),
                     ),
                   ),
@@ -73,42 +74,45 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 24,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(photos.length, (i) {
-                    final active = i == _index;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: active ? 20 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: active ? Colors.white : Colors.white38,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              Positioned(
-                right: 12,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black45,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_index + 1} / ${photos.length}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+              if (photos.length > 1)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 24,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(photos.length, (i) {
+                      final active = i == _index;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: active ? 20 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: active ? Colors.white : Colors.white38,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      );
+                    }),
                   ),
                 ),
-              ),
+              if (photos.length > 1)
+                Positioned(
+                  right: 12,
+                  top: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_index + 1} / ${photos.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
             ],
           ],
         ),

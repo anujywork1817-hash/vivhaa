@@ -39,7 +39,8 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Unblock $name?'),
-        content: Text('$name will be able to see your profile and contact you again.'),
+        content: Text(
+            '$name will be able to see your profile and contact you again.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -55,13 +56,15 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
 
     setState(() => _optimisticallyRemoved.add(profileId));
 
-    final result = await ref.read(blockedUsersActionsProvider).unblock(profileId);
+    final result =
+        await ref.read(blockedUsersActionsProvider).unblock(profileId);
     if (!mounted) return;
 
     result.when(
       success: (_) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$name has been unblocked.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('$name has been unblocked.')));
         // The action already invalidated blockedUsersListProvider, so the
         // next successful fetch won't include this id anyway — clear our
         // own flag too rather than leave it lingering for a future id reuse.
@@ -70,7 +73,8 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
       failure: (f) {
         // Roll back: bring the row back and explain why.
         setState(() => _optimisticallyRemoved.remove(profileId));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
       },
     );
   }
@@ -92,13 +96,15 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
     // without this a successful optimistic removal would immediately be
     // clobbered by a loading spinner replacing the whole list.
     if (blocked.hasValue) {
-      final profiles =
-          blocked.value!.where((p) => !_optimisticallyRemoved.contains(p.id)).toList();
+      final profiles = blocked.value!
+          .where((p) => !_optimisticallyRemoved.contains(p.id))
+          .toList();
       if (profiles.isEmpty) {
         return const EmptyState(
           icon: Icons.block_rounded,
           title: 'No blocked members',
-          message: 'Members you block will show up here — you can unblock them anytime.',
+          message:
+              'Members you block will show up here — you can unblock them anytime.',
         );
       }
       return RefreshIndicator(
@@ -157,7 +163,8 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
       return const EmptyState(
         icon: Icons.error_outline_rounded,
         title: 'Something went wrong',
-        message: 'Could not load your blocked members. Pull to refresh to try again.',
+        message:
+            'Could not load your blocked members. Pull to refresh to try again.',
       );
     }
 

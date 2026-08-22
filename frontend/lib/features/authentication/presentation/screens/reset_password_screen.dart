@@ -25,7 +25,8 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key});
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
@@ -41,7 +42,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowDevOtpBanner());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _maybeShowDevOtpBanner());
   }
 
   @override
@@ -57,7 +59,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     if (devOtp == null || !mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('Dev code: $devOtp'), duration: _devOtpBannerDuration));
+      ..showSnackBar(SnackBar(
+          content: Text('Dev code: $devOtp'), duration: _devOtpBannerDuration));
   }
 
   void _startResendCooldown() {
@@ -78,7 +81,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Future<void> _resend() async {
     final contact = ref.read(authControllerProvider).pendingContact;
     if (contact == null) return;
-    final ok = await ref.read(authControllerProvider.notifier).forgotPassword(contact);
+    final ok =
+        await ref.read(authControllerProvider.notifier).forgotPassword(contact);
     if (!mounted) return;
     if (ok) {
       _startResendCooldown();
@@ -88,14 +92,18 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       } else {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Code resent')));
+          ..showSnackBar(const SnackBar(
+              duration: const Duration(seconds: 3),
+              content: Text('Code resent')));
       }
     } else {
       final failure = ref.read(authControllerProvider).failure;
       if (failure != null) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(failure.message)));
+          ..showSnackBar(SnackBar(
+              duration: const Duration(seconds: 3),
+              content: Text(failure.message)));
       }
     }
   }
@@ -121,7 +129,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         .resetPassword(_code, _newPasswordController.text);
     if (!ok || !mounted) return;
 
-    final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
+    final hasProfile = await ref
+        .read(profileCreationControllerProvider.notifier)
+        .loadExisting();
     if (!mounted) return;
     context.go(hasProfile ? AppRoutes.home : AppRoutes.profileFor);
   }
@@ -142,20 +152,24 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Reset your password', style: context.textStyles.headlineMedium),
+                Text('Reset your password',
+                    style: context.textStyles.headlineMedium),
                 const SizedBox(height: 6),
                 Text(
                   'Enter the 6-digit code sent to ${authState.pendingContact ?? 'your email'}, then choose a new password.',
-                  style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                  style: context.textStyles.bodyMedium
+                      ?.copyWith(color: context.colors.muted),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                OtpInputField(onCompleted: (code) => setState(() => _code = code)),
+                OtpInputField(
+                    onCompleted: (code) => setState(() => _code = code)),
                 const SizedBox(height: AppSpacing.md),
                 Center(
                   child: TextButton(
                     onPressed: canResend ? _resend : null,
-                    child: Text(
-                        canResend ? "Didn't get a code? Resend" : 'Resend in ${_cooldownSecondsLeft}s'),
+                    child: Text(canResend
+                        ? "Didn't get a code? Resend"
+                        : 'Resend in ${_cooldownSecondsLeft}s'),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -167,8 +181,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     labelText: 'New password',
                     hintText: 'At least 8 characters',
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureNew ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                      onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                      icon: Icon(_obscureNew
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
+                      onPressed: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                     ),
                   ),
                 ),
@@ -180,16 +197,19 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                   decoration: InputDecoration(
                     labelText: 'Confirm new password',
                     suffixIcon: IconButton(
-                      icon: Icon(
-                          _obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      icon: Icon(_obscureConfirm
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
+                      onPressed: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                   ),
                 ),
                 if (authState.failure != null) ...[
                   const SizedBox(height: 14),
                   Text(authState.failure!.message,
-                      style: TextStyle(color: context.colors.danger, fontSize: 13)),
+                      style: TextStyle(
+                          color: context.colors.danger, fontSize: 13)),
                 ],
                 const SizedBox(height: AppSpacing.xl),
                 PrimaryButton(

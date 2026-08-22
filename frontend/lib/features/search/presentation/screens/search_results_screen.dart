@@ -19,7 +19,8 @@ class SearchResultsScreen extends ConsumerStatefulWidget {
   const SearchResultsScreen({super.key});
 
   @override
-  ConsumerState<SearchResultsScreen> createState() => _SearchResultsScreenState();
+  ConsumerState<SearchResultsScreen> createState() =>
+      _SearchResultsScreenState();
 }
 
 class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
@@ -50,7 +51,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     final state = ref.read(searchResultsControllerProvider);
     final filters = state.appliedFilters;
     if (filters == null) return;
-    final nameController = TextEditingController(text: 'My search ${DateTime.now().day}/${DateTime.now().month}');
+    final nameController = TextEditingController(
+        text: 'My search ${DateTime.now().day}/${DateTime.now().month}');
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -66,7 +68,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(nameController.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(nameController.text.trim()),
             child: const Text('Save'),
           ),
         ],
@@ -78,7 +81,9 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
         .save(name, filters, state.results.length);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved "$name"')),
+        SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('Saved "$name"')),
       );
     }
   }
@@ -89,13 +94,18 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(state.loading ? 'Searching…' : '${state.results.length} results'),
+        title: Text(
+            state.loading ? 'Searching…' : '${state.results.length} results'),
         actions: [
           IconButton(
-            icon: Icon(_layout == _ResultLayout.list ? Icons.grid_view_rounded : Icons.view_list_rounded),
+            icon: Icon(_layout == _ResultLayout.list
+                ? Icons.grid_view_rounded
+                : Icons.view_list_rounded),
             tooltip: 'Toggle layout',
             onPressed: () => setState(() {
-              _layout = _layout == _ResultLayout.list ? _ResultLayout.grid : _ResultLayout.list;
+              _layout = _layout == _ResultLayout.list
+                  ? _ResultLayout.grid
+                  : _ResultLayout.list;
             }),
           ),
           IconButton(
@@ -127,7 +137,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
       return const EmptyState(
         icon: Icons.search_rounded,
         title: 'Start a search',
-        message: 'Set your filters on Basic or Advanced Search to see matches here.',
+        message:
+            'Set your filters on Basic or Advanced Search to see matches here.',
       );
     }
     if (state.loading) {
@@ -136,19 +147,22 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     if (state.failure != null && state.results.isEmpty) {
       return ErrorStateView(
         failure: state.failure!,
-        onRetry: () => ref.read(searchResultsControllerProvider.notifier).retry(),
+        onRetry: () =>
+            ref.read(searchResultsControllerProvider.notifier).retry(),
       );
     }
     if (state.results.isEmpty) {
       return const EmptyState(
         icon: Icons.person_search_rounded,
         title: 'No matches found',
-        message: 'Try widening your age or height range, or clearing a few filters.',
+        message:
+            'Try widening your age or height range, or clearing a few filters.',
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(searchResultsControllerProvider.notifier).retry(),
+      onRefresh: () =>
+          ref.read(searchResultsControllerProvider.notifier).retry(),
       child: _layout == _ResultLayout.grid ? _grid(state) : _list(state),
     );
   }
@@ -203,7 +217,9 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
       ),
       itemCount: 6,
       itemBuilder: (_, __) => ShimmerBox(
-          width: double.infinity, height: double.infinity, borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+          width: double.infinity,
+          height: double.infinity,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
     );
   }
 
@@ -213,7 +229,9 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
       itemCount: 6,
       separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
       itemBuilder: (_, __) => ShimmerBox(
-          width: double.infinity, height: 76, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+          width: double.infinity,
+          height: 76,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
     );
   }
 }
@@ -229,7 +247,8 @@ class _LoadMoreIndicator extends StatelessWidget {
         child: SizedBox(
           width: 22,
           height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2.2, color: context.colors.accent),
+          child: CircularProgressIndicator(
+              strokeWidth: 2.2, color: context.colors.accent),
         ),
       ),
     );

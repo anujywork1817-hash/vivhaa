@@ -74,10 +74,12 @@ class _CallHistoryScreenState extends ConsumerState<CallHistoryScreen> {
     }
   }
 
-  Future<void> _callBack(CallHistoryEntry entry, {required bool isVideo}) async {
+  Future<void> _callBack(CallHistoryEntry entry,
+      {required bool isVideo}) async {
     if (ref.read(callControllerProvider).isActive) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("You're already on a call.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text("You're already on a call.")));
       return;
     }
     await ref.read(callControllerProvider.notifier).startCall(
@@ -118,7 +120,8 @@ class _CallHistoryScreenState extends ConsumerState<CallHistoryScreen> {
     if (state.failure != null && state.entries.isEmpty) {
       return ErrorStateView(
         failure: state.failure!,
-        onRetry: () => ref.read(callHistoryControllerProvider.notifier).refresh(),
+        onRetry: () =>
+            ref.read(callHistoryControllerProvider.notifier).refresh(),
       );
     }
 
@@ -131,7 +134,8 @@ class _CallHistoryScreenState extends ConsumerState<CallHistoryScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(callHistoryControllerProvider.notifier).refresh(),
+      onRefresh: () =>
+          ref.read(callHistoryControllerProvider.notifier).refresh(),
       child: ListView.separated(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -164,7 +168,8 @@ class _CallHistoryTile extends StatelessWidget {
 
   bool get _isMissed =>
       entry.direction == CallDirection.incoming &&
-      (entry.status == CallStatusHistory.missed || entry.status == CallStatusHistory.rejected);
+      (entry.status == CallStatusHistory.missed ||
+          entry.status == CallStatusHistory.rejected);
 
   IconData get _directionIcon {
     if (entry.status == CallStatusHistory.failed) return Icons.call_end_rounded;
@@ -177,9 +182,13 @@ class _CallHistoryTile extends StatelessWidget {
   String get _statusLabel {
     switch (entry.status) {
       case CallStatusHistory.missed:
-        return entry.direction == CallDirection.incoming ? 'Missed call' : 'No answer';
+        return entry.direction == CallDirection.incoming
+            ? 'Missed call'
+            : 'No answer';
       case CallStatusHistory.rejected:
-        return entry.direction == CallDirection.incoming ? 'Declined' : 'Call declined';
+        return entry.direction == CallDirection.incoming
+            ? 'Declined'
+            : 'Call declined';
       case CallStatusHistory.failed:
         return 'Call failed';
       case CallStatusHistory.initiated:
@@ -188,7 +197,9 @@ class _CallHistoryTile extends StatelessWidget {
       case CallStatusHistory.completed:
         return entry.durationSeconds != null && entry.durationSeconds! > 0
             ? _durationLabel(entry.durationSeconds!)
-            : (entry.direction == CallDirection.outgoing ? 'Outgoing call' : 'Incoming call');
+            : (entry.direction == CallDirection.outgoing
+                ? 'Outgoing call'
+                : 'Incoming call');
     }
   }
 
@@ -201,10 +212,14 @@ class _CallHistoryTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         child: Row(
           children: [
-            ProfileAvatar(name: entry.partnerName, size: 52, photoUrl: entry.partnerPhoto),
+            ProfileAvatar(
+                name: entry.partnerName,
+                size: 52,
+                photoUrl: entry.partnerPhoto),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -222,7 +237,8 @@ class _CallHistoryTile extends StatelessWidget {
                       Flexible(
                         child: Text(
                           _statusLabel,
-                          style: context.textStyles.bodySmall?.copyWith(color: statusColor),
+                          style: context.textStyles.bodySmall
+                              ?.copyWith(color: statusColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -237,7 +253,8 @@ class _CallHistoryTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(_timestampLabel(entry.startedAt),
-                    style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                    style: context.textStyles.bodySmall
+                        ?.copyWith(color: context.colors.muted)),
                 const SizedBox(height: 6),
                 Icon(
                   entry.isVideo ? Icons.videocam_rounded : Icons.call_rounded,

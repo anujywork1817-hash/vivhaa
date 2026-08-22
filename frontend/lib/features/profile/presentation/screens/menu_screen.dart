@@ -48,7 +48,9 @@ class MenuScreen extends ConsumerWidget {
     );
     if (submitted == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Thanks for your feedback!')),
+      SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text('Thanks for your feedback!')),
     );
   }
 
@@ -57,10 +59,15 @@ class MenuScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Sign out?'),
-        content: const Text('You can sign back in anytime with the same account.'),
+        content:
+            const Text('You can sign back in anytime with the same account.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Sign out')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Sign out')),
         ],
       ),
     );
@@ -89,7 +96,8 @@ class MenuScreen extends ConsumerWidget {
     // UUID — that's an internal database key, not something to show or
     // ask a member to read out.
     final profileId = draft.profileCode.isNotEmpty ? draft.profileCode : '—';
-    final isPremium = ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? false;
+    final isPremium =
+        ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,12 +111,13 @@ class MenuScreen extends ConsumerWidget {
           ListView(
             // Extra bottom room only when the pinned Upgrade bar is there
             // to be scrolled clear of.
-            padding: EdgeInsets.fromLTRB(
-                AppSpacing.lg, 0, AppSpacing.lg, isPremium ? AppSpacing.lg : 104),
+            padding: EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg,
+                isPremium ? AppSpacing.lg : 104),
             children: [
               Row(
                 children: [
-                  ProfileAvatar(name: name, size: 56, photoUrl: draft.profilePhotoUrl),
+                  ProfileAvatar(
+                      name: name, size: 56, photoUrl: draft.profilePhotoUrl),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
@@ -116,23 +125,30 @@ class MenuScreen extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            Flexible(child: Text(name, style: context.textStyles.titleMedium, overflow: TextOverflow.ellipsis)),
+                            Flexible(
+                                child: Text(name,
+                                    style: context.textStyles.titleMedium,
+                                    overflow: TextOverflow.ellipsis)),
                             const SizedBox(width: 4),
-                            Icon(Icons.verified_rounded, size: 16, color: context.colors.accent),
+                            Icon(Icons.verified_rounded,
+                                size: 16, color: context.colors.accent),
                           ],
                         ),
                         if (isPremium) ...[
                           const SizedBox(height: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               gradient: AppColors.premiumGradient,
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusPill),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.workspace_premium_rounded, size: 12, color: Colors.white),
+                                Icon(Icons.workspace_premium_rounded,
+                                    size: 12, color: Colors.white),
                                 SizedBox(width: 4),
                                 Text('PREMIUM MEMBER',
                                     style: TextStyle(
@@ -149,10 +165,14 @@ class MenuScreen extends ConsumerWidget {
                           onTap: profileId == '—'
                               ? null
                               : () async {
-                                  await Clipboard.setData(ClipboardData(text: profileId));
+                                  await Clipboard.setData(
+                                      ClipboardData(text: profileId));
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Profile ID $profileId copied.')),
+                                      SnackBar(
+                                          duration: const Duration(seconds: 3),
+                                          content: Text(
+                                              'Profile ID $profileId copied.')),
                                     );
                                   }
                                 },
@@ -165,7 +185,8 @@ class MenuScreen extends ConsumerWidget {
                                     overflow: TextOverflow.ellipsis),
                               ),
                               const SizedBox(width: 6),
-                              Icon(Icons.copy_rounded, size: 14, color: context.colors.muted),
+                              Icon(Icons.copy_rounded,
+                                  size: 14, color: context.colors.muted),
                             ],
                           ),
                         ),
@@ -201,18 +222,23 @@ class MenuScreen extends ConsumerWidget {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: context.colors.ink,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('VIP', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        child: const Text('VIP',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 11)),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                          child: Text('VIP Vivah', style: context.textStyles.titleSmall)),
+                          child: Text('VIP Vivah',
+                              style: context.textStyles.titleSmall)),
                       OutlinedButton(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(0, 32)),
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 32)),
                         // No invite/VIP tier exists on the backend — only
                         // the free and premium subscription plans do. Say
                         // that instead of leaving a no-op button.
@@ -225,7 +251,8 @@ class MenuScreen extends ConsumerWidget {
                                 'available today and unlocks chat, unlimited interests and contact details.'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(dialogContext).pop(),
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
                                 child: const Text('Got it'),
                               ),
                             ],
@@ -237,7 +264,8 @@ class MenuScreen extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: AppSpacing.lg),
-              Text('Discover Your Matches', style: context.textStyles.titleMedium),
+              Text('Discover Your Matches',
+                  style: context.textStyles.titleMedium),
               const SizedBox(height: AppSpacing.sm),
               _MenuGroup(
                 rows: [
@@ -261,7 +289,8 @@ class MenuScreen extends ConsumerWidget {
                   _Row(
                     icon: Icons.badge_outlined,
                     label: 'Partner Preferences',
-                    onTap: () => context.push(AppRoutes.partnerPreferences, extra: true),
+                    onTap: () =>
+                        context.push(AppRoutes.partnerPreferences, extra: true),
                   ),
                   _Row(
                     icon: Icons.settings_outlined,
@@ -315,68 +344,81 @@ class MenuScreen extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: AppSpacing.lg),
-              TextButton(onPressed: () => _signOut(context, ref), child: const Text('Sign out')),
+              TextButton(
+                  onPressed: () => _signOut(context, ref),
+                  child: const Text('Sign out')),
               const SizedBox(height: AppSpacing.lg),
               InkWell(
                 onTap: () => context.push(AppRoutes.termsConditions),
                 child: Text('Terms & Conditions',
-                    style: context.textStyles.bodySmall
-                        ?.copyWith(color: context.colors.accent, decoration: TextDecoration.underline)),
+                    style: context.textStyles.bodySmall?.copyWith(
+                        color: context.colors.accent,
+                        decoration: TextDecoration.underline)),
               ),
               const SizedBox(height: 4),
               Text('Copyright © 1996-2026 Vivah.com',
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted)),
               Text('Version 1.0.0',
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted)),
             ],
           ),
           // Nothing left to upgrade to once you're premium — the pinned
           // bar (and its discount badge) only make sense for free members.
           if (!isPremium)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.topCenter,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: context.colors.surface,
-                      border: Border(top: BorderSide(color: context.colors.line)),
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.push(AppRoutes.premiumPaywall),
-                        icon: const Icon(Icons.workspace_premium_rounded, size: 18),
-                        label: const Text('Upgrade Now'),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: -10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(
+                top: false,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.topCenter,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.md,
+                          AppSpacing.lg, AppSpacing.md, AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: context.colors.success,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                        border: Border.all(color: context.colors.bg, width: 2),
+                        color: context.colors.surface,
+                        border:
+                            Border(top: BorderSide(color: context.colors.line)),
                       ),
-                      child: const Text('% UPTO 55% OFF',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              context.push(AppRoutes.premiumPaywall),
+                          icon: const Icon(Icons.workspace_premium_rounded,
+                              size: 18),
+                          label: const Text('Upgrade Now'),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: -10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: context.colors.success,
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusPill),
+                          border:
+                              Border.all(color: context.colors.bg, width: 2),
+                        ),
+                        child: const Text('% UPTO 55% OFF',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -424,7 +466,8 @@ class _Row extends StatelessWidget {
       minVerticalPadding: AppSpacing.sm,
       leading: Icon(icon, color: context.colors.muted),
       title: Text(label, style: context.textStyles.bodyLarge),
-      trailing: Icon(Icons.chevron_right_rounded, size: 20, color: context.colors.muted),
+      trailing: Icon(Icons.chevron_right_rounded,
+          size: 20, color: context.colors.muted),
       onTap: onTap,
     );
   }
@@ -466,7 +509,8 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
               previouslyRated
                   ? 'You can update your rating any time.'
                   : 'Tap a star to rate your experience.',
-              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+              style: context.textStyles.bodySmall
+                  ?.copyWith(color: context.colors.muted),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -482,7 +526,9 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
                       padding: EdgeInsets.zero,
                       onPressed: () => setState(() => _selected = i),
                       icon: Icon(
-                        i <= _selected ? Icons.star_rounded : Icons.star_border_rounded,
+                        i <= _selected
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
                         color: context.colors.gold,
                         size: 32,
                       ),
@@ -495,7 +541,8 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
               controller: _feedbackController,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText: 'Tell us what\'s working or what could be better (optional)',
+                hintText:
+                    'Tell us what\'s working or what could be better (optional)',
               ),
             ),
           ],
@@ -513,7 +560,9 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
                   ref.read(appRatingProvider.notifier).setRating(_selected);
                   final feedback = _feedbackController.text.trim();
                   if (feedback.isNotEmpty) {
-                    ref.read(appRatingFeedbackProvider.notifier).setFeedback(feedback);
+                    ref
+                        .read(appRatingFeedbackProvider.notifier)
+                        .setFeedback(feedback);
                   }
                   Navigator.of(context).pop(_selected);
                 },

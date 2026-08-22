@@ -61,12 +61,16 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
     if (phone.isEmpty || _phoneVerified) return true;
 
     setState(() => _linkingPhone = true);
-    final requestResult = await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
+    final requestResult =
+        await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
     if (!mounted) return false;
-    final requestFailure = requestResult.when(success: (_) => null, failure: (f) => f);
+    final requestFailure =
+        requestResult.when(success: (_) => null, failure: (f) => f);
     if (requestFailure != null) {
       setState(() => _linkingPhone = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(requestFailure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(requestFailure.message)));
       return false;
     }
 
@@ -87,7 +91,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Skip')),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(codeController.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(codeController.text.trim()),
             child: const Text('Verify'),
           ),
         ],
@@ -96,9 +101,11 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
     codeController.dispose();
     if (!mounted) return false;
     setState(() => _linkingPhone = false);
-    if (code == null || code.isEmpty) return true; // skipped — continue without a phone
+    if (code == null || code.isEmpty)
+      return true; // skipped — continue without a phone
 
-    final confirmResult = await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
+    final confirmResult =
+        await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
     if (!mounted) return false;
     return confirmResult.when(
       success: (_) {
@@ -106,7 +113,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
         return true;
       },
       failure: (f) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
         return false;
       },
     );
@@ -126,8 +134,10 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
     // Computed per build rather than cached in state so a session left open
     // across midnight can't offer a date that has since gone out of range.
     final today = DateTime.now();
-    final oldestAllowed = DateTime(today.year - maxSignupAge, today.month, today.day);
-    final youngestAllowed = DateTime(today.year - minSignupAge, today.month, today.day);
+    final oldestAllowed =
+        DateTime(today.year - maxSignupAge, today.month, today.day);
+    final youngestAllowed =
+        DateTime(today.year - minSignupAge, today.month, today.day);
 
     return OnboardingStepScaffold(
       stepIndex: 1,
@@ -148,7 +158,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
           AppTextField(
             label: 'First name',
             controller: _firstNameController,
-            onChanged: (v) => controller.update((p) => p.copyWith(firstName: v)),
+            onChanged: (v) =>
+                controller.update((p) => p.copyWith(firstName: v)),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppTextField(
@@ -162,7 +173,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
           Text(
             'Optional — lets matches you\'re chatting with reach you by phone '
             'instead of just email.',
-            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: context.colors.muted),
           ),
           const SizedBox(height: AppSpacing.md),
           AppTextField(
@@ -172,7 +184,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
             keyboardType: TextInputType.phone,
             onChanged: (_) => setState(() => _phoneVerified = false),
             suffixIcon: _phoneVerified
-                ? Icon(Icons.check_circle_rounded, color: context.colors.success)
+                ? Icon(Icons.check_circle_rounded,
+                    color: context.colors.success)
                 : null,
           ),
           const SizedBox(height: AppSpacing.xxl),
@@ -184,12 +197,14 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
             value: draft.dateOfBirth,
             firstDate: oldestAllowed,
             lastDate: youngestAllowed,
-            onSelected: (date) => controller.update((p) => p.copyWith(dateOfBirth: date)),
+            onSelected: (date) =>
+                controller.update((p) => p.copyWith(dateOfBirth: date)),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'You must be at least $minSignupAge to create a profile.',
-            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+            style: context.textStyles.bodySmall
+                ?.copyWith(color: context.colors.muted),
           ),
         ],
       ),

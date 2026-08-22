@@ -122,7 +122,8 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
   }
 
   void _handleBack() {
-    final location = widget.router.routerDelegate.currentConfiguration.uri.toString();
+    final location =
+        widget.router.routerDelegate.currentConfiguration.uri.toString();
     final onHomeRoute = location == AppRoutes.home;
     final onHomeTab = ref.read(appShellTabProvider) == AppTab.home;
 
@@ -137,7 +138,8 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
     }
 
     final now = DateTime.now();
-    if (_lastBackPressAt != null && now.difference(_lastBackPressAt!) <= _exitWindow) {
+    if (_lastBackPressAt != null &&
+        now.difference(_lastBackPressAt!) <= _exitWindow) {
       _exitWindowTimer?.cancel();
       SystemNavigator.pop();
       return;

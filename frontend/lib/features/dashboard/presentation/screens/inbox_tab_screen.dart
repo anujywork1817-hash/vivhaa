@@ -85,7 +85,8 @@ class _EmptyInbox extends ConsumerWidget {
       title: title,
       message: message,
       actionLabel: 'View My Matches',
-      onAction: () => ref.read(appShellTabProvider.notifier).state = AppTab.matches,
+      onAction: () =>
+          ref.read(appShellTabProvider.notifier).state = AppTab.matches,
     );
   }
 }
@@ -95,7 +96,9 @@ class _ReceivedList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final records = ref.watch(receivedInterestsProvider).valueOrNull
+    final records = ref
+            .watch(receivedInterestsProvider)
+            .valueOrNull
             ?.where((r) => r.status == InterestStatus.pending)
             .toList() ??
         [];
@@ -107,17 +110,20 @@ class _ReceivedList extends ConsumerWidget {
                 SizedBox(height: 80),
                 _EmptyInbox(
                   title: 'No pending Requests',
-                  message: 'Check out more Profiles and continue your Partner search.',
+                  message:
+                      'Check out more Profiles and continue your Partner search.',
                 ),
               ],
             )
           : ListView.separated(
               padding: const EdgeInsets.all(AppSpacing.lg),
               itemCount: records.length,
-              separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.md),
               itemBuilder: (context, i) => _InboxTile(
                 record: records[i],
-                onTap: () => context.push(AppRoutes.interestDecisionPath(records[i].id)),
+                onTap: () =>
+                    context.push(AppRoutes.interestDecisionPath(records[i].id)),
               ),
             ),
     );
@@ -133,9 +139,10 @@ class _AcceptedList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final acceptedByMe = (ref.watch(receivedInterestsProvider).valueOrNull ?? [])
-        .where((r) => r.status == InterestStatus.accepted)
-        .toList();
+    final acceptedByMe =
+        (ref.watch(receivedInterestsProvider).valueOrNull ?? [])
+            .where((r) => r.status == InterestStatus.accepted)
+            .toList();
     final acceptedByThem = (ref.watch(sentInterestsProvider).valueOrNull ?? [])
         .where((r) => r.status == InterestStatus.accepted)
         .toList();
@@ -143,7 +150,8 @@ class _AcceptedList extends ConsumerWidget {
     if (acceptedByMe.isEmpty && acceptedByThem.isEmpty) {
       return const _EmptyInbox(
         title: 'No accepted matches yet',
-        message: 'Once an interest is accepted (by you or them), it shows up here.',
+        message:
+            'Once an interest is accepted (by you or them), it shows up here.',
       );
     }
 
@@ -167,13 +175,15 @@ class _AcceptedList extends ConsumerWidget {
               _TogglePill(
                 label: '$themLabel (${acceptedByThem.length})',
                 selected: byThemSelected,
-                onTap: () => ref.read(acceptedByThemProvider.notifier).state = true,
+                onTap: () =>
+                    ref.read(acceptedByThemProvider.notifier).state = true,
               ),
               const SizedBox(width: AppSpacing.sm),
               _TogglePill(
                 label: 'Accepted by Me (${acceptedByMe.length})',
                 selected: !byThemSelected,
-                onTap: () => ref.read(acceptedByThemProvider.notifier).state = false,
+                onTap: () =>
+                    ref.read(acceptedByThemProvider.notifier).state = false,
               ),
             ],
           ),
@@ -187,10 +197,12 @@ class _AcceptedList extends ConsumerWidget {
             child: records.isEmpty
                 ? ListView(
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                      SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.12),
                       _EmptyInbox(
-                        title:
-                            byThemSelected ? 'None accepted yet' : "You haven't accepted any yet",
+                        title: byThemSelected
+                            ? 'None accepted yet'
+                            : "You haven't accepted any yet",
                         message: byThemSelected
                             ? 'Requests you send appear here once they accept.'
                             : 'Requests you accept from the Received tab appear here.',
@@ -201,8 +213,10 @@ class _AcceptedList extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(
                         AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                     itemCount: records.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-                    itemBuilder: (context, i) => _AcceptedCard(record: records[i]),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.md),
+                    itemBuilder: (context, i) =>
+                        _AcceptedCard(record: records[i]),
                   ),
           ),
         ),
@@ -222,7 +236,8 @@ class _TogglePill extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _TogglePill({required this.label, required this.selected, required this.onTap});
+  const _TogglePill(
+      {required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -231,11 +246,13 @@ class _TogglePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 9),
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: 9),
           decoration: BoxDecoration(
             color: selected ? context.colors.ink : context.colors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            border: Border.all(color: selected ? context.colors.ink : context.colors.line),
+            border: Border.all(
+                color: selected ? context.colors.ink : context.colors.line),
           ),
           child: Text(
             label,
@@ -258,8 +275,12 @@ class _ContactsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final conversations =
-        ref.watch(conversationsProvider).valueOrNull?.where((c) => c.contactShared).toList() ?? [];
+    final conversations = ref
+            .watch(conversationsProvider)
+            .valueOrNull
+            ?.where((c) => c.contactShared)
+            .toList() ??
+        [];
     if (conversations.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async => ref.invalidate(conversationsProvider),
@@ -268,7 +289,8 @@ class _ContactsList extends ConsumerWidget {
             SizedBox(height: 80),
             _EmptyInbox(
               title: 'No shared contacts yet',
-              message: 'Contact numbers you request and receive in chat appear here.',
+              message:
+                  'Contact numbers you request and receive in chat appear here.',
             ),
           ],
         ),
@@ -277,42 +299,44 @@ class _ContactsList extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(conversationsProvider),
       child: ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: conversations.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-      itemBuilder: (context, i) {
-        final c = conversations[i];
-        return InkWell(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          onTap: () => context.push(AppRoutes.chatWindowPath(c.id)),
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: context.colors.surface,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(color: context.colors.line),
-            ),
-            child: Row(
-              children: [
-                ProfileAvatar(name: c.withProfile.name, size: 52),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(c.withProfile.name, style: context.textStyles.titleSmall),
-                      Text('Contact number shared',
-                          style: context.textStyles.bodySmall
-                              ?.copyWith(color: context.colors.success)),
-                    ],
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        itemCount: conversations.length,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+        itemBuilder: (context, i) {
+          final c = conversations[i];
+          return InkWell(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            onTap: () => context.push(AppRoutes.chatWindowPath(c.id)),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(color: context.colors.line),
+              ),
+              child: Row(
+                children: [
+                  ProfileAvatar(name: c.withProfile.name, size: 52),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(c.withProfile.name,
+                            style: context.textStyles.titleSmall),
+                        Text('Contact number shared',
+                            style: context.textStyles.bodySmall
+                                ?.copyWith(color: context.colors.success)),
+                      ],
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: context.colors.muted),
-              ],
+                  Icon(Icons.chevron_right_rounded,
+                      color: context.colors.muted),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
       ),
     );
   }
@@ -335,7 +359,9 @@ class _SentList extends ConsumerWidget {
     // this showed every sent interest regardless of status, so an
     // accepted one kept sitting in Sent forever in addition to appearing
     // in Accepted.
-    final pending = ref.watch(sentInterestsProvider).valueOrNull
+    final pending = ref
+            .watch(sentInterestsProvider)
+            .valueOrNull
             ?.where((r) => r.status == InterestStatus.pending)
             .toList() ??
         [];
@@ -361,7 +387,8 @@ class _SentList extends ConsumerWidget {
             SizedBox(height: 80),
             _EmptyInbox(
               title: 'No interests sent yet',
-              message: 'Interests you send from Matches or a profile show up here.',
+              message:
+                  'Interests you send from Matches or a profile show up here.',
             ),
           ],
         ),
@@ -382,7 +409,8 @@ class _SentList extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis),
               ),
               OutlinedButton.icon(
-                onPressed: () => _showFilterSheet(context, ref, filter, pronoun),
+                onPressed: () =>
+                    _showFilterSheet(context, ref, filter, pronoun),
                 icon: const Icon(Icons.filter_alt_outlined, size: 16),
                 label: Text(switch (filter) {
                   SentFilter.all => 'FILTER',
@@ -392,7 +420,8 @@ class _SentList extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 34),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusPill)),
                 ),
               ),
             ],
@@ -404,7 +433,8 @@ class _SentList extends ConsumerWidget {
             child: records.isEmpty
                 ? ListView(
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                      SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.12),
                       _EmptyInbox(
                         title: filter == SentFilter.viewed
                             ? 'None viewed yet'
@@ -419,7 +449,8 @@ class _SentList extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(
                         AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                     itemCount: records.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.md),
                     itemBuilder: (context, i) => _SentCard(record: records[i]),
                   ),
           ),
@@ -490,13 +521,15 @@ class _MoreList extends ConsumerWidget {
               _TogglePill(
                 label: 'Requests (${declined.length})',
                 selected: !showDeleted,
-                onTap: () => ref.read(moreShowsDeletedProvider.notifier).state = false,
+                onTap: () =>
+                    ref.read(moreShowsDeletedProvider.notifier).state = false,
               ),
               const SizedBox(width: AppSpacing.sm),
               _TogglePill(
                 label: 'Deleted (${deleted.length})',
                 selected: showDeleted,
-                onTap: () => ref.read(moreShowsDeletedProvider.notifier).state = true,
+                onTap: () =>
+                    ref.read(moreShowsDeletedProvider.notifier).state = true,
               ),
             ],
           ),
@@ -511,9 +544,12 @@ class _MoreList extends ConsumerWidget {
             child: records.isEmpty
                 ? ListView(
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                      SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.12),
                       _EmptyInbox(
-                        title: showDeleted ? 'Nothing deleted' : 'No declined requests',
+                        title: showDeleted
+                            ? 'Nothing deleted'
+                            : 'No declined requests',
                         message: showDeleted
                             ? 'Requests you delete from Sent or Accepted appear here.'
                             : "Requests that were declined show up here so you can see what happened to them.",
@@ -524,10 +560,12 @@ class _MoreList extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(
                         AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                     itemCount: records.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.md),
                     itemBuilder: (context, i) {
                       if (i == records.length) return const _EndOfListMarker();
-                      return _ClosedRequestCard(record: records[i], deleted: showDeleted);
+                      return _ClosedRequestCard(
+                          record: records[i], deleted: showDeleted);
                     },
                   ),
           ),
@@ -550,12 +588,15 @@ class _EndOfListMarker extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
-            decoration: BoxDecoration(color: context.colors.success, shape: BoxShape.circle),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 30),
+            decoration: BoxDecoration(
+                color: context.colors.success, shape: BoxShape.circle),
+            child:
+                const Icon(Icons.check_rounded, color: Colors.white, size: 30),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text("You've viewed all Requests",
-              textAlign: TextAlign.center, style: context.textStyles.titleSmall),
+              textAlign: TextAlign.center,
+              style: context.textStyles.titleSmall),
         ],
       ),
     );
@@ -594,7 +635,10 @@ class _ClosedRequestCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ProfileAvatar(name: profile.name, size: 60, photoUrl: profile.photoSeed),
+                  ProfileAvatar(
+                      name: profile.name,
+                      size: 60,
+                      photoUrl: profile.photoSeed),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
@@ -604,7 +648,11 @@ class _ClosedRequestCard extends StatelessWidget {
                             style: context.textStyles.titleSmall,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
-                        for (final line in [brief.line1, brief.line2, brief.line3])
+                        for (final line in [
+                          brief.line1,
+                          brief.line2,
+                          brief.line3
+                        ])
                           if (line.isNotEmpty)
                             Text(line,
                                 style: context.textStyles.bodySmall,
@@ -614,8 +662,8 @@ class _ClosedRequestCard extends StatelessWidget {
                     ),
                   ),
                   Text(_relativeTime(record.timestamp),
-                      style:
-                          context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                      style: context.textStyles.bodySmall
+                          ?.copyWith(color: context.colors.muted)),
                 ],
               ),
             ),
@@ -626,7 +674,8 @@ class _ClosedRequestCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline_rounded, size: 18, color: context.colors.danger),
+                Icon(Icons.error_outline_rounded,
+                    size: 18, color: context.colors.danger),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -704,7 +753,8 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Remove', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Remove',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
@@ -712,12 +762,14 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
     if (confirmed != true) return;
 
     setState(() => _busy = true);
-    final failure = await ref.read(interestsActionsProvider).withdraw(widget.record.id);
+    final failure =
+        await ref.read(interestsActionsProvider).withdraw(widget.record.id);
     if (!mounted) return;
     setState(() => _busy = false);
     if (failure != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
     }
   }
 
@@ -727,15 +779,20 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
   /// conversation so the requester can see the outcome as soon as they
   /// respond, instead of getting the number silently and instantly.
   Future<void> _requestContact() async {
-    final conversation = ref.read(conversationForProfileProvider(widget.record.profile.id));
+    final conversation =
+        ref.read(conversationForProfileProvider(widget.record.profile.id));
     if (conversation == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Send them a chat message first, then you can request their contact number.')));
+          duration: const Duration(seconds: 3),
+          content: Text(
+              'Send them a chat message first, then you can request their contact number.')));
       return;
     }
 
     setState(() => _busy = true);
-    final result = await ref.read(chatRepositoryProvider).requestContactNumber(conversation.id);
+    final result = await ref
+        .read(chatRepositoryProvider)
+        .requestContactNumber(conversation.id);
     if (!mounted) return;
     setState(() => _busy = false);
 
@@ -743,7 +800,9 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
       success: (_) {
         context.push(AppRoutes.chatWindowPath(conversation.id));
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Contact request sent — you'll see their response in chat.")));
+            duration: const Duration(seconds: 3),
+            content: Text(
+                "Contact request sent — you'll see their response in chat.")));
       },
       failure: (f) {
         // Already has a pending request with them — just take the user to
@@ -752,7 +811,8 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
           context.push(AppRoutes.chatWindowPath(conversation.id));
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
       },
     );
   }
@@ -763,7 +823,8 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
     final profile = record.profile;
     final brief = _briefLines(profile);
     final conversation = ref.watch(conversationForProfileProvider(profile.id));
-    final isPremium = ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? false;
+    final isPremium =
+        ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? false;
 
     return Container(
       decoration: BoxDecoration(
@@ -780,7 +841,10 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ProfileAvatar(name: profile.name, size: 60, photoUrl: profile.photoSeed),
+                  ProfileAvatar(
+                      name: profile.name,
+                      size: 60,
+                      photoUrl: profile.photoSeed),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
@@ -801,7 +865,11 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
                             ],
                           ],
                         ),
-                        for (final line in [brief.line1, brief.line2, brief.line3])
+                        for (final line in [
+                          brief.line1,
+                          brief.line2,
+                          brief.line3
+                        ])
                           if (line.isNotEmpty)
                             Text(line,
                                 style: context.textStyles.bodySmall,
@@ -822,13 +890,16 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
                         enabled: !_busy,
                         onSelected: (v) {
                           if (v == 'profile') {
-                            context.push(AppRoutes.profileDetailPath(profile.id));
+                            context
+                                .push(AppRoutes.profileDetailPath(profile.id));
                           }
                           if (v == 'delete') _delete();
                         },
                         itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'profile', child: Text('View profile')),
-                          PopupMenuItem(value: 'delete', child: Text('Remove match')),
+                          PopupMenuItem(
+                              value: 'profile', child: Text('View profile')),
+                          PopupMenuItem(
+                              value: 'delete', child: Text('Remove match')),
                         ],
                       ),
                     ],
@@ -855,7 +926,8 @@ class _AcceptedCardState extends ConsumerState<_AcceptedCard> {
                     onTap: () => context.push(AppRoutes.premiumPaywall),
                     child: Text('Upgrade ›',
                         style: context.textStyles.bodySmall?.copyWith(
-                            color: context.colors.accent, fontWeight: FontWeight.w700)),
+                            color: context.colors.accent,
+                            fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -929,10 +1001,12 @@ class _SentCardState extends ConsumerState<_SentCard> {
 
   Future<void> _remind() async {
     setState(() => _busy = true);
-    final failure = await ref.read(interestsActionsProvider).remind(widget.record.id);
+    final failure =
+        await ref.read(interestsActionsProvider).remind(widget.record.id);
     if (!mounted) return;
     setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 3),
       content: Text(failure?.message ??
           'Reminder sent to ${widget.record.profile.name.split(' ').first}.'),
     ));
@@ -952,7 +1026,8 @@ class _SentCardState extends ConsumerState<_SentCard> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Delete', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Delete',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
@@ -960,12 +1035,14 @@ class _SentCardState extends ConsumerState<_SentCard> {
     if (confirmed != true) return;
 
     setState(() => _busy = true);
-    final failure = await ref.read(interestsActionsProvider).withdraw(widget.record.id);
+    final failure =
+        await ref.read(interestsActionsProvider).withdraw(widget.record.id);
     if (!mounted) return;
     setState(() => _busy = false);
     if (failure != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
     }
   }
 
@@ -983,7 +1060,8 @@ class _SentCardState extends ConsumerState<_SentCard> {
     final line2 = [
       if (profile.motherTongue != null && profile.motherTongue!.isNotEmpty)
         profile.motherTongue!,
-      if (profile.community != null && profile.community!.isNotEmpty) profile.community!,
+      if (profile.community != null && profile.community!.isNotEmpty)
+        profile.community!,
     ].join(', ');
     final line3 = [
       if (profile.city.isNotEmpty) profile.city,
@@ -1005,7 +1083,10 @@ class _SentCardState extends ConsumerState<_SentCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ProfileAvatar(name: profile.name, size: 60, photoUrl: profile.photoSeed),
+                  ProfileAvatar(
+                      name: profile.name,
+                      size: 60,
+                      photoUrl: profile.photoSeed),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
@@ -1059,8 +1140,11 @@ class _SentCardState extends ConsumerState<_SentCard> {
                           if (value == 'delete') _delete();
                         },
                         itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'remind', child: Text('Send request again')),
-                          PopupMenuItem(value: 'delete', child: Text('Delete request')),
+                          PopupMenuItem(
+                              value: 'remind',
+                              child: Text('Send request again')),
+                          PopupMenuItem(
+                              value: 'delete', child: Text('Delete request')),
                         ],
                       ),
                     ],
@@ -1076,9 +1160,13 @@ class _SentCardState extends ConsumerState<_SentCard> {
             child: Row(
               children: [
                 Icon(
-                  record.isViewed ? Icons.visibility_rounded : Icons.visibility_off_outlined,
+                  record.isViewed
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_outlined,
                   size: 15,
-                  color: record.isViewed ? context.colors.success : context.colors.muted,
+                  color: record.isViewed
+                      ? context.colors.success
+                      : context.colors.muted,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1114,12 +1202,15 @@ class _SentCardState extends ConsumerState<_SentCard> {
                   // is the authority, not whether the conversation list has
                   // caught up yet.
                   onTap: () {
-                    final target = widget.record.status == InterestStatus.accepted
-                        ? (widget.record.partnerUserId ?? conversation?.id)
-                        : null;
+                    final target =
+                        widget.record.status == InterestStatus.accepted
+                            ? (widget.record.partnerUserId ?? conversation?.id)
+                            : null;
                     if (target == null) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Chat opens once they accept your interest.')));
+                          duration: const Duration(seconds: 3),
+                          content: Text(
+                              'Chat opens once they accept your interest.')));
                       return;
                     }
                     context.push(AppRoutes.chatWindowPath(target));
@@ -1129,7 +1220,8 @@ class _SentCardState extends ConsumerState<_SentCard> {
                   icon: Icons.call_rounded,
                   label: 'Contact',
                   color: context.colors.muted,
-                  onTap: () => context.push(AppRoutes.profileDetailPath(profile.id)),
+                  onTap: () =>
+                      context.push(AppRoutes.profileDetailPath(profile.id)),
                 ),
               ],
             ),
@@ -1159,7 +1251,8 @@ class _CardAction extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+        padding:
+            const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

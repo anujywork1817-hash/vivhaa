@@ -53,10 +53,14 @@ class ProfileActionsSheet extends ConsumerWidget {
     );
     if (reason == null || !context.mounted) return;
     Navigator.of(context).pop(); // close the actions sheet
-    await ref.read(profileDetailRepositoryProvider).reportProfile(profileId, reason);
+    await ref
+        .read(profileDetailRepositoryProvider)
+        .reportProfile(profileId, reason);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reported — thanks for letting us know.')),
+        SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('Reported — thanks for letting us know.')),
       );
     }
   }
@@ -66,14 +70,16 @@ class ProfileActionsSheet extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Block $name?'),
-        content: const Text("They won't be able to message you or view your profile."),
+        content: const Text(
+            "They won't be able to message you or view your profile."),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Block', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Block',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
@@ -87,28 +93,34 @@ class ProfileActionsSheet extends ConsumerWidget {
     result.when(
       success: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name has been blocked.')),
+          SnackBar(
+              duration: const Duration(seconds: 3),
+              content: Text('$name has been blocked.')),
         );
         onBlocked?.call();
       },
       failure: (f) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
       },
     );
   }
 
   Future<void> _unblock(BuildContext context, WidgetRef ref) async {
-    final result = await ref.read(blockedUsersActionsProvider).unblock(profileId);
+    final result =
+        await ref.read(blockedUsersActionsProvider).unblock(profileId);
     if (!context.mounted) return;
 
     Navigator.of(context).pop(); // close the actions sheet
     result.when(
       success: (_) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$name has been unblocked.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('$name has been unblocked.')));
       },
       failure: (f) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
       },
     );
   }
@@ -134,10 +146,14 @@ class ProfileActionsSheet extends ConsumerWidget {
             ),
           ),
           ListTile(
-            leading: Icon(isFavourited ? Icons.star_rounded : Icons.star_border_rounded),
-            title: Text(isFavourited ? 'Remove from favourites' : 'Add to favourites'),
+            leading: Icon(
+                isFavourited ? Icons.star_rounded : Icons.star_border_rounded),
+            title: Text(
+                isFavourited ? 'Remove from favourites' : 'Add to favourites'),
             onTap: () {
-              ref.read(favouriteActionsProvider.notifier).toggleFavourite(profileId);
+              ref
+                  .read(favouriteActionsProvider.notifier)
+                  .toggleFavourite(profileId);
               Navigator.of(context).pop();
             },
           ),
@@ -155,7 +171,8 @@ class ProfileActionsSheet extends ConsumerWidget {
           else
             ListTile(
               leading: Icon(Icons.block_rounded, color: context.colors.danger),
-              title: Text('Block', style: TextStyle(color: context.colors.danger)),
+              title:
+                  Text('Block', style: TextStyle(color: context.colors.danger)),
               onTap: () => _block(context, ref),
             ),
           const SizedBox(height: AppSpacing.sm),

@@ -11,7 +11,8 @@ import '../../../../shared/widgets/inputs/app_date_picker_field.dart';
 import '../../../../shared/widgets/inputs/app_text_field.dart';
 import '../../../../shared/widgets/misc/app_file_image.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
-import '../../../onboarding/presentation/screens/name_dob_screen.dart' show minSignupAge, maxSignupAge;
+import '../../../onboarding/presentation/screens/name_dob_screen.dart'
+    show minSignupAge, maxSignupAge;
 import '../../data/api_profile_photos_repository.dart';
 
 const _maritalOptions = MaritalStatus.values;
@@ -122,8 +123,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not open the picker.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('Could not open the picker.')));
       }
       return;
     }
@@ -153,8 +155,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
     if (!mounted) return;
     setState(() => _saving = false);
-    final photoFailures = ref.read(profileCreationControllerProvider).photoUploadFailures;
+    final photoFailures =
+        ref.read(profileCreationControllerProvider).photoUploadFailures;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 3),
       content: Text(ok && photoFailures == 0
           ? 'Profile photo updated.'
           : "Couldn't upload that photo. Please try again."),
@@ -183,7 +187,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final ok = await controller.submit();
     if (!mounted) return;
     setState(() => _saving = false);
-    final photoFailures = ref.read(profileCreationControllerProvider).photoUploadFailures;
+    final photoFailures =
+        ref.read(profileCreationControllerProvider).photoUploadFailures;
     final String message;
     if (!ok) {
       message = 'Could not save changes. Please try again.';
@@ -194,7 +199,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } else {
       message = 'Profile updated.';
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(duration: const Duration(seconds: 3), content: Text(message)));
     // Stay on the screen when a photo failed so the user can retry it
     // without navigating back in and re-picking from scratch.
     if (ok && photoFailures == 0) Navigator.of(context).pop();
@@ -221,7 +227,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('Name & date of birth', style: context.textStyles.titleSmall),
+                  Text('Name & date of birth',
+                      style: context.textStyles.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
                   AppTextField(label: 'First name', controller: _firstName),
                   const SizedBox(height: AppSpacing.sm),
@@ -248,9 +255,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   DropdownButtonFormField<MaritalStatus>(
                     initialValue: _maritalStatus,
-                    decoration: const InputDecoration(labelText: 'Marital status'),
+                    decoration:
+                        const InputDecoration(labelText: 'Marital status'),
                     items: _maritalOptions
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m.label)))
+                        .map((m) =>
+                            DropdownMenuItem(value: m, child: Text(m.label)))
                         .toList(),
                     onChanged: (v) => setState(() => _maritalStatus = v),
                   ),
@@ -259,16 +268,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     initialValue: _diet,
                     decoration: const InputDecoration(labelText: 'Diet'),
                     items: _dietOptions
-                        .map((d) => DropdownMenuItem(value: d, child: Text(d.label)))
+                        .map((d) =>
+                            DropdownMenuItem(value: d, child: Text(d.label)))
                         .toList(),
                     onChanged: (v) => setState(() => _diet = v),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('Education & career', style: context.textStyles.titleSmall),
+                  Text('Education & career',
+                      style: context.textStyles.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
                   TextField(
                     controller: _education,
-                    decoration: const InputDecoration(labelText: 'Highest qualification'),
+                    decoration: const InputDecoration(
+                        labelText: 'Highest qualification'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   TextField(
@@ -283,7 +295,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   TextField(
                     controller: _income,
-                    decoration: const InputDecoration(labelText: 'Annual income'),
+                    decoration:
+                        const InputDecoration(labelText: 'Annual income'),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Location', style: context.textStyles.titleSmall),
@@ -308,10 +321,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   TextField(
                     controller: _aboutMe,
                     maxLines: 4,
-                    decoration: const InputDecoration(hintText: 'Tell us about yourself'),
+                    decoration: const InputDecoration(
+                        hintText: 'Tell us about yourself'),
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  PrimaryButton(label: 'Save changes', loading: _saving, onPressed: _save),
+                  PrimaryButton(
+                      label: 'Save changes',
+                      loading: _saving,
+                      onPressed: _save),
                   const SizedBox(height: AppSpacing.md),
                 ],
               ),
@@ -369,7 +386,8 @@ class _ProfilePhotoPicker extends ConsumerWidget {
           clipBehavior: Clip.antiAlias,
           child: photo != null
               ? AppFileImage(path: photo, fit: BoxFit.cover)
-              : Icon(Icons.person_outline_rounded, size: 60, color: context.colors.muted),
+              : Icon(Icons.person_outline_rounded,
+                  size: 60, color: context.colors.muted),
         ),
         Positioned(
           right: 2,
@@ -385,7 +403,8 @@ class _ProfilePhotoPicker extends ConsumerWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: context.colors.bg, width: 2),
               ),
-              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 18),
+              child: const Icon(Icons.camera_alt_rounded,
+                  color: Colors.white, size: 18),
             ),
           ),
         ),

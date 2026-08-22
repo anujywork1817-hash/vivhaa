@@ -61,14 +61,17 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
       // (e.g. a premium_required rejection) would force the member to
       // retype it.
       _textController.clear();
-      ref.read(replyTargetProvider(widget.conversationId).notifier).state = null;
+      ref.read(replyTargetProvider(widget.conversationId).notifier).state =
+          null;
       _scrollToBottom();
       return;
     }
     if (failure.type == AppFailureType.premiumRequired) {
       _showUpgradePrompt(failure.message);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
     }
   }
 
@@ -95,10 +98,12 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
     );
   }
 
-  Future<void> _startCall(Conversation conversation, {bool isVideo = true}) async {
+  Future<void> _startCall(Conversation conversation,
+      {bool isVideo = true}) async {
     if (ref.read(callControllerProvider).isActive) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("You're already on a call.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text("You're already on a call.")));
       return;
     }
     unawaited(ref.read(callControllerProvider.notifier).startCall(
@@ -121,10 +126,15 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Request contact number?'),
-        content: const Text("They'll see that you'd like to continue the conversation over phone."),
+        content: const Text(
+            "They'll see that you'd like to continue the conversation over phone."),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Request')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Request')),
         ],
       ),
     );
@@ -133,28 +143,35 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
         .read(messagesControllerProvider(widget.conversationId).notifier)
         .requestContactNumber();
     if (failure != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
     }
     _scrollToBottom();
   }
 
   @override
   Widget build(BuildContext context) {
-    final conversation = ref.watch(conversationsProvider).valueOrNull
+    final conversation = ref
+        .watch(conversationsProvider)
+        .valueOrNull
         ?.where((c) => c.id == widget.conversationId)
         .firstOrNull;
-    final messages = ref.watch(messagesControllerProvider(widget.conversationId));
+    final messages =
+        ref.watch(messagesControllerProvider(widget.conversationId));
     // Free members can read/open conversations and accept/decline
     // interests freely — only sending a new message is gated. Defaults to
     // allowing the composer while the subscription is still loading (or
     // failed to load) rather than flashing the upgrade banner; a stale
     // premium_required response from an actual send is still caught as a
     // safety net in _send().
-    final isPremium = ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? true;
+    final isPremium =
+        ref.watch(mySubscriptionProvider).valueOrNull?.isPremium ?? true;
     final replyTarget = ref.watch(replyTargetProvider(widget.conversationId));
     final partnerName = conversation?.withProfile.name ?? 'Member';
 
-    ref.listen(messagesControllerProvider(widget.conversationId), (_, __) => _scrollToBottom());
+    ref.listen(messagesControllerProvider(widget.conversationId),
+        (_, __) => _scrollToBottom());
 
     return Scaffold(
       appBar: AppBar(
@@ -167,7 +184,8 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(conversation.withProfile.name,
-                        style: context.textStyles.titleMedium, overflow: TextOverflow.ellipsis),
+                        style: context.textStyles.titleMedium,
+                        overflow: TextOverflow.ellipsis),
                   ),
                 ],
               ),
@@ -221,7 +239,8 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
           if (conversation?.isBlocked ?? false)
             const _BlockedComposerBar()
           else if (!isPremium)
-            _UpgradeComposerBar(onUpgrade: () => context.push(AppRoutes.premiumPaywall))
+            _UpgradeComposerBar(
+                onUpgrade: () => context.push(AppRoutes.premiumPaywall))
           else
             _Composer(
               controller: _textController,
@@ -230,8 +249,9 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
               contactAlreadyShared: conversation?.contactShared ?? false,
               replyTarget: replyTarget,
               partnerName: partnerName,
-              onCancelReply: () =>
-                  ref.read(replyTargetProvider(widget.conversationId).notifier).state = null,
+              onCancelReply: () => ref
+                  .read(replyTargetProvider(widget.conversationId).notifier)
+                  .state = null,
             ),
         ],
       ),
@@ -266,7 +286,8 @@ class _BlockedComposerBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text('You can no longer message each other.',
-                  style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  style: context.textStyles.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -299,7 +320,8 @@ class _UpgradeComposerBar extends StatelessWidget {
             Expanded(
               child: Text(
                 'Upgrade to Premium to send messages.',
-                style: context.textStyles.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: context.textStyles.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -330,7 +352,8 @@ class _MessageBubble extends ConsumerStatefulWidget {
   ConsumerState<_MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTickerProviderStateMixin {
+class _MessageBubbleState extends ConsumerState<_MessageBubble>
+    with SingleTickerProviderStateMixin {
   bool _busy = false;
 
   // WhatsApp-style swipe-to-reply. A GestureDetector (not Dismissible) is
@@ -414,7 +437,9 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
     if (!mounted) return;
     setState(() => _busy = false);
     if (failure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
     }
   }
 
@@ -427,7 +452,8 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
           child: Text(message.text,
-              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+              style: context.textStyles.bodySmall
+                  ?.copyWith(color: context.colors.muted)),
         ),
       );
     }
@@ -436,13 +462,19 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
     // A request is only actionable for the recipient, and only while it's
     // still pending — once it resolves, the bubble's text/icon changes to
     // reflect the outcome instead.
-    final awaitingMyResponse = message.kind == MessageKind.contactRequest && !message.fromMe;
+    final awaitingMyResponse =
+        message.kind == MessageKind.contactRequest && !message.fromMe;
 
     final (icon, label) = switch (message.kind) {
-      MessageKind.contactRequest => (Icons.phone_forwarded_outlined, message.text),
+      MessageKind.contactRequest => (
+          Icons.phone_forwarded_outlined,
+          message.text
+        ),
       MessageKind.contactAccepted => (
           Icons.check_circle_outline_rounded,
-          message.fromMe ? 'You accepted the contact request.' : 'Contact request accepted.'
+          message.fromMe
+              ? 'You accepted the contact request.'
+              : 'Contact request accepted.'
         ),
       MessageKind.contactDeclined => (
           Icons.cancel_outlined,
@@ -464,7 +496,8 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
     final bubble = Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
       decoration: BoxDecoration(
         color: message.fromMe ? context.colors.accent : context.colors.surface,
         border: message.fromMe ? null : Border.all(color: context.colors.line),
@@ -484,11 +517,13 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: (message.fromMe ? Colors.white : context.colors.accent).withValues(alpha: 0.12),
+                color: (message.fromMe ? Colors.white : context.colors.accent)
+                    .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
                 border: Border(
                   left: BorderSide(
-                    color: message.fromMe ? Colors.white : context.colors.accent,
+                    color:
+                        message.fromMe ? Colors.white : context.colors.accent,
                     width: 3,
                   ),
                 ),
@@ -502,11 +537,14 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
                     // reply's quoted sender is "them" if it matches that,
                     // "You" otherwise (the only other possibility, since a
                     // reply can only quote one of the two participants).
-                    replyTo.senderUserId == widget.conversationId ? widget.partnerName : 'You',
+                    replyTo.senderUserId == widget.conversationId
+                        ? widget.partnerName
+                        : 'You',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: message.fromMe ? Colors.white : context.colors.accent,
+                      color:
+                          message.fromMe ? Colors.white : context.colors.accent,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -516,7 +554,9 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: (message.fromMe ? Colors.white : context.colors.ink).withValues(alpha: 0.75),
+                      color:
+                          (message.fromMe ? Colors.white : context.colors.ink)
+                              .withValues(alpha: 0.75),
                     ),
                   ),
                 ],
@@ -527,7 +567,11 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 14, color: message.fromMe ? Colors.white : context.colors.accent),
+                  Icon(icon,
+                      size: 14,
+                      color: message.fromMe
+                          ? Colors.white
+                          : context.colors.accent),
                   const SizedBox(width: 4),
                 ],
               ],
@@ -573,7 +617,8 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
       onHorizontalDragEnd: _onDragEnd,
       onHorizontalDragCancel: _snapBack,
       child: Stack(
-        alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
+        alignment:
+            message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
         children: [
           if (_offset != 0)
             Positioned(
@@ -581,13 +626,15 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble> with SingleTicke
               right: _offset < 0 ? 0 : null,
               child: Opacity(
                 opacity: revealProgress,
-                child: Icon(Icons.reply_rounded, color: context.colors.muted, size: 20),
+                child: Icon(Icons.reply_rounded,
+                    color: context.colors.muted, size: 20),
               ),
             ),
           Transform.translate(
             offset: Offset(_offset, 0),
             child: Align(
-              alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
+              alignment:
+                  message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
               child: bubble,
             ),
           ),
@@ -621,7 +668,8 @@ class _Composer extends ConsumerWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
         decoration: BoxDecoration(
           color: context.colors.surface,
           border: Border(top: BorderSide(color: context.colors.line)),
@@ -629,38 +677,43 @@ class _Composer extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (replyTarget != null) _ReplyPreviewBar(
-              message: replyTarget!,
-              partnerName: partnerName,
-              onCancel: onCancelReply,
-            ),
+            if (replyTarget != null)
+              _ReplyPreviewBar(
+                message: replyTarget!,
+                partnerName: partnerName,
+                onCancel: onCancelReply,
+              ),
             Row(
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.contact_phone_outlined,
-                color: contactAlreadyShared ? context.colors.muted : context.colors.accent,
-              ),
-              tooltip: contactAlreadyShared ? 'Contact number already shared' : 'Request contact number',
-              onPressed: contactAlreadyShared ? null : onRequestContact,
-            ),
-            Expanded(
-              child: TextField(
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Type a message',
-                  border: InputBorder.none,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.contact_phone_outlined,
+                    color: contactAlreadyShared
+                        ? context.colors.muted
+                        : context.colors.accent,
+                  ),
+                  tooltip: contactAlreadyShared
+                      ? 'Contact number already shared'
+                      : 'Request contact number',
+                  onPressed: contactAlreadyShared ? null : onRequestContact,
                 ),
-                onSubmitted: (_) => onSend(),
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.send_rounded, color: context.colors.accent),
-              onPressed: onSend,
-            ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      hintText: 'Type a message',
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => onSend(),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send_rounded, color: context.colors.accent),
+                  onPressed: onSend,
+                ),
               ],
             ),
           ],
@@ -692,7 +745,8 @@ class _ReplyPreviewBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.colors.accentSoft,
         borderRadius: BorderRadius.circular(8),
-        border: Border(left: BorderSide(color: context.colors.accent, width: 3)),
+        border:
+            Border(left: BorderSide(color: context.colors.accent, width: 3)),
       ),
       child: Row(
         children: [
@@ -714,13 +768,15 @@ class _ReplyPreviewBar extends StatelessWidget {
                   message.text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close_rounded, size: 18, color: context.colors.muted),
+            icon: Icon(Icons.close_rounded,
+                size: 18, color: context.colors.muted),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: onCancel,

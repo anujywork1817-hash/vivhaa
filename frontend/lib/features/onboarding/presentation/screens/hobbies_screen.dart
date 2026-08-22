@@ -110,9 +110,12 @@ class HobbiesScreen extends ConsumerWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.favorite_rounded, size: 16, color: context.colors.accent),
+            Icon(Icons.favorite_rounded,
+                size: 16, color: context.colors.accent),
             const SizedBox(width: 4),
-            Text('Vivah', style: TextStyle(fontFamily: 'Georgia', color: context.colors.accent)),
+            Text('Vivah',
+                style: TextStyle(
+                    fontFamily: 'Georgia', color: context.colors.accent)),
           ],
         ),
         centerTitle: true,
@@ -128,16 +131,20 @@ class HobbiesScreen extends ConsumerWidget {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Now let's add ${profileFor.possessive}\nhobbies & interests",
-                      style: context.textStyles.headlineMedium, textAlign: TextAlign.center),
+                  Text(
+                      "Now let's add ${profileFor.possessive}\nhobbies & interests",
+                      style: context.textStyles.headlineMedium,
+                      textAlign: TextAlign.center),
                   const SizedBox(height: 6),
                   Center(
                     child: Text('This will help find better Matches',
-                        style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                        style: context.textStyles.bodySmall
+                            ?.copyWith(color: context.colors.muted)),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   for (final entry in _categories.entries) ...[
@@ -147,13 +154,15 @@ class HobbiesScreen extends ConsumerWidget {
                       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                       decoration: BoxDecoration(
                         color: context.colors.surface,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
                         border: Border.all(color: context.colors.line),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(entry.key, style: context.textStyles.titleMedium),
+                          Text(entry.key,
+                              style: context.textStyles.titleMedium),
                           const SizedBox(height: AppSpacing.md),
                           Wrap(
                             spacing: AppSpacing.sm,
@@ -163,17 +172,25 @@ class HobbiesScreen extends ConsumerWidget {
                               return ChoiceChip(
                                 avatar: Icon(item.$1,
                                     size: 16,
-                                    color: isSelected ? Colors.white : context.colors.accent),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : context.colors.accent),
                                 label: Text(item.$2),
                                 selected: isSelected,
                                 onSelected: (_) => toggle(item.$2),
                                 selectedColor: context.colors.accent,
                                 labelStyle: TextStyle(
-                                  color: isSelected ? Colors.white : context.colors.ink,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : context.colors.ink,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
                                 ),
                                 side: BorderSide(
-                                    color: isSelected ? context.colors.accent : context.colors.line),
+                                    color: isSelected
+                                        ? context.colors.accent
+                                        : context.colors.line),
                               );
                             }).toList(),
                           ),
@@ -186,16 +203,19 @@ class HobbiesScreen extends ConsumerWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xs),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xs),
             child: Text(
               selected.length < _minRequired
                   ? 'Pick at least $_minRequired to continue'
                   : 'Up to $_maxSelectable total',
-              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+              style: context.textStyles.bodySmall
+                  ?.copyWith(color: context.colors.muted),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
             child: PrimaryButton(
               // Tracks progress toward the actual ceiling once past the
               // minimum, rather than freezing at "/5" and reading like a
@@ -216,6 +236,7 @@ class HobbiesScreen extends ConsumerWidget {
                           .submit();
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        duration: const Duration(seconds: 3),
                         content: Text(ok
                             ? 'Hobbies updated.'
                             : 'Could not save. Please try again.'),

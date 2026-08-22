@@ -38,7 +38,9 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
   Future<void> _routeAfterAuth() async {
     // Returning users (an existing backend profile) skip onboarding
     // entirely; new users go through it as usual.
-    final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
+    final hasProfile = await ref
+        .read(profileCreationControllerProvider.notifier)
+        .loadExisting();
     if (!mounted) return;
     context.go(hasProfile ? AppRoutes.home : AppRoutes.profileFor);
   }
@@ -67,18 +69,23 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(
-          content: Text('You already have an account with this email — log in instead.'),
+          duration: const Duration(seconds: 3),
+          content: Text(
+              'You already have an account with this email — log in instead.'),
         ));
       return;
     }
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.message)));
+      ..showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
   }
 
   Future<void> _signInWithGoogle() async {
-    final result = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    final result =
+        await ref.read(authControllerProvider.notifier).signInWithGoogle();
     if (!mounted) return;
 
     switch (result) {
@@ -96,7 +103,9 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
         if (failure != null) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(failure.message)));
+            ..showSnackBar(SnackBar(
+                duration: const Duration(seconds: 3),
+                content: Text(failure.message)));
         }
       case GoogleSignInResult.cancelled:
       // No error to show — the user closed the account picker.
@@ -142,7 +151,8 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                   curve: Curves.easeOutBack,
                   builder: (context, t, child) => Opacity(
                     opacity: t.clamp(0.0, 1.0),
-                    child: Transform.scale(scale: 0.7 + (0.3 * t), child: child),
+                    child:
+                        Transform.scale(scale: 0.7 + (0.3 * t), child: child),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -156,7 +166,8 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                           color: Colors.white.withValues(alpha: 0.16),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+                        child: const Icon(Icons.favorite_rounded,
+                            color: Colors.white, size: 18),
                       ),
                       const Text(
                         'Vivah',
@@ -173,9 +184,8 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                 const SizedBox(height: AppSpacing.xxl),
                 _ModeToggle(
                   mode: _mode,
-                  onChanged: isLoading
-                      ? null
-                      : (mode) => setState(() => _mode = mode),
+                  onChanged:
+                      isLoading ? null : (mode) => setState(() => _mode = mode),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Container(
@@ -213,14 +223,16 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                           validator: _validatePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            hintText: _mode == _AuthMode.signUp ? 'At least 8 characters' : null,
+                            hintText: _mode == _AuthMode.signUp
+                                ? 'At least 8 characters'
+                                : null,
                             prefixIcon: const Icon(Icons.lock_outline_rounded),
                             suffixIcon: IconButton(
                               icon: Icon(_obscurePassword
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_off_outlined),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
                             ),
                           ),
                         ),
@@ -246,7 +258,9 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2.2, color: Colors.white),
                                   )
-                                : Text(_mode == _AuthMode.signUp ? 'Sign Up' : 'Log In'),
+                                : Text(_mode == _AuthMode.signUp
+                                    ? 'Sign Up'
+                                    : 'Log In'),
                           ),
                         ),
                       ],
@@ -256,13 +270,19 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 Row(
                   children: [
-                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.4))),
+                    Expanded(
+                        child: Divider(
+                            color: Colors.white.withValues(alpha: 0.4))),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                       child: Text('or',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85))),
                     ),
-                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.4))),
+                    Expanded(
+                        child: Divider(
+                            color: Colors.white.withValues(alpha: 0.4))),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -312,7 +332,9 @@ class _ModeToggle extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.94) : Colors.transparent,
+          color: selected
+              ? Colors.white.withValues(alpha: 0.94)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         ),
         alignment: Alignment.center,
@@ -362,14 +384,17 @@ class _ChoicePill extends StatelessWidget {
                   const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.accent),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.2, color: AppColors.accent),
                   )
                 else
                   Icon(icon, color: AppColors.accent, size: 20),
                 const SizedBox(width: 12),
                 Text(label,
                     style: const TextStyle(
-                        color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 14.5)),
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.5)),
               ],
             ),
           ),

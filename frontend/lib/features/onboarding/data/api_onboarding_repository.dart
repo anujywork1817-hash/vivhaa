@@ -28,13 +28,15 @@ class ApiOnboardingRepository implements OnboardingRepository {
       final body = _toBackendJson(profile);
       Map<String, dynamic> data;
       try {
-        final response = await _client.dio.post(ApiEndpoints.createProfile, data: body);
+        final response =
+            await _client.dio.post(ApiEndpoints.createProfile, data: body);
         data = response.data['data'] as Map<String, dynamic>;
       } on DioException catch (e) {
         if (e.response?.statusCode == 409) {
           // Profile already exists (e.g. re-entering onboarding after an
           // earlier successful submit) — fall back to updating it.
-          final response = await _client.dio.put(ApiEndpoints.myProfile, data: body);
+          final response =
+              await _client.dio.put(ApiEndpoints.myProfile, data: body);
           data = response.data['data'] as Map<String, dynamic>;
         } else {
           rethrow;
@@ -51,7 +53,8 @@ class ApiOnboardingRepository implements OnboardingRepository {
         failure: (f) => _fromBackendJson(data).copyWith(submitted: true),
       );
       return ApiResult.success(
-        ProfileSubmitResult(profile: saved, photoUploadFailures: photoUploadFailures),
+        ProfileSubmitResult(
+            profile: saved, photoUploadFailures: photoUploadFailures),
       );
     } on DioException catch (e) {
       return ApiResult.failure(mapDioException(e));
@@ -75,11 +78,43 @@ class ApiOnboardingRepository implements OnboardingRepository {
   /// caller can tell the user their photo didn't save, rather than
   /// silently dropping it (which made a rejected upload indistinguishable
   /// from a successful one).
+  ///
+  /// submitProfile() runs more than once during a single onboarding pass
+  /// (partner_preferences_screen.dart submits mid-flow, then
+  /// review_confirm_screen.dart submits again at the end) — so a photo
+  /// picked early can already be uploaded and committed on the backend
+  /// well before onboarding actually finishes. If the applicant then goes
+  /// back and picks a different photo, that earlier one was never
+  /// cleaned up: nothing tracked "this used to be the primary photo, now
+  /// replace it" past the moment of upload, so it just sat in the
+  /// gallery as an invisible leftover forever — the applicant only ever
+  /// saw their latest pick in the picker circle, never realizing an
+  /// older one was still there until someone else viewed their profile
+  /// and saw more photos than they ever meant to add. Capturing whichever
+  /// photo is primary *before* this upload, then deleting it once the new
+  /// one has taken over, closes that gap regardless of which screen
+  /// triggered the submit.
   Future<int> _uploadNewPhotos(Profile profile) async {
     final localPaths = profile.photoUrls
         .where((p) => !p.startsWith('http://') && !p.startsWith('https://'))
         .toSet() // photo_upload_screen can list the same path more than once
         .take(6);
+
+    String? oldPrimaryId;
+    if (localPaths.contains(profile.profilePhotoUrl)) {
+      try {
+        final response = await _client.dio.get(ApiEndpoints.myProfile);
+        final data = response.data['data'] as Map<String, dynamic>;
+        final rows = (data['photos'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
+        final photos = rows.map(ProfilePhoto.fromJson).toList();
+        final primaries = photos.where((p) => p.isPrimary);
+        if (primaries.isNotEmpty) oldPrimaryId = primaries.first.id;
+      } catch (_) {
+        // No profile yet (first-ever photo, nothing to replace) or a
+        // transient lookup failure — either way, nothing to delete.
+      }
+    }
 
     var failures = 0;
     for (final path in localPaths) {
@@ -108,9 +143,20 @@ class ApiOnboardingRepository implements OnboardingRepository {
         // uploaded fine but never became the displayed one — the old
         // primary kept winning and it looked like nothing changed.
         if (path == profile.profilePhotoUrl) {
-          final photoId = (response.data['data'] as Map<String, dynamic>?)?['id'] as String?;
+          final photoId = (response.data['data']
+              as Map<String, dynamic>?)?['id'] as String?;
           if (photoId != null) {
             await _client.dio.put(ApiEndpoints.setPrimaryPhoto(photoId));
+            if (oldPrimaryId != null && oldPrimaryId != photoId) {
+              try {
+                await _client.dio
+                    .delete(ApiEndpoints.deletePhoto(oldPrimaryId));
+              } catch (_) {
+                // Non-fatal: the new photo is correctly uploaded and
+                // primary either way — a failed cleanup just leaves one
+                // stray extra photo rather than losing the real change.
+              }
+            }
           }
         }
       } catch (_) {
@@ -144,7 +190,8 @@ class ApiOnboardingRepository implements OnboardingRepository {
     }
 
     put('full_name', p.fullName);
-    put('date_of_birth', p.dateOfBirth == null ? null : _formatDate(p.dateOfBirth!));
+    put('date_of_birth',
+        p.dateOfBirth == null ? null : _formatDate(p.dateOfBirth!));
     put('gender', p.gender?.name);
     put('height_cm', p.heightCm);
     put('marital_status', _maritalStatusToBackend[p.maritalStatus]);
@@ -162,7 +209,8 @@ class ApiOnboardingRepository implements OnboardingRepository {
     put('father_occupation', p.fatherOccupation);
     put('mother_occupation', p.motherOccupation);
     final siblings = (p.brothers ?? 0) + (p.sisters ?? 0);
-    if (p.brothers != null || p.sisters != null) json['siblings_count'] = siblings;
+    if (p.brothers != null || p.sisters != null)
+      json['siblings_count'] = siblings;
     put('diet', _dietToBackend[p.diet]);
     put('smoking', p.smoking?.name);
     put('drinking', p.drinking?.name);
@@ -194,8 +242,8 @@ class ApiOnboardingRepository implements OnboardingRepository {
   }
 
   Profile _fromBackendJson(Map<String, dynamic> j) {
-    final photos = (j['photos'] as List<dynamic>? ?? [])
-        .cast<Map<String, dynamic>>();
+    final photos =
+        (j['photos'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
     final primary = photos.where((p) => p['is_primary'] == true).firstOrNull ??
         photos.firstOrNull;
 
@@ -222,7 +270,8 @@ class ApiOnboardingRepository implements OnboardingRepository {
       // the re-fetch that follows every submit they were silently dropped
       // from the draft, making them look like they never saved.
       heightCm: (j['height_cm'] as num?)?.toInt(),
-      annualIncome: _incomeBracketFromInr((j['annual_income_inr'] as num?)?.toInt()),
+      annualIncome:
+          _incomeBracketFromInr((j['annual_income_inr'] as num?)?.toInt()),
       maritalStatus: _maritalStatusFromBackend[j['marital_status']],
       city: j['city'] as String?,
       state: j['state'] as String?,
@@ -286,7 +335,10 @@ class ApiOnboardingRepository implements OnboardingRepository {
     for (final bracket in incomeBrackets) {
       if (bracket.label == label) return bracket.lowerBoundInr;
     }
-    final numbers = RegExp(r'\d+').allMatches(label).map((m) => int.parse(m.group(0)!)).toList();
+    final numbers = RegExp(r'\d+')
+        .allMatches(label)
+        .map((m) => int.parse(m.group(0)!))
+        .toList();
     if (numbers.isEmpty) return null;
     return numbers.first * 100000;
   }
@@ -313,9 +365,15 @@ class ApiOnboardingRepository implements OnboardingRepository {
     for (final e in _maritalStatusToBackend.entries) e.value: e.key,
   };
 
-  static const _genderFromBackend = {'male': Gender.male, 'female': Gender.female};
+  static const _genderFromBackend = {
+    'male': Gender.male,
+    'female': Gender.female
+  };
 
-  static const _familyTypeFromBackend = {'nuclear': FamilyType.nuclear, 'joint': FamilyType.joint};
+  static const _familyTypeFromBackend = {
+    'nuclear': FamilyType.nuclear,
+    'joint': FamilyType.joint
+  };
 
   // Frontend's 4 tiers ranked high-to-low as authored, matched 1:1 against
   // the backend's 4 tiers (middle_class < upper_middle_class < affluent < rich).
@@ -336,9 +394,13 @@ class ApiOnboardingRepository implements OnboardingRepository {
     DietType.vegan: 'vegan',
     DietType.jain: 'jain',
   };
-  static final _dietFromBackend = {for (final e in _dietToBackend.entries) e.value: e.key};
+  static final _dietFromBackend = {
+    for (final e in _dietToBackend.entries) e.value: e.key
+  };
 
-  static final _habitFromBackend = {for (final h in HabitLevel.values) h.name: h};
+  static final _habitFromBackend = {
+    for (final h in HabitLevel.values) h.name: h
+  };
 
   static const _profileForFromBackend = {
     'myself': ProfileFor.myself,
@@ -373,7 +435,9 @@ class ApiOnboardingRepository implements OnboardingRepository {
     ManglikStatus.no: 'no',
     ManglikStatus.dontKnow: 'dont_know',
   };
-  static final _manglikFromBackend = {for (final e in _manglikToBackend.entries) e.value: e.key};
+  static final _manglikFromBackend = {
+    for (final e in _manglikToBackend.entries) e.value: e.key
+  };
 
   static const _bodyTypeFromBackend = {
     'slim': BodyType.slim,

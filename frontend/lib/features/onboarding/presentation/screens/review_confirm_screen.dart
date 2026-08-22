@@ -22,16 +22,19 @@ class ReviewConfirmScreen extends ConsumerWidget {
       stepIndex: 8,
       stepCount: onboardingStepCount,
       title: 'Review ${profileFor.possessive} profile',
-      subtitle: 'Here\'s what other members will see. You can edit any of this later.',
+      subtitle:
+          'Here\'s what other members will see. You can edit any of this later.',
       continueLabel: 'Submit profile',
       loading: state.submitting,
       onContinue: () async {
         final notifier = ref.read(profileCreationControllerProvider.notifier);
         final ok = await notifier.submit();
         if (!context.mounted) return;
-        final photoFailures = ref.read(profileCreationControllerProvider).photoUploadFailures;
+        final photoFailures =
+            ref.read(profileCreationControllerProvider).photoUploadFailures;
         if (ok && photoFailures > 0) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3),
             content: Text(photoFailures == 1
                 ? "Your profile was saved, but the photo couldn't be uploaded. You can add it again from Edit Profile."
                 : "Your profile was saved, but $photoFailures photos couldn't be uploaded. You can add them again from Edit Profile."),
@@ -45,8 +48,11 @@ class ReviewConfirmScreen extends ConsumerWidget {
           if (draft.profilePhotoUrl != null)
             Center(
               child: ClipOval(
-                child: AppFileImage(path: draft.profilePhotoUrl!,
-                    width: 96, height: 96, fit: BoxFit.cover),
+                child: AppFileImage(
+                    path: draft.profilePhotoUrl!,
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover),
               ),
             )
           else
@@ -54,7 +60,8 @@ class ReviewConfirmScreen extends ConsumerWidget {
               child: CircleAvatar(
                 radius: 48,
                 backgroundColor: context.colors.accentSoft,
-                child: Icon(Icons.person_rounded, size: 44, color: context.colors.accent),
+                child: Icon(Icons.person_rounded,
+                    size: 44, color: context.colors.accent),
               ),
             ),
           const SizedBox(height: AppSpacing.lg),
@@ -116,7 +123,8 @@ class _ReviewSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: context.textStyles.titleSmall?.copyWith(color: context.colors.accent)),
+                style: context.textStyles.titleSmall
+                    ?.copyWith(color: context.colors.accent)),
             const SizedBox(height: 8),
             ...rows.entries.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
@@ -124,8 +132,8 @@ class _ReviewSection extends StatelessWidget {
                     children: [
                       SizedBox(
                           width: 140,
-                          child: Text(e.key,
-                              style: context.textStyles.bodySmall)),
+                          child:
+                              Text(e.key, style: context.textStyles.bodySmall)),
                       Expanded(
                           child: Text(e.value,
                               style: context.textStyles.bodyMedium,

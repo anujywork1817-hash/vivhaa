@@ -18,7 +18,8 @@ class PhotoUploadScreen extends ConsumerWidget {
 
   Future<void> _pick(WidgetRef ref, ImageSource source) async {
     try {
-      final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+      final picked =
+          await ImagePicker().pickImage(source: source, imageQuality: 85);
       if (picked == null) return;
       // Replaces, not appends: this screen shows a single photo circle —
       // there's no indication picking again adds a second photo instead
@@ -28,10 +29,12 @@ class PhotoUploadScreen extends ConsumerWidget {
       // review_confirm_screen.dart's submit uploaded everything still in
       // photoUrls — invisible until someone else viewed the profile and
       // saw more photos than the user ever meant to add.
-      ref.read(profileCreationControllerProvider.notifier).update((p) => p.copyWith(
-            photoUrls: [picked.path],
-            profilePhotoUrl: picked.path,
-          ));
+      ref
+          .read(profileCreationControllerProvider.notifier)
+          .update((p) => p.copyWith(
+                photoUrls: [picked.path],
+                profilePhotoUrl: picked.path,
+              ));
     } catch (_) {
       // Picker unavailable on this platform/simulator — non-fatal for the demo.
     }
@@ -65,13 +68,16 @@ class PhotoUploadScreen extends ConsumerWidget {
                     height: 140,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: context.colors.line, width: 1.4),
+                      border:
+                          Border.all(color: context.colors.line, width: 1.4),
                       color: context.colors.surface,
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: hasPhoto
-                        ? AppFileImage(path: draft.profilePhotoUrl!, fit: BoxFit.cover)
-                        : Icon(Icons.person_outline_rounded, size: 72, color: context.colors.muted),
+                        ? AppFileImage(
+                            path: draft.profilePhotoUrl!, fit: BoxFit.cover)
+                        : Icon(Icons.person_outline_rounded,
+                            size: 72, color: context.colors.muted),
                   ),
                   Positioned(
                     right: 4,
@@ -85,9 +91,11 @@ class PhotoUploadScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: context.colors.accent,
                           shape: BoxShape.circle,
-                          border: Border.all(color: context.colors.bg, width: 2),
+                          border:
+                              Border.all(color: context.colors.bg, width: 2),
                         ),
-                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                        child: const Icon(Icons.add_rounded,
+                            color: Colors.white, size: 20),
                       ),
                     ),
                   ),
@@ -95,11 +103,13 @@ class PhotoUploadScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               Text('Add Photos\nto complete ${profileFor.possessive} Profile',
-                  textAlign: TextAlign.center, style: context.textStyles.headlineMedium),
+                  textAlign: TextAlign.center,
+                  style: context.textStyles.headlineMedium),
               const SizedBox(height: 6),
               Text('Photo Privacy controls available in Settings',
                   textAlign: TextAlign.center,
-                  style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+                  style: context.textStyles.bodySmall
+                      ?.copyWith(color: context.colors.muted)),
               const SizedBox(height: AppSpacing.xl),
               SizedBox(
                 width: double.infinity,

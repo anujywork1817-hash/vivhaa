@@ -19,7 +19,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key, this.initialEmail});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -40,13 +41,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok =
-        await ref.read(authControllerProvider.notifier).forgotPassword(_emailController.text.trim());
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .forgotPassword(_emailController.text.trim());
     if (!mounted) return;
     if (ok) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(
+          duration: const Duration(seconds: 3),
           content: Text('If that account exists, a code has been sent to it.'),
         ));
       context.push(AppRoutes.resetPassword);
@@ -68,11 +71,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Forgot password?', style: context.textStyles.displaySmall),
+                Text('Forgot password?',
+                    style: context.textStyles.displaySmall),
                 const SizedBox(height: 6),
                 Text(
                   "Enter your account's email and we'll send you a code to reset your password.",
-                  style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                  style: context.textStyles.bodyMedium
+                      ?.copyWith(color: context.colors.muted),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 AppTextField(
@@ -83,14 +88,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   validator: (v) {
                     final value = v?.trim() ?? '';
                     if (value.isEmpty) return 'Enter your email address';
-                    if (!_emailPattern.hasMatch(value)) return 'Enter a valid email address';
+                    if (!_emailPattern.hasMatch(value))
+                      return 'Enter a valid email address';
                     return null;
                   },
                 ),
                 if (authState.failure != null) ...[
                   const SizedBox(height: 10),
                   Text(authState.failure!.message,
-                      style: TextStyle(color: context.colors.danger, fontSize: 13)),
+                      style: TextStyle(
+                          color: context.colors.danger, fontSize: 13)),
                 ],
                 const SizedBox(height: AppSpacing.xl),
                 PrimaryButton(

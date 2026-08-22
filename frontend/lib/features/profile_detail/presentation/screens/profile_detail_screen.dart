@@ -45,7 +45,8 @@ class ProfileDetailScreen extends ConsumerWidget {
           // it gets its own blurred/no-details view instead of a generic
           // "something went wrong" state.
           if (failure.type == AppFailureType.forbidden) {
-            return _PrivateProfileView(onBack: () => Navigator.of(context).pop());
+            return _PrivateProfileView(
+                onBack: () => Navigator.of(context).pop());
           }
           // A 404 here almost always means a block, in either direction —
           // GetByID/GetByCode treat a blocked profile as not-found rather
@@ -54,7 +55,8 @@ class ProfileDetailScreen extends ConsumerWidget {
           // genuinely deleted profile lands here too; either way, retrying
           // won't help, so this skips the generic retry UI.
           if (failure.type == AppFailureType.notFound) {
-            return _UnavailableProfileView(onBack: () => Navigator.of(context).pop());
+            return _UnavailableProfileView(
+                onBack: () => Navigator.of(context).pop());
           }
           return Center(
             child: Padding(
@@ -69,7 +71,8 @@ class ProfileDetailScreen extends ConsumerWidget {
                   ),
                   ErrorStateView(
                     failure: failure,
-                    onRetry: () => ref.invalidate(profileDetailProvider(profileId)),
+                    onRetry: () =>
+                        ref.invalidate(profileDetailProvider(profileId)),
                   ),
                 ],
               ),
@@ -115,13 +118,15 @@ class _PrivateProfileView extends StatelessWidget {
                       width: 160,
                       height: 160,
                       child: ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14, tileMode: TileMode.decal),
+                        imageFilter: ImageFilter.blur(
+                            sigmaX: 14, sigmaY: 14, tileMode: TileMode.decal),
                         child: const ProfileAvatar(name: '?', size: 160),
                       ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Icon(Icons.lock_outline_rounded, color: context.colors.muted, size: 20),
+                  Icon(Icons.lock_outline_rounded,
+                      color: context.colors.muted, size: 20),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'This user has set their profile to private',
@@ -131,7 +136,8 @@ class _PrivateProfileView extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     "Their photo and details aren't visible until they make their profile public.",
-                    style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodySmall
+                        ?.copyWith(color: context.colors.muted),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -170,7 +176,8 @@ class _UnavailableProfileView extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.person_off_rounded, color: context.colors.muted, size: 40),
+                  Icon(Icons.person_off_rounded,
+                      color: context.colors.muted, size: 40),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'This profile is no longer available',
@@ -180,7 +187,8 @@ class _UnavailableProfileView extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     "It may have been removed, or you may no longer be able to view it.",
-                    style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+                    style: context.textStyles.bodySmall
+                        ?.copyWith(color: context.colors.muted),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -194,7 +202,8 @@ class _UnavailableProfileView extends StatelessWidget {
 }
 
 class _ProfileDetailBody extends ConsumerWidget {
-  final dynamic detail; // ProfileDetail — typed loosely to keep imports tight here
+  final dynamic
+      detail; // ProfileDetail — typed loosely to keep imports tight here
   const _ProfileDetailBody({required this.detail});
 
   @override
@@ -223,14 +232,21 @@ class _ProfileDetailBody extends ConsumerWidget {
                         InkWell(
                           onTap: () => showModalBottomSheet(
                             context: context,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.surface,
                             shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                            builder: (_) => VerificationInfoSheet(detail: detail),
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20))),
+                            builder: (_) =>
+                                VerificationInfoSheet(detail: detail),
                           ),
                           child: Icon(
-                            summary.verified ? Icons.verified_rounded : Icons.verified_outlined,
-                            color: summary.verified ? context.colors.accent : context.colors.muted,
+                            summary.verified
+                                ? Icons.verified_rounded
+                                : Icons.verified_outlined,
+                            color: summary.verified
+                                ? context.colors.accent
+                                : context.colors.muted,
                           ),
                         ),
                       ],
@@ -243,11 +259,13 @@ class _ProfileDetailBody extends ConsumerWidget {
                     Text('Profile ID: ${summary.profileCode}',
                         style: context.textStyles.bodySmall),
                     const SizedBox(height: AppSpacing.lg),
-                    _DetailSection(title: 'About', rows: const {}, freeText: detail.about),
+                    _DetailSection(
+                        title: 'About', rows: const {}, freeText: detail.about),
                     _DetailSection(title: 'Family', rows: {
                       "Father's occupation": detail.fatherOccupation,
                       "Mother's occupation": detail.motherOccupation,
-                      'Siblings': '${detail.brothers} brother(s), ${detail.sisters} sister(s)',
+                      'Siblings':
+                          '${detail.brothers} brother(s), ${detail.sisters} sister(s)',
                       'Family type': detail.familyType,
                       'Family values': detail.familyValues,
                     }),
@@ -296,7 +314,8 @@ class _PhotoHeader extends ConsumerWidget {
     final photoIds = detail.photoIds as List<String>;
     final summary = detail.summary as MatchProfile;
     final name = summary.name;
-    final isConnected = ref.watch(conversationForProfileProvider(summary.id)) != null;
+    final isConnected =
+        ref.watch(conversationForProfileProvider(summary.id)) != null;
     final showLocked = summary.photoLocked && !isConnected;
 
     return Stack(
@@ -353,10 +372,12 @@ class _PhotoHeader extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.photo_library_outlined, size: 14, color: Colors.white),
+                  const Icon(Icons.photo_library_outlined,
+                      size: 14, color: Colors.white),
                   const SizedBox(width: 4),
                   Text('${photoIds.length} photos',
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 12)),
                 ],
               ),
             ),
@@ -406,7 +427,9 @@ class _PhotoCarouselState extends State<_PhotoCarousel> {
       return GestureDetector(
         onTap: widget.onTap,
         child: ProfileAvatar(
-            name: widget.name, size: double.infinity, borderRadius: BorderRadius.zero),
+            name: widget.name,
+            size: double.infinity,
+            borderRadius: BorderRadius.zero),
       );
     }
 
@@ -457,7 +480,8 @@ class _DetailSection extends StatelessWidget {
   final String title;
   final Map<String, String> rows;
   final String? freeText;
-  const _DetailSection({required this.title, required this.rows, this.freeText});
+  const _DetailSection(
+      {required this.title, required this.rows, this.freeText});
 
   @override
   Widget build(BuildContext context) {
@@ -474,7 +498,8 @@ class _DetailSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: context.textStyles.titleSmall?.copyWith(color: context.colors.accent)),
+                style: context.textStyles.titleSmall
+                    ?.copyWith(color: context.colors.accent)),
             const SizedBox(height: 8),
             if (freeText != null)
               Text(freeText!, style: context.textStyles.bodyMedium),
@@ -483,10 +508,14 @@ class _DetailSection extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(width: 140, child: Text(e.key, style: context.textStyles.bodySmall)),
+                      SizedBox(
+                          width: 140,
+                          child:
+                              Text(e.key, style: context.textStyles.bodySmall)),
                       Expanded(
                           child: Text(e.value,
-                              style: context.textStyles.bodyMedium, textAlign: TextAlign.right)),
+                              style: context.textStyles.bodyMedium,
+                              textAlign: TextAlign.right)),
                     ],
                   ),
                 )),
@@ -496,7 +525,6 @@ class _DetailSection extends StatelessWidget {
     );
   }
 }
-
 
 class _ActionBar extends ConsumerWidget {
   final MatchProfile profile;
@@ -536,29 +564,36 @@ class _ActionBar extends ConsumerWidget {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('Withdraw', style: TextStyle(color: dialogContext.colors.danger)),
+            child: Text('Withdraw',
+                style: TextStyle(color: dialogContext.colors.danger)),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
 
-    final failure = await ref.read(interestsActionsProvider).withdraw(record.id);
+    final failure =
+        await ref.read(interestsActionsProvider).withdraw(record.id);
     if (!context.mounted) return;
     if (failure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(failure.message)));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 3),
         content: Text('Interest withdrawn from $name.'),
         action: SnackBarAction(
           label: 'UNDO',
           onPressed: () async {
-            final resendFailure = await ref.read(interestsActionsProvider).send(profile);
+            final resendFailure =
+                await ref.read(interestsActionsProvider).send(profile);
             if (resendFailure != null && context.mounted) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(resendFailure.message)));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  duration: const Duration(seconds: 3),
+                  content: Text(resendFailure.message)));
             }
           },
         ),
@@ -577,7 +612,8 @@ class _ActionBar extends ConsumerWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.sm),
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.sm),
         decoration: BoxDecoration(
           color: context.colors.surface,
           border: Border(top: BorderSide(color: context.colors.line)),
@@ -586,15 +622,21 @@ class _ActionBar extends ConsumerWidget {
           children: [
             IconButton(
               icon: Icon(Icons.chat_bubble_outline_rounded,
-                  color: chatTarget != null ? context.colors.accent : context.colors.muted),
-              tooltip: chatTarget != null ? 'Chat' : 'Chat unlocks once interest is accepted',
+                  color: chatTarget != null
+                      ? context.colors.accent
+                      : context.colors.muted),
+              tooltip: chatTarget != null
+                  ? 'Chat'
+                  : 'Chat unlocks once interest is accepted',
               onPressed: () {
                 if (chatTarget != null) {
                   context.push(AppRoutes.chatWindowPath(chatTarget));
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Chat opens once you both express interest and it\'s accepted.'),
+                      duration: const Duration(seconds: 3),
+                      content: const Text(
+                          'Chat opens once you both express interest and it\'s accepted.'),
                       action: SnackBarAction(
                         label: 'MY INTERESTS',
                         onPressed: () => _goToInbox(context, ref),
@@ -612,8 +654,9 @@ class _ActionBar extends ConsumerWidget {
                 tooltip: 'Voice call',
                 onPressed: () async {
                   if (ref.read(callControllerProvider).isActive) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text("You're already on a call.")));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        duration: const Duration(seconds: 3),
+                        content: Text("You're already on a call.")));
                     return;
                   }
                   unawaited(ref.read(callControllerProvider.notifier).startCall(
@@ -628,12 +671,14 @@ class _ActionBar extends ConsumerWidget {
                 },
               ),
               IconButton(
-                icon: Icon(Icons.videocam_rounded, color: context.colors.accent),
+                icon:
+                    Icon(Icons.videocam_rounded, color: context.colors.accent),
                 tooltip: 'Video call',
                 onPressed: () async {
                   if (ref.read(callControllerProvider).isActive) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(const SnackBar(content: Text("You're already on a call.")));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        duration: const Duration(seconds: 3),
+                        content: Text("You're already on a call.")));
                     return;
                   }
                   unawaited(ref.read(callControllerProvider.notifier).startCall(
@@ -653,15 +698,19 @@ class _ActionBar extends ConsumerWidget {
                 onPressed: isInterested
                     ? () => _withdraw(context, ref)
                     : () async {
-                        final failure = await ref.read(interestsActionsProvider).send(profile);
+                        final failure = await ref
+                            .read(interestsActionsProvider)
+                            .send(profile);
                         if (!context.mounted) return;
                         if (failure != null) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text(failure.message)));
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              duration: const Duration(seconds: 3),
+                              content: Text(failure.message)));
                           return;
                         }
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
+                            duration: const Duration(seconds: 3),
                             content: Text('Interest sent to $name.'),
                             action: SnackBarAction(
                               label: 'VIEW',
@@ -670,7 +719,8 @@ class _ActionBar extends ConsumerWidget {
                           ),
                         );
                       },
-                trailingIcon: isInterested ? Icons.check_rounded : Icons.favorite_rounded,
+                trailingIcon:
+                    isInterested ? Icons.check_rounded : Icons.favorite_rounded,
               ),
             ),
             IconButton(
@@ -704,11 +754,18 @@ class _DetailShimmer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ShimmerBox(width: double.infinity, height: 320, borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+            ShimmerBox(
+                width: double.infinity,
+                height: 320,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
             const SizedBox(height: AppSpacing.lg),
-            ShimmerBox(width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
+            ShimmerBox(
+                width: 180, height: 22, borderRadius: BorderRadius.circular(6)),
             const SizedBox(height: AppSpacing.md),
-            ShimmerBox(width: double.infinity, height: 90, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+            ShimmerBox(
+                width: double.infinity,
+                height: 90,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
           ],
         ),
       ),
@@ -716,4 +773,5 @@ class _DetailShimmer extends StatelessWidget {
   }
 }
 
-AppFailure _asFailure(Object e) => e is AppFailure ? e : AppFailure.unknown(e.toString());
+AppFailure _asFailure(Object e) =>
+    e is AppFailure ? e : AppFailure.unknown(e.toString());
