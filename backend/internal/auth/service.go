@@ -28,6 +28,7 @@ var (
 	ErrRefreshTokenInvalid = errors.New("invalid or expired refresh token")
 	ErrGoogleTokenInvalid  = errors.New("invalid or unverified google account")
 	ErrGoogleNotConfigured = errors.New("google sign-in is not configured on this server")
+	ErrPhoneAlreadyLinked  = errors.New("this phone number is already linked to an account")
 )
 
 const otpTTL = 10 * time.Minute
@@ -344,6 +345,66 @@ func (s *Service) googleAuthForEmail(ctx context.Context, email, userAgent, ip s
 		ExpiresAt:    auth.ExpiresAt,
 		User:         &auth.User,
 	}, nil
+}
+
+// RequestLinkPhone starts attaching a phone number to an existing account
+// that has none — a Google or email signup never gets one, which used to
+// mean the chat contact-share feature could only ever hand out that
+// account's email, regardless of what the two members actually meant to
+// exchange. Sends an OTP to the new number the same way signup does;
+// ConfirmLinkPhone finishes the job once it's verified.
+func (s *Service) RequestLinkPhone(ctx context.Context, userID, phone string) (string, error) {
+	if err := s.limiter.Allow(ctx, "link_phone:user:"+userID, otpRequestLimit, otpRequestWindow); err != nil {
+		return "", err
+	}
+
+	if existing, err := s.repo.GetUserByIdentifier(ctx, phone); err == nil && existing.ID != userID {
+		return "", ErrPhoneAlreadyLinked
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
+		return "", err
+	}
+
+	code, err := s.sendOTP(ctx, phone, "phone", "link_phone")
+	if err != nil {
+		return "", err
+	}
+	if !s.devMode {
+		return "", nil
+	}
+	return code, nil
+}
+
+// ConfirmLinkPhone verifies the code RequestLinkPhone sent and, on
+// success, attaches phone to userID's account.
+func (s *Service) ConfirmLinkPhone(ctx context.Context, userID, phone, code string) error {
+	otp, err := s.repo.GetActiveOTP(ctx, phone, "link_phone")
+	if errors.Is(err, ErrNotFound) {
+		return ErrOTPNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if otp.Attempts >= otp.MaxAttempts {
+		return ErrOTPTooManyAttempts
+	}
+	if !compareOTP(code, otp.CodeHash) {
+		_ = s.repo.IncrementOTPAttempts(ctx, otp.ID)
+		return ErrOTPInvalid
+	}
+	if err := s.repo.ConsumeOTP(ctx, otp.ID); err != nil {
+		return err
+	}
+
+	// Re-checked here, not just in RequestLinkPhone: the number could have
+	// been claimed by someone else in the time between requesting and
+	// verifying this code.
+	if existing, err := s.repo.GetUserByIdentifier(ctx, phone); err == nil && existing.ID != userID {
+		return ErrPhoneAlreadyLinked
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+
+	return s.repo.LinkPhone(ctx, userID, phone)
 }
 
 // Login authenticates with identifier + password.

@@ -43,6 +43,9 @@ class ApiEndpoints {
   static const String refreshToken = '/auth/refresh-token';
   static const String logout = '/auth/logout';
   static const String deleteAccount = '/users/me';
+  static const String myAccount = '/users/me';
+  static const String linkPhoneRequestOtp = '/auth/link-phone/request-otp';
+  static const String linkPhoneVerify = '/auth/link-phone/verify';
 
   static const String myProfile = '/profiles/me';
   static const String createProfile = '/profiles';

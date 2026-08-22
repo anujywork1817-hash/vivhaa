@@ -1,5 +1,14 @@
 package auth
 
+type LinkPhoneRequestOTPRequest struct {
+	Phone string `json:"phone" validate:"required,e164"`
+}
+
+type LinkPhoneVerifyRequest struct {
+	Phone string `json:"phone" validate:"required,e164"`
+	Code  string `json:"code" validate:"required,len=6,numeric"`
+}
+
 type SignupRequest struct {
 	Phone    string `json:"phone" validate:"omitempty,e164"`
 	Email    string `json:"email" validate:"omitempty,email"`

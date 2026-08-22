@@ -28,6 +28,17 @@ class GoogleOtpRequired extends GoogleAuthOutcome {
   const GoogleOtpRequired(this.identifier, this.devOtp);
 }
 
+/// Mirrors `GET /users/me` — the account-level identifiers (as opposed to
+/// profile fields), which is where phone/email actually live. A Google or
+/// email signup starts with [phone] null; [requestLinkPhoneOtp]/
+/// [AuthRepository.confirmLinkPhone] are how one gets attached afterward.
+class AccountInfo {
+  final String? phone;
+  final String? email;
+
+  const AccountInfo({this.phone, this.email});
+}
+
 abstract class AuthRepository {
   /// The returned String is the backend's `dev_otp` field — only ever
   /// non-null when the API is running with APP_ENV=dev (see
@@ -50,4 +61,15 @@ abstract class AuthRepository {
   /// session storage. There is no undo endpoint — callers must confirm
   /// with the user before calling this.
   Future<ApiResult<void>> deleteAccount();
+
+  Future<ApiResult<AccountInfo>> getAccount();
+
+  /// Sends an OTP to phone to attach it to the signed-in account. The
+  /// returned String is the backend's dev_otp — same null-outside-dev
+  /// contract as [requestOtp].
+  Future<ApiResult<String?>> requestLinkPhoneOtp(String phone);
+
+  /// Verifies the code [requestLinkPhoneOtp] sent and, on success,
+  /// attaches phone to the signed-in account.
+  Future<ApiResult<void>> confirmLinkPhone(String phone, String code);
 }

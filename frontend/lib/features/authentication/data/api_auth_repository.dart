@@ -131,6 +131,47 @@ class ApiAuthRepository implements AuthRepository {
     await _storage.clear();
     return const ApiResult.success(null);
   }
+
+  @override
+  Future<ApiResult<AccountInfo>> getAccount() async {
+    try {
+      final response = await _client.dio.get(ApiEndpoints.myAccount);
+      final data = response.data['data'] as Map<String, dynamic>;
+      return ApiResult.success(AccountInfo(
+        phone: data['phone'] as String?,
+        email: data['email'] as String?,
+      ));
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<String?>> requestLinkPhoneOtp(String phone) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.linkPhoneRequestOtp,
+        data: {'phone': phone},
+      );
+      final data = response.data['data'] as Map<String, dynamic>?;
+      return ApiResult.success(data?['dev_otp'] as String?);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<void>> confirmLinkPhone(String phone, String code) async {
+    try {
+      await _client.dio.post(
+        ApiEndpoints.linkPhoneVerify,
+        data: {'phone': phone, 'code': code},
+      );
+      return const ApiResult.success(null);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

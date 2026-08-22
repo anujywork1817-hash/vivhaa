@@ -4,8 +4,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../authentication/data/api_auth_repository.dart';
+import '../../../authentication/domain/auth_repository.dart';
 import '../../../authentication/presentation/controllers/auth_controller.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
+
+final _accountInfoProvider = FutureProvider.autoDispose<AccountInfo>((ref) async {
+  final result = await ref.watch(authRepositoryProvider).getAccount();
+  return result.when(success: (data) => data, failure: (f) => throw f);
+});
 
 /// "Account Settings" / "Contact Filters" from the menu, folded into one
 /// screen: the one real backend-backed setting here is profile
@@ -21,6 +28,83 @@ class AccountSettingsScreen extends ConsumerStatefulWidget {
 class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   bool _saving = false;
   bool _deleting = false;
+
+  /// Two-step dialog flow: enter a phone number, send an OTP to it, then
+  /// enter the code to attach it to this account. Only offered when the
+  /// account has none (Google/email signups start with none) — this is
+  /// what lets the chat contact-share feature hand out a real mobile
+  /// number for those accounts instead of always falling back to email.
+  Future<void> _addPhoneNumber() async {
+    final phoneController = TextEditingController();
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add phone number'),
+        content: TextField(
+          controller: phoneController,
+          autofocus: true,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(hintText: '+919876543210'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(phoneController.text.trim()),
+            child: const Text('Send code'),
+          ),
+        ],
+      ),
+    );
+    phoneController.dispose();
+    if (phone == null || phone.isEmpty || !mounted) return;
+
+    final requestResult = await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
+    if (!mounted) return;
+    final requestFailure = requestResult.when(success: (_) => null, failure: (f) => f);
+    if (requestFailure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(requestFailure.message)));
+      return;
+    }
+
+    final codeController = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Enter verification code'),
+        content: TextField(
+          controller: codeController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: InputDecoration(hintText: '6-digit code sent to $phone'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(codeController.text.trim()),
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+    codeController.dispose();
+    if (code == null || code.isEmpty || !mounted) return;
+
+    final confirmResult = await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
+    if (!mounted) return;
+    confirmResult.when(
+      success: (_) {
+        ref.invalidate(_accountInfoProvider);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Phone number added.')));
+      },
+      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f.message))),
+    );
+  }
 
   Future<void> _setVisibility(bool public) async {
     setState(() => _saving = true);
@@ -108,12 +192,45 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   Widget build(BuildContext context) {
     final draft = ref.watch(profileCreationControllerProvider).draft;
     final isPublic = draft.visibility != 'private';
+    final accountInfo = ref.watch(_accountInfoProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Account Settings')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
+          Text('Phone number', style: context.textStyles.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            'The number shared when someone you\'re chatting with requests your '
+            'contact details.',
+            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          accountInfo.when(
+            data: (info) => info.phone != null
+                ? ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.phone_outlined),
+                    title: Text(info.phone!),
+                  )
+                : ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.add_ic_call_rounded),
+                    title: const Text('Add phone number'),
+                    subtitle: const Text('Not set — sharing contact will offer your email instead'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: _addPhoneNumber,
+                  ),
+            loading: () => const SizedBox(
+                height: 48, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+            error: (_, __) => const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.error_outline_rounded),
+              title: Text('Could not load phone number'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
           Text('Profile visibility', style: context.textStyles.titleSmall),
           const SizedBox(height: 4),
           Text(

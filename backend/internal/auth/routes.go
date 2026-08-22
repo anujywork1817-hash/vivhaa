@@ -41,4 +41,13 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter
 		h.Login)
 	auth.POST("/refresh-token", h.Refresh)
 	auth.POST("/logout", middleware.RequireAuth(issuer), h.Logout)
+
+	auth.POST("/link-phone/request-otp",
+		middleware.RequireAuth(issuer),
+		middleware.RateLimit(limiter, "otp_request:ip", otpRequestIPLimit, otpRequestIPWindow, middleware.ByIP()),
+		h.RequestLinkPhoneOTP)
+	auth.POST("/link-phone/verify",
+		middleware.RequireAuth(issuer),
+		middleware.RateLimit(limiter, "otp_verify:ip", otpVerifyIPLimit, otpVerifyIPWindow, middleware.ByIP()),
+		h.ConfirmLinkPhone)
 }

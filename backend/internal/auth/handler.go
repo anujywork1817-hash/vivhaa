@@ -59,6 +59,45 @@ func (h *Handler) Signup(c *gin.Context) {
 	response.Success(c, http.StatusCreated, resp, nil)
 }
 
+// RequestLinkPhoneOTP starts attaching a phone number to the caller's own
+// account (Google/email signups start with none) — the same OTP request
+// as signup, just scoped to an already-authenticated caller instead of a
+// brand-new identifier.
+func (h *Handler) RequestLinkPhoneOTP(c *gin.Context) {
+	var req LinkPhoneRequestOTPRequest
+	if !bindAndValidate(c, &req) {
+		return
+	}
+
+	userID := c.GetString("user_id")
+	code, err := h.service.RequestLinkPhone(c.Request.Context(), userID, req.Phone)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	resp := gin.H{"message": "verification code sent"}
+	if code != "" {
+		resp["dev_otp"] = code
+	}
+	response.OK(c, resp)
+}
+
+// ConfirmLinkPhone verifies the code and, on success, attaches the phone
+// number to the caller's account.
+func (h *Handler) ConfirmLinkPhone(c *gin.Context) {
+	var req LinkPhoneVerifyRequest
+	if !bindAndValidate(c, &req) {
+		return
+	}
+
+	userID := c.GetString("user_id")
+	if err := h.service.ConfirmLinkPhone(c.Request.Context(), userID, req.Phone, req.Code); err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, gin.H{"message": "phone number linked"})
+}
+
 func (h *Handler) RequestOTP(c *gin.Context) {
 	var req RequestOTPRequest
 	if !bindAndValidate(c, &req) {
@@ -176,6 +215,8 @@ func writeServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrAlreadyRegistered):
 		response.Fail(c, http.StatusConflict, "already_registered", err.Error(), nil)
+	case errors.Is(err, ErrPhoneAlreadyLinked):
+		response.Fail(c, http.StatusConflict, "phone_already_linked", err.Error(), nil)
 	case errors.Is(err, ErrInvalidCredentials):
 		response.Fail(c, http.StatusUnauthorized, "invalid_credentials", err.Error(), nil)
 	case errors.Is(err, ErrAccountNotActive):

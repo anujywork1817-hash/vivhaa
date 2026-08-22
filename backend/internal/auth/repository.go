@@ -72,6 +72,17 @@ func (r *Repository) MarkVerified(ctx context.Context, userID, channel string) e
 	return err
 }
 
+// LinkPhone attaches a phone number to an existing account that has none
+// (Google/email signup never sets one) once its OTP has been verified.
+// The DB's UNIQUE constraint on phone is the final backstop against a
+// race with another account claiming the same number between the
+// caller's own pre-check and this UPDATE.
+func (r *Repository) LinkPhone(ctx context.Context, userID, phone string) error {
+	const q = `UPDATE users SET phone = $2, phone_verified = TRUE, updated_at = now() WHERE id = $1`
+	_, err := r.db.Exec(ctx, q, userID, phone)
+	return err
+}
+
 func (r *Repository) UpdateLastLogin(ctx context.Context, userID string) error {
 	const q = `UPDATE users SET last_login_at = now() WHERE id = $1`
 	_, err := r.db.Exec(ctx, q, userID)
