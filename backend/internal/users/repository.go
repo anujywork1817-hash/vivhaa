@@ -42,3 +42,41 @@ func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 	}
 	return u, err
 }
+
+// DeleteAccount soft-deletes the user (auth.Repository's own lookups
+// already exclude deleted_at IS NULL rows, so this alone blocks any future
+// login), revokes every refresh token they hold so already-issued sessions
+// stop working immediately rather than at their natural expiry, and flips
+// their profile private so it drops out of search/match results the same
+// way any other private profile would — there's no separate "deleted
+// profile" state, and private already means "hidden from everyone but the
+// owner", which is exactly what's wanted here.
+func (r *Repository) DeleteAccount(ctx context.Context, userID string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE users SET status = 'deleted', deleted_at = now(), updated_at = now()
+		 WHERE id = $1 AND deleted_at IS NULL`, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE profiles SET visibility = 'private', updated_at = now() WHERE user_id = $1`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}

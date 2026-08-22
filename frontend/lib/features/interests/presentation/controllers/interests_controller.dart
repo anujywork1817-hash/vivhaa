@@ -29,6 +29,18 @@ final isInterestSentProvider = Provider.autoDispose.family<bool, String>((ref, p
   return sent.any((r) => r.profile.id == profileId);
 });
 
+/// The sent-interest record for this profile, if any — lets a screen that
+/// only knows the profile id (not the interest id) still offer to withdraw
+/// it, without a separate lookup round trip.
+final sentInterestForProfileProvider =
+    Provider.autoDispose.family<InterestRecord?, String>((ref, profileId) {
+  final sent = ref.watch(sentInterestsProvider).valueOrNull ?? const [];
+  for (final r in sent) {
+    if (r.profile.id == profileId) return r;
+  }
+  return null;
+});
+
 /// The partner's user id when this profile is an accepted match in either
 /// direction, else null — i.e. "can I chat with them, and where".
 ///

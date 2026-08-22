@@ -117,6 +117,20 @@ class ApiAuthRepository implements AuthRepository {
       await _storage.clear();
     }
   }
+
+  @override
+  Future<ApiResult<void>> deleteAccount() async {
+    try {
+      await _client.dio.delete(ApiEndpoints.deleteAccount);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+    // Only clear local session once the account is confirmed gone — on
+    // failure the account still exists and the user should be able to
+    // retry, not find themselves silently signed out.
+    await _storage.clear();
+    return const ApiResult.success(null);
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

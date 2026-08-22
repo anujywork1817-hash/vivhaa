@@ -137,7 +137,15 @@ class _ManagePhotosScreenState extends ConsumerState<ManagePhotosScreen> {
     final async = ref.watch(myPhotosProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Photos')),
+      appBar: AppBar(
+        title: const Text('My Photos'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorStateView(

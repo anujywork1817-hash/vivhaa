@@ -44,4 +44,10 @@ abstract class AuthRepository {
   Future<ApiResult<GoogleAuthOutcome>> loginWithGoogle(String idToken);
 
   Future<ApiResult<void>> logout();
+
+  /// Soft-deletes the signed-in account on the backend (blocks future
+  /// login, revokes every session, hides the profile) and clears local
+  /// session storage. There is no undo endpoint — callers must confirm
+  /// with the user before calling this.
+  Future<ApiResult<void>> deleteAccount();
 }

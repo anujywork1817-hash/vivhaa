@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../authentication/presentation/controllers/auth_controller.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
 
 /// "Account Settings" / "Contact Filters" from the menu, folded into one
@@ -19,6 +20,7 @@ class AccountSettingsScreen extends ConsumerStatefulWidget {
 
 class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
   bool _saving = false;
+  bool _deleting = false;
 
   Future<void> _setVisibility(bool public) async {
     setState(() => _saving = true);
@@ -31,6 +33,75 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Could not save. Please try again.')));
     }
+  }
+
+  /// Two-step confirmation for an irreversible action: an explanatory
+  /// dialog first, then a typed "DELETE" phrase — a plain Cancel/Confirm
+  /// pair is too easy to tap through without reading, for something with
+  /// no undo (see users.Handler.DeleteMe on the backend).
+  Future<void> _deleteAccount() async {
+    final understood = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This permanently deactivates your account. You will be signed out '
+          'on all devices, your profile will no longer be visible to anyone, '
+          'and this cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('Continue', style: TextStyle(color: dialogContext.colors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (understood != true || !mounted) return;
+
+    final typedController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Type DELETE to confirm'),
+        content: TextField(
+          controller: typedController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(hintText: 'DELETE'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: typedController,
+            builder: (_, value, __) {
+              final canDelete = value.text.trim().toUpperCase() == 'DELETE';
+              return TextButton(
+                onPressed: canDelete ? () => Navigator.of(dialogContext).pop(true) : null,
+                child: Text('Delete my account', style: TextStyle(color: dialogContext.colors.danger)),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+    typedController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    final failure = await ref.read(authControllerProvider.notifier).deleteAccount();
+    if (!mounted) return;
+    setState(() => _deleting = false);
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      return;
+    }
+    context.go(AppRoutes.splash);
   }
 
   @override
@@ -72,6 +143,18 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             title: const Text('Blocked members'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => context.push(AppRoutes.blockedUsers),
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_forever_rounded, color: context.colors.danger),
+            title: Text('Delete account', style: TextStyle(color: context.colors.danger)),
+            subtitle: const Text('Permanently deactivate your account'),
+            trailing: _deleting
+                ? const SizedBox(
+                    width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : null,
+            onTap: _deleting ? null : _deleteAccount,
           ),
         ],
       ),

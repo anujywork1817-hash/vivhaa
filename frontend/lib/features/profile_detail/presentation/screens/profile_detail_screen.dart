@@ -518,6 +518,54 @@ class _ActionBar extends ConsumerWidget {
     context.go(AppRoutes.home);
   }
 
+  /// Lets someone change their mind on an already-sent interest — confirm,
+  /// withdraw, and offer an UNDO that just re-sends it, so a mis-tap or a
+  /// change of heart isn't a one-way door.
+  Future<void> _withdraw(BuildContext context, WidgetRef ref) async {
+    final record = ref.read(sentInterestForProfileProvider(profileId));
+    if (record == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Withdraw interest?'),
+        content: Text('Your interest sent to $name will be withdrawn.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('Withdraw', style: TextStyle(color: dialogContext.colors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final failure = await ref.read(interestsActionsProvider).withdraw(record.id);
+    if (!context.mounted) return;
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Interest withdrawn from $name.'),
+        action: SnackBarAction(
+          label: 'UNDO',
+          onPressed: () async {
+            final resendFailure = await ref.read(interestsActionsProvider).send(profile);
+            if (resendFailure != null && context.mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(resendFailure.message)));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversation = ref.watch(conversationForProfileProvider(profileId));
@@ -603,7 +651,7 @@ class _ActionBar extends ConsumerWidget {
               child: PrimaryButton(
                 label: isInterested ? 'Interest Sent' : 'Express Interest',
                 onPressed: isInterested
-                    ? null
+                    ? () => _withdraw(context, ref)
                     : () async {
                         final failure = await ref.read(interestsActionsProvider).send(profile);
                         if (!context.mounted) return;

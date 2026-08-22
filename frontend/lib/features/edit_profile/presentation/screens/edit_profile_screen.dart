@@ -7,8 +7,11 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/enums.dart';
 import '../../../../shared/widgets/buttons/primary_button.dart';
+import '../../../../shared/widgets/inputs/app_date_picker_field.dart';
+import '../../../../shared/widgets/inputs/app_text_field.dart';
 import '../../../../shared/widgets/misc/app_file_image.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
+import '../../../onboarding/presentation/screens/name_dob_screen.dart' show minSignupAge, maxSignupAge;
 
 const _maritalOptions = MaritalStatus.values;
 const _dietOptions = DietType.values;
@@ -26,6 +29,8 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  late final TextEditingController _firstName;
+  late final TextEditingController _lastName;
   late final TextEditingController _aboutMe;
   late final TextEditingController _height;
   late final TextEditingController _education;
@@ -36,6 +41,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _state;
   late final TextEditingController _country;
 
+  DateTime? _dateOfBirth;
   MaritalStatus? _maritalStatus;
   DietType? _diet;
   bool _saving = false;
@@ -44,6 +50,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _firstName = TextEditingController();
+    _lastName = TextEditingController();
     _aboutMe = TextEditingController();
     _height = TextEditingController();
     _education = TextEditingController();
@@ -61,6 +69,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (!mounted) return;
     final draft = ref.read(profileCreationControllerProvider).draft;
     setState(() {
+      _firstName.text = draft.firstName ?? '';
+      _lastName.text = draft.lastName ?? '';
+      _dateOfBirth = draft.dateOfBirth;
       _aboutMe.text = draft.aboutMe ?? '';
       _height.text = draft.heightCm?.toString() ?? '';
       _education.text = draft.highestEducation ?? '';
@@ -78,6 +89,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   @override
   void dispose() {
+    _firstName.dispose();
+    _lastName.dispose();
     _aboutMe.dispose();
     _height.dispose();
     _education.dispose();
@@ -127,6 +140,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     setState(() => _saving = true);
     final controller = ref.read(profileCreationControllerProvider.notifier);
     controller.update((p) => p.copyWith(
+          firstName: _firstName.text.trim(),
+          lastName: _lastName.text.trim(),
+          dateOfBirth: _dateOfBirth,
           aboutMe: _aboutMe.text.trim(),
           heightCm: int.tryParse(_height.text.trim()),
           maritalStatus: _maritalStatus,
@@ -180,12 +196,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text('About', style: context.textStyles.titleSmall),
+                  Text('Name & date of birth', style: context.textStyles.titleSmall),
                   const SizedBox(height: AppSpacing.sm),
-                  TextField(
-                    controller: _aboutMe,
-                    maxLines: 4,
-                    decoration: const InputDecoration(hintText: 'Tell us about yourself'),
+                  AppTextField(label: 'First name', controller: _firstName),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppTextField(label: 'Last name', controller: _lastName),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppDatePickerField(
+                    label: 'Date of birth',
+                    hint: 'Tap to pick a date',
+                    value: _dateOfBirth,
+                    firstDate: DateTime(DateTime.now().year - maxSignupAge,
+                        DateTime.now().month, DateTime.now().day),
+                    lastDate: DateTime(DateTime.now().year - minSignupAge,
+                        DateTime.now().month, DateTime.now().day),
+                    onSelected: (date) => setState(() => _dateOfBirth = date),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Lifestyle', style: context.textStyles.titleSmall),
@@ -251,6 +276,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   TextField(
                     controller: _country,
                     decoration: const InputDecoration(labelText: 'Country'),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text('About', style: context.textStyles.titleSmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: _aboutMe,
+                    maxLines: 4,
+                    decoration: const InputDecoration(hintText: 'Tell us about yourself'),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   PrimaryButton(label: 'Save changes', loading: _saving, onPressed: _save),

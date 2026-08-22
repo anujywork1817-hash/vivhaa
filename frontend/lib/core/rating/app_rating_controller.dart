@@ -27,3 +27,30 @@ class AppRatingController extends StateNotifier<int?> {
 final appRatingProvider = StateNotifierProvider<AppRatingController, int?>((ref) {
   return AppRatingController();
 });
+
+/// The free-text comment left alongside a star rating — kept separately
+/// from the star count since there's no backend endpoint to send it to
+/// yet; this just lets the dialog remember what someone typed last time.
+class AppRatingFeedbackController extends StateNotifier<String?> {
+  static const _feedbackKey = 'app_rating_feedback';
+
+  AppRatingFeedbackController() : super(null) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getString(_feedbackKey);
+  }
+
+  Future<void> setFeedback(String text) async {
+    state = text;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_feedbackKey, text);
+  }
+}
+
+final appRatingFeedbackProvider =
+    StateNotifierProvider<AppRatingFeedbackController, String?>((ref) {
+  return AppRatingFeedbackController();
+});

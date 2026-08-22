@@ -11,4 +11,5 @@ import (
 func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 	users := rg.Group("/users")
 	users.GET("/me", middleware.RequireAuth(issuer), h.Me)
+	users.DELETE("/me", middleware.RequireAuth(issuer), h.DeleteMe)
 }

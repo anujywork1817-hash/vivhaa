@@ -199,6 +199,22 @@ class AuthController extends StateNotifier<AuthState> {
     await _googleAuth.signOut();
     state = const AuthState();
   }
+
+  /// Deletes the signed-in account. Returns the failure, if any, so the
+  /// settings screen can show it instead of assuming success; on success
+  /// this also clears local session state exactly like [signOut].
+  Future<AppFailure?> deleteAccount() async {
+    final result = await _repository.deleteAccount();
+    final failure = result.when(success: (_) => null, failure: (f) => f);
+    if (failure != null) return failure;
+
+    // Only unregister push once the account is actually gone — done
+    // after, not before like signOut, since the delete call itself still
+    // needs a valid session to authenticate.
+    await _push.unregisterDevice();
+    state = const AuthState();
+    return null;
+  }
 }
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {

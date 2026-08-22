@@ -41,7 +41,7 @@ class MenuScreen extends ConsumerWidget {
     );
     if (submitted == null || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Thanks for rating us $submitted star${submitted == 1 ? '' : 's'}!')),
+      SnackBar(content: Text('Thanks for your feedback!')),
     );
   }
 
@@ -421,6 +421,14 @@ class _RatingDialog extends ConsumerStatefulWidget {
 
 class _RatingDialogState extends ConsumerState<_RatingDialog> {
   late int _selected = ref.read(appRatingProvider) ?? 0;
+  late final _feedbackController =
+      TextEditingController(text: ref.read(appRatingFeedbackProvider) ?? '');
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -428,32 +436,48 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
 
     return AlertDialog(
       title: const Text('Enjoying Vivah?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            previouslyRated
-                ? 'You can update your rating any time.'
-                : 'Tap a star to rate your experience.',
-            style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 1; i <= 5; i++)
-                IconButton(
-                  onPressed: () => setState(() => _selected = i),
-                  icon: Icon(
-                    i <= _selected ? Icons.star_rounded : Icons.star_border_rounded,
-                    color: context.colors.gold,
-                    size: 32,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              previouslyRated
+                  ? 'You can update your rating any time.'
+                  : 'Tap a star to rate your experience.',
+              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // Each star sized to share the row equally rather than at its
+            // IconButton's default (48dp) touch-target width, which on a
+            // narrow dialog pushed the fifth star a few pixels past the
+            // edge — a layout overflow, not a rendering bug.
+            Row(
+              children: [
+                for (var i = 1; i <= 5; i++)
+                  Expanded(
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => setState(() => _selected = i),
+                      icon: Icon(
+                        i <= _selected ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: context.colors.gold,
+                        size: 32,
+                      ),
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: _feedbackController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Tell us what\'s working or what could be better (optional)',
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -465,6 +489,10 @@ class _RatingDialogState extends ConsumerState<_RatingDialog> {
               ? null
               : () {
                   ref.read(appRatingProvider.notifier).setRating(_selected);
+                  final feedback = _feedbackController.text.trim();
+                  if (feedback.isNotEmpty) {
+                    ref.read(appRatingFeedbackProvider.notifier).setFeedback(feedback);
+                  }
                   Navigator.of(context).pop(_selected);
                 },
           child: const Text('Submit'),
