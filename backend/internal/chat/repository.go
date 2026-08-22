@@ -137,7 +137,7 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 		SELECT
 			c.partner_id, p.full_name,
 			(SELECT url FROM profile_photos pp WHERE pp.profile_id = p.id ORDER BY pp.is_primary DESC, pp.sort_order ASC LIMIT 1),
-			c.body, c.kind, COALESCE(c.receiver_user_id, ''), c.created_at,
+			c.body, c.kind, COALESCE(c.receiver_user_id::text, ''), c.created_at,
 			(SELECT COUNT(*) FROM chat_messages WHERE receiver_user_id = $1 AND sender_user_id = c.partner_id AND read_at IS NULL),
 			EXISTS (
 				SELECT 1 FROM blocked_users b
