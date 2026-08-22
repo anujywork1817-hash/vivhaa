@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../../../../core/notifications/push_notification_service.dart';
+import '../../../../core/tour/app_tour_controller.dart';
 import '../../../calls/presentation/controllers/call_controller.dart';
 import '../../../calls/presentation/screens/incoming_call_screen.dart';
 import '../../../chat/data/chat_socket_service.dart';
@@ -74,6 +76,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     final activeTab = ref.watch(appShellTabProvider);
     final pendingInterests = ref.watch(pendingReceivedCountProvider);
     final unreadChats = ref.watch(unreadConversationCountProvider);
+    final tourKeys = ref.watch(appTourKeysProvider);
 
     // An incoming call can arrive while the user is anywhere in the main
     // app (not just inside a specific chat), so it's surfaced here rather
@@ -95,19 +98,41 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         items: [
           const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.people_alt_rounded),
+            icon: Showcase(
+              key: tourKeys.matchesTab,
+              title: 'Matches',
+              description: 'Browse profiles picked for you.',
+              child: const Icon(Icons.people_alt_rounded),
+            ),
             label: 'Matches',
           ),
           BottomNavigationBarItem(
-            icon: _BadgedIcon(icon: Icons.mail_rounded, count: pendingInterests),
+            icon: Showcase(
+              key: tourKeys.inboxTab,
+              title: 'Inbox',
+              description: 'See who\'s interested in you and respond.',
+              child: _BadgedIcon(icon: Icons.mail_rounded, count: pendingInterests),
+            ),
             label: 'Inbox',
           ),
           BottomNavigationBarItem(
-            icon: _BadgedIcon(icon: Icons.chat_bubble_rounded, count: unreadChats),
+            icon: Showcase(
+              key: tourKeys.chatTab,
+              title: 'Chat',
+              description: 'Message your matches directly.',
+              child: _BadgedIcon(icon: Icons.chat_bubble_rounded, count: unreadChats),
+            ),
             label: 'Chat',
           ),
-          const BottomNavigationBarItem(
-              icon: Icon(Icons.workspace_premium_rounded), label: 'Premium'),
+          BottomNavigationBarItem(
+            icon: Showcase(
+              key: tourKeys.premiumTab,
+              title: 'Premium',
+              description: 'Unlock premium membership perks here.',
+              child: const Icon(Icons.workspace_premium_rounded),
+            ),
+            label: 'Premium',
+          ),
         ],
       ),
     );

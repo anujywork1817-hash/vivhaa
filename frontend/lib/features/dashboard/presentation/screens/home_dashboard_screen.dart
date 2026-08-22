@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/tour/app_tour_controller.dart';
 import '../../../../shared/models/match_profile.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/locked_profile_photo.dart';
@@ -16,55 +18,108 @@ import '../controllers/dashboard_controller.dart';
 
 /// "My Shaadi" home tab — profile summary, promo banner, profile
 /// completion prompts, Premium Matches / New Matches rails, footer.
-class HomeDashboardScreen extends ConsumerWidget {
+class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+}
+
+class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // AppShell keeps every tab alive via IndexedStack, so this initState
+    // only ever runs once per app session (not once per visit to the Home
+    // tab) — exactly what's wanted for a "first time only" auto-trigger.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final seen = await ref.read(appTourControllerProvider).hasSeenTour();
+      if (!mounted || seen) return;
+      _startTour();
+      await ref.read(appTourControllerProvider).markSeen();
+    });
+  }
+
+  void _startTour() {
+    final keys = ref.read(appTourKeysProvider);
+    ShowCaseWidget.of(context).startShowCase(keys.orderedSteps);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final draft = ref.watch(profileCreationControllerProvider).draft;
+    final tourKeys = ref.watch(appTourKeysProvider);
+
+    // The "Take a Tour" row in the hamburger menu can't reach this
+    // widget's GlobalKeys directly, so it flips this flag and navigates
+    // back to Home instead — since Home is already mounted (IndexedStack),
+    // this listener is what actually replays the walkthrough on demand.
+    ref.listen<bool>(tourReplayRequestedProvider, (previous, requested) {
+      if (!requested) return;
+      ref.read(tourReplayRequestedProvider.notifier).state = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startTour();
+      });
+    });
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded),
-          onPressed: () => context.push(AppRoutes.menu),
+        leading: Showcase(
+          key: tourKeys.menu,
+          title: 'Menu',
+          description: 'Open the menu to manage your profile, settings, and more.',
+          child: IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => context.push(AppRoutes.menu),
+          ),
         ),
         title: const Text('My Vivah'),
         actions: [
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => context.push(AppRoutes.editProfile),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: ProfileAvatar(
-                name: draft.fullName ?? '',
-                photoUrl: draft.profilePhotoUrl,
-                size: 32,
+          Showcase(
+            key: tourKeys.avatar,
+            title: 'Your Profile',
+            description: 'This is you — tap to view or edit your profile.',
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => context.push(AppRoutes.editProfile),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: ProfileAvatar(
+                  name: draft.fullName ?? '',
+                  photoUrl: draft.profilePhotoUrl,
+                  size: 32,
+                ),
               ),
             ),
           ),
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded),
-                onPressed: () => context.push(AppRoutes.notifications),
-              ),
-              if (unreadCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: context.colors.accent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: context.colors.bg, width: 1.5),
+          Showcase(
+            key: tourKeys.notifications,
+            title: 'Notifications',
+            description: 'See interests, matches, and messages here.',
+            child: Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded),
+                  onPressed: () => context.push(AppRoutes.notifications),
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: context.colors.accent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: context.colors.bg, width: 1.5),
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(width: 4),
         ],
@@ -79,7 +134,12 @@ class HomeDashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
           children: [
-            const _SearchBarEntry(),
+            Showcase(
+              key: tourKeys.search,
+              title: 'Search',
+              description: 'Search for matches by name or profile ID.',
+              child: const _SearchBarEntry(),
+            ),
             const SizedBox(height: AppSpacing.lg),
             const _CompleteProfileCard(),
             const SizedBox(height: AppSpacing.xl),

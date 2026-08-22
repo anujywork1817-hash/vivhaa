@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:showcaseview/showcaseview.dart';
 import '../core/router/app_router.dart';
 import '../core/router/app_routes.dart';
 import '../core/theme/app_scroll_behavior.dart';
@@ -29,11 +30,19 @@ class ShaadiApp extends ConsumerWidget {
         // A single MediaQuery override at the app root scales every Text
         // widget's rendered size without needing to thread a font-scale
         // value through AppTypography's individual TextStyles.
+        // ShowCaseWidget must sit above the Navigator so any Showcase
+        // wrapped around a widget deep inside a route can find it via
+        // ShowCaseWidget.of(context) — placing it here, inside
+        // MaterialApp.router's builder, puts it above every route while
+        // still living inside MaterialApp itself (Theme/Localizations
+        // stay reachable from the ShowCaseWidget's own builder callback).
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(preferences.fontSize.scale),
           ),
-          child: child!,
+          child: ShowCaseWidget(
+            builder: (context) => child!,
+          ),
         ),
         routerConfig: router,
       ),

@@ -8,8 +8,21 @@ class SecureStorageService {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
 
+  // Without this, Android falls back to a plain Keystore-wrapped-AES-key
+  // scheme that's a known source of "logged out on next app open" reports
+  // across the flutter_secure_storage ecosystem: certain OEM Keystore
+  // implementations invalidate that key on things as ordinary as an
+  // Android backup/restore pass or a routine security-patch update, and
+  // the package's default AndroidOptions has no way to detect that
+  // silently happened — reads just come back null next launch, which
+  // looks identical to "never logged in" and forces the OTP screen again
+  // even though nothing the user did was wrong. EncryptedSharedPreferences
+  // is the package's own documented mitigation, backed by Android's more
+  // resilient Jetpack Security library instead of a raw Keystore key.
+  static const _androidOptions = AndroidOptions(encryptedSharedPreferences: true);
+
   SecureStorageService([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? const FlutterSecureStorage(aOptions: _androidOptions);
 
   Future<String?> readAccessToken() => _storage.read(key: _accessTokenKey);
   Future<String?> readRefreshToken() => _storage.read(key: _refreshTokenKey);

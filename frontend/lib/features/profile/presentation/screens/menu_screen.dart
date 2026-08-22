@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../core/rating/app_rating_controller.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/tour/app_tour_controller.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -61,6 +62,16 @@ class MenuScreen extends ConsumerWidget {
     await ref.read(authControllerProvider.notifier).signOut();
     ref.read(profileCreationControllerProvider.notifier).reset();
     if (context.mounted) context.go(AppRoutes.splash);
+  }
+
+  // The tour's GlobalKeys live on the Dashboard/Home tab, not here, so
+  // replaying it means navigating back to Home first and then flipping
+  // [tourReplayRequestedProvider] — HomeDashboardScreen (already mounted
+  // inside AppShell's IndexedStack) is listening for that flag and starts
+  // the showcase sequence itself once it sees it.
+  void _takeTour(BuildContext context, WidgetRef ref) {
+    context.go(AppRoutes.home);
+    ref.read(tourReplayRequestedProvider.notifier).state = true;
   }
 
   @override
@@ -270,6 +281,11 @@ class MenuScreen extends ConsumerWidget {
                     icon: Icons.block_outlined,
                     label: 'Blocked Users',
                     onTap: () => context.push(AppRoutes.blockedUsers),
+                  ),
+                  _Row(
+                    icon: Icons.travel_explore_rounded,
+                    label: 'Take a Tour',
+                    onTap: () => _takeTour(context, ref),
                   ),
                   _Row(
                     icon: Icons.star_outline_rounded,
