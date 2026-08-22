@@ -19,34 +19,41 @@ class ShaadiApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final preferences = ref.watch(themePreferencesProvider);
-    return _BackButtonGate(
-      router: router,
-      child: MaterialApp.router(
-        title: 'Vivah',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: preferences.themeMode,
-        scrollBehavior: const AppScrollBehavior(),
-        // A single MediaQuery override at the app root scales every Text
-        // widget's rendered size without needing to thread a font-scale
-        // value through AppTypography's individual TextStyles.
-        // ShowCaseWidget must sit above the Navigator so any Showcase
-        // wrapped around a widget deep inside a route can find it via
-        // ShowCaseWidget.of(context) — placing it here, inside
-        // MaterialApp.router's builder, puts it above every route while
-        // still living inside MaterialApp itself (Theme/Localizations
-        // stay reachable from the ShowCaseWidget's own builder callback).
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(preferences.fontSize.scale),
-          ),
-          child: ShowCaseWidget(
-            builder: (context) => child!,
-          ),
+    return MaterialApp.router(
+      title: 'Vivah',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: preferences.themeMode,
+      scrollBehavior: const AppScrollBehavior(),
+      // A single MediaQuery override at the app root scales every Text
+      // widget's rendered size without needing to thread a font-scale
+      // value through AppTypography's individual TextStyles.
+      // ShowCaseWidget must sit above the Navigator so any Showcase
+      // wrapped around a widget deep inside a route can find it via
+      // ShowCaseWidget.of(context) — placing it here, inside
+      // MaterialApp.router's builder, puts it above every route while
+      // still living inside MaterialApp itself (Theme/Localizations
+      // stay reachable from the ShowCaseWidget's own builder callback).
+      //
+      // _BackButtonGate MUST wrap `child` here, not MaterialApp.router
+      // from outside (as it used to) — PopScope only actually registers
+      // itself against the nearest ModalRoute ancestor, and there is no
+      // ModalRoute at all above the Router/Navigator MaterialApp.router
+      // creates. A PopScope placed outside it silently finds nothing to
+      // attach to, so every one of its checks (collapse to Home, the
+      // double-back-to-exit window) never ran — every back press fell
+      // straight through to Android's default "pop the Activity", i.e.
+      // the app just closed on the very first press from anywhere.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(preferences.fontSize.scale),
         ),
-        routerConfig: router,
+        child: ShowCaseWidget(
+          builder: (context) => _BackButtonGate(router: router, child: child!),
+        ),
       ),
+      routerConfig: router,
     );
   }
 }

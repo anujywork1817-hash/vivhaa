@@ -88,6 +88,9 @@ class MatchesTabScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          const SizedBox(height: AppSpacing.sm),
+          const _MatchesSearchBarEntry(),
+          const SizedBox(height: AppSpacing.sm),
           // Horizontally scrollable: the chips are wider than the screen
           // on smaller devices (they carry live counts, so their width
           // isn't fixed), which is what produced the "RIGHT OVERFLOWED"
@@ -892,6 +895,51 @@ class _NearbyErrorState extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Tappable search entry, same pattern/destination as Home's own search
+/// bar (AppRoutes.basicSearch) — Matches previously had no way to search
+/// by name/city/profession at all, only the ID-specific chip and the
+/// filter-heavy Advanced Search buried in the "More" sheet.
+class _MatchesSearchBarEntry extends StatelessWidget {
+  const _MatchesSearchBarEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: Material(
+        color: context.colors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push(AppRoutes.basicSearch),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              border: Border.all(color: context.colors.line),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Search by name, city, profession…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
