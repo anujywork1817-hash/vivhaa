@@ -8,7 +8,14 @@ import '../../../../shared/models/enums.dart';
 import '../../../../shared/widgets/buttons/primary_button.dart';
 import '../controllers/profile_creation_controller.dart';
 
-const int _requiredCount = 5;
+// _requiredCount doubled as both "must pick at least this many to
+// continue" AND the hard cap on how many could ever be picked — so once
+// someone reached 5, every other chip simply stopped responding to taps,
+// with nothing telling them why. Splitting these apart: _minRequired still
+// gates Save & continue, _maxSelectable is a separate, higher ceiling that
+// actually lets a member pick more.
+const int _minRequired = 5;
+const int _maxSelectable = 10;
 
 const Map<String, List<(IconData, String)>> _categories = {
   'Creative': [
@@ -86,7 +93,7 @@ class HobbiesScreen extends ConsumerWidget {
       final updated = {...selected};
       if (updated.contains(hobby)) {
         updated.remove(hobby);
-      } else if (updated.length < _requiredCount) {
+      } else if (updated.length < _maxSelectable) {
         updated.add(hobby);
       }
       controller.update((p) => p.copyWith(hobbies: updated.toList()));
@@ -179,12 +186,24 @@ class HobbiesScreen extends ConsumerWidget {
             ),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xs),
+            child: Text(
+              selected.length < _minRequired
+                  ? 'Pick at least $_minRequired to continue'
+                  : 'Up to $_maxSelectable total',
+              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.lg),
             child: PrimaryButton(
+              // Tracks progress toward the actual ceiling once past the
+              // minimum, rather than freezing at "/5" and reading like a
+              // stuck counter the moment a 6th hobby gets picked.
               label: standalone
-                  ? 'Save (${selected.length}/$_requiredCount)'
-                  : 'Save & continue (${selected.length}/$_requiredCount)',
-              onPressed: selected.length == _requiredCount
+                  ? 'Save (${selected.length}/$_maxSelectable)'
+                  : 'Save & continue (${selected.length}/$_maxSelectable)',
+              onPressed: selected.length >= _minRequired
                   ? () async {
                       if (!standalone) {
                         context.push(AppRoutes.familyDetails);

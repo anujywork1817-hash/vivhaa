@@ -22,7 +22,7 @@ const _professions = [
   'Software Engineer', 'Doctor', 'Chartered Accountant', 'Architect', 'Teacher',
   'Marketing Manager', 'Civil Servant', 'Lawyer', 'Entrepreneur', 'Banker',
   'Admin Professional', 'Human Resources Professional', 'Actor', 'Advertising Professional',
-  'Entertainment Professional', 'Event Manager', 'Journalist',
+  'Entertainment Professional', 'Event Manager', 'Journalist', 'Other',
 ];
 
 class WorkDetailsScreen extends ConsumerStatefulWidget {
@@ -36,9 +36,26 @@ class _WorkDetailsScreenState extends ConsumerState<WorkDetailsScreen> {
   late final _companyController =
       TextEditingController(text: ref.read(profileCreationControllerProvider).draft.companyName);
 
+  // Prefilled with the existing value only if it's a custom entry (i.e.
+  // "Other" was picked on an earlier visit) — otherwise this starts empty
+  // and the field only appears once "Other" is actually selected below.
+  late final _customProfessionController = TextEditingController(
+    text: _isCustomProfession(ref.read(profileCreationControllerProvider).draft.profession)
+        ? ref.read(profileCreationControllerProvider).draft.profession
+        : null,
+  );
+
+  /// True once the member has a profession that isn't one of the listed
+  /// options — either "Other" was just picked (value is literally
+  /// "Other", box not filled in yet) or they typed something last time
+  /// and came back to this step.
+  static bool _isCustomProfession(String? profession) =>
+      profession != null && profession != 'Other' && !_professions.contains(profession);
+
   @override
   void dispose() {
     _companyController.dispose();
+    _customProfessionController.dispose();
     super.dispose();
   }
 
@@ -103,10 +120,38 @@ class _WorkDetailsScreenState extends ConsumerState<WorkDetailsScreen> {
           const SizedBox(height: AppSpacing.lg),
           AppSelectField(
             label: '${profileFor.possessiveTitle} profession',
-            value: draft.profession,
+            // Showing "Other" once a custom value is in place (rather
+            // than the raw typed text) keeps the picker's own list of
+            // options meaningful — the actual text lives in the field
+            // below, which is the thing that's actually saved.
+            value: _isCustomProfession(draft.profession) ? 'Other' : draft.profession,
             options: _professions,
-            onSelected: (v) => controller.update((p) => p.copyWith(profession: v)),
+            onSelected: (v) {
+              if (v == 'Other') {
+                // Reopening "Other" after already having typed something
+                // shouldn't blank it out — re-save whatever's still in
+                // the box, or leave profession as the "Other" sentinel
+                // until they type, same as a first-time pick.
+                controller.update((p) => p.copyWith(
+                      profession: _customProfessionController.text.trim().isEmpty
+                          ? v
+                          : _customProfessionController.text,
+                    ));
+                return;
+              }
+              _customProfessionController.clear();
+              controller.update((p) => p.copyWith(profession: v));
+            },
           ),
+          if (draft.profession == 'Other' || _isCustomProfession(draft.profession)) ...[
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
+              label: '${profileFor.possessiveTitle} profession',
+              hint: 'Tell us what ${profileFor.subject} does',
+              controller: _customProfessionController,
+              onChanged: (v) => controller.update((p) => p.copyWith(profession: v)),
+            ),
+          ],
           if (draft.workWith != null) ...[
             const SizedBox(height: AppSpacing.lg),
             AppTextField(
