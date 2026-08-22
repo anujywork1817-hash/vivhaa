@@ -72,6 +72,34 @@ func (s *Service) pushAccepted(interest Interest) {
 	s.hub.SendToUser(interest.ReceiverUserID, payload)
 }
 
+// pushReceived notifies the receiver the moment a new interest lands, the
+// same way pushAccepted notifies both parties on accept — without it, a
+// received-interest event only reached the persisted notifications list
+// (and push, if FCM is configured), so the Interests tab's incoming-request
+// row/badge only showed up after a manual pull-to-refresh. Delivery is
+// best-effort, same as pushAccepted: an offline receiver still sees it on
+// their next fetch via the persisted notification.
+func (s *Service) pushReceived(interest Interest) {
+	if s.hub == nil {
+		return
+	}
+	payload, err := json.Marshal(struct {
+		Type string        `json:"type"`
+		Data AcceptedEvent `json:"data"`
+	}{
+		Type: "interest_received",
+		Data: AcceptedEvent{
+			InterestID:     interest.ID,
+			SenderUserID:   interest.SenderUserID,
+			ReceiverUserID: interest.ReceiverUserID,
+		},
+	})
+	if err != nil {
+		return
+	}
+	s.hub.SendToUser(interest.ReceiverUserID, payload)
+}
+
 // Express creates an interest from senderUserID toward the owner of
 // targetProfileID.
 func (s *Service) Express(ctx context.Context, senderUserID, targetProfileID string) (Response, error) {
@@ -107,6 +135,7 @@ func (s *Service) Express(ctx context.Context, senderUserID, targetProfileID str
 		Body:   "Someone has expressed interest in your profile.",
 		Data:   map[string]any{"interest_id": i.ID},
 	})
+	s.pushReceived(i)
 
 	return toResponse(i), nil
 }

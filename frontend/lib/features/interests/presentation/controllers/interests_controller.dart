@@ -114,22 +114,30 @@ class InterestsActions {
 final interestsActionsProvider = Provider((ref) => InterestsActions(ref));
 
 /// Keeps both parties' interest and conversation lists current the moment an
-/// interest is accepted.
+/// interest is sent or accepted.
 ///
 /// The accepter refreshes their own lists in [InterestsActions.respond], but
 /// the *sender* has no idea it happened — they used to sit on a stale screen
 /// until they pulled to refresh. The backend pushes `interest_accepted` down
 /// the chat socket to both sides; this turns that into a refresh wherever the
-/// user happens to be in the app.
+/// user happens to be in the app. Likewise, the *receiver* of a brand-new
+/// interest used to only find out via the persisted notifications list (or
+/// push, if configured) — `interest_received` gets the same live-refresh
+/// treatment so it shows up on the Interests tab immediately instead of
+/// waiting on a manual pull-to-refresh.
 ///
 /// Deliberately not autoDispose, and watched by the app shell rather than one
 /// screen: the point is that it works while the user is anywhere.
 final matchLiveUpdatesProvider = Provider<void>((ref) {
   final subscription = ref.watch(chatSocketServiceProvider).events.listen((event) {
-    if (event['type'] != 'interest_accepted') return;
-    ref.invalidate(conversationsProvider);
-    ref.invalidate(receivedInterestsProvider);
-    ref.invalidate(sentInterestsProvider);
+    switch (event['type']) {
+      case 'interest_accepted':
+        ref.invalidate(conversationsProvider);
+        ref.invalidate(receivedInterestsProvider);
+        ref.invalidate(sentInterestsProvider);
+      case 'interest_received':
+        ref.invalidate(receivedInterestsProvider);
+    }
   });
   ref.onDispose(subscription.cancel);
 });
