@@ -18,7 +18,15 @@ export const options = {
   },
 };
 
+// Accepts a pre-minted token via -e TOKEN=... instead of logging in inside
+// setup(): setup() runs once regardless of VU count, but this script (and
+// loadtest.js, run just before it against the same IP) share the backend's
+// per-IP login rate limit — one login call here can still land inside a
+// window loadtest.js already exhausted, silently minting `undefined` as
+// the token and turning every subsequent request into a 401 that has
+// nothing to do with the write path actually under test.
 export function setup() {
+  if (__ENV.TOKEN) return { token: __ENV.TOKEN };
   const res = http.post(`${BASE}/auth/login`, JSON.stringify({
     identifier: '+15556660001',
     password: 'SuperSecret123',
@@ -39,9 +47,16 @@ export default function (data) {
   const chatRes = http.post(`${BASE}/chat/messages/${PARTNER_USER_ID}`, JSON.stringify({
     body: `Load test message ${Date.now()}`,
   }), headers);
-  
+
   if (chatRes.status !== 201 && chatRes.status !== 200) {
     console.log(`Chat failed: ${chatRes.status} - ${chatRes.body}`);
   }
-  check(chatRes, { 'chat send ok': (r) => r.status === 201 || r.status === 200 });;
+  check(chatRes, { 'chat send ok': (r) => r.status === 201 || r.status === 200 });
+
+  // Missing before: with no pacing, k6 loops this function as fast as the
+  // event loop allows per VU. At 20 VUs that was ~15,600 req/s sustained
+  // against two write endpoints — no realistic client behaves like that,
+  // and it's enough to make any latency finding here meaningless (or to
+  // genuinely overload a small box for no representative reason).
+  sleep(1);
 }

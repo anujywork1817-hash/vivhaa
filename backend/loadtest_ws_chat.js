@@ -21,16 +21,28 @@ export const options = {
 };
 
 export default function () {
-  // Log in fresh for this VU
-  const loginRes = http.post(`${BASE}/auth/login`, JSON.stringify({
-    identifier: '+15556660001',
-    password: 'SuperSecret123',
-  }), { headers: { 'Content-Type': 'application/json' } });
-
-  const token = loginRes.json('data.access_token');
+  // Every VU used to log in fresh on every iteration — with a
+  // ramping-vus executor and no sleep, that's up to 20 concurrent
+  // logins for one identifier from one IP repeated every ~10s (each
+  // iteration blocks for the WS connection's lifetime, not instant, but
+  // still enough to exhaust the backend's per-IP/per-identifier login
+  // rate limit within the first cycle and turn the rest of the run into
+  // 401s that have nothing to do with the WS path actually under test.
+  // Reuses one pre-minted token instead — sharing one identity across
+  // many concurrent connections is exactly what Hub already supports
+  // (multi-device), so it's still a real exercise of the hub's fan-out.
+  let token = __ENV.TOKEN;
   if (!token) {
-    console.log(`Login failed: ${loginRes.status} - ${loginRes.body}`);
-    return;
+    const loginRes = http.post(`${BASE}/auth/login`, JSON.stringify({
+      identifier: '+15556660001',
+      password: 'SuperSecret123',
+    }), { headers: { 'Content-Type': 'application/json' } });
+
+    token = loginRes.json('data.access_token');
+    if (!token) {
+      console.log(`Login failed: ${loginRes.status} - ${loginRes.body}`);
+      return;
+    }
   }
 
   const url = `${WS_BASE}/ws/chat?token=${token}`;

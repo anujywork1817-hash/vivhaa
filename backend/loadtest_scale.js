@@ -17,6 +17,7 @@ export const options = {
 };
 
 export function setup() {
+  if (__ENV.TOKEN) return { token: __ENV.TOKEN };
   const res = http.post(`${BASE}/auth/login`, JSON.stringify({
     identifier: '+15551234567',
     password: 'SuperSecret123',
