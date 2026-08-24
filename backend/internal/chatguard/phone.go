@@ -60,12 +60,18 @@ func detectPhone(body string) (found bool) {
 
 // isPhoneShaped reports whether a contiguous run of digits matches a
 // recognized Indian mobile number layout:
-//   - exactly 10 digits, first digit 6-9 (standard mobile range)
-//   - 12 digits: "91" country code + 10-digit mobile
-//   - 11 digits: trunk-prefix "0" + 10-digit mobile
+//   - exactly 10 digits (any 10-digit sequence — not just a 6-9 mobile
+//     prefix: an adversarial user typing 10 arbitrary digits with spaces
+//     between each one, e.g. "1 2 4 5 6 7 8 9 0 1", is still handing over
+//     a full number-length secret, and there is essentially no
+//     legitimate reason to type a bare unbroken 10-digit sequence in
+//     matrimonial chat, so this deliberately does not try to guess
+//     whether it "looks like" a real mobile number)
+//   - 12 digits: "91" country code + 10 more digits
+//   - 11 digits: trunk-prefix "0" + 10 more digits
 //
 // For longer runs (e.g. a 16-digit tracking/card number that happens to
-// contain digits), we only flag it if a valid 10-digit mobile appears
+// contain digits), we only flag it if a 10-digit block appears
 // immediately after a "91" country-code pair — anything else is left
 // alone rather than guessing, per the instruction to avoid blocking
 // ordinary numbers that clearly aren't contact numbers.
@@ -73,14 +79,14 @@ func isPhoneShaped(run []int) bool {
 	n := len(run)
 	switch {
 	case n == 10:
-		return isMobilePrefix(run[0]) && !allSameDigit(run)
+		return !allSameDigit(run)
 	case n == 11 && run[0] == 0:
-		return isMobilePrefix(run[1]) && !allSameDigit(run[1:])
+		return !allSameDigit(run[1:])
 	case n == 12 && run[0] == 9 && run[1] == 1:
-		return isMobilePrefix(run[2]) && !allSameDigit(run[2:])
+		return !allSameDigit(run[2:])
 	case n > 12 && n <= 20:
 		for i := 0; i+2 <= n-10; i++ {
-			if run[i] == 9 && run[i+1] == 1 && isMobilePrefix(run[i+2]) && !allSameDigit(run[i+2:i+12]) {
+			if run[i] == 9 && run[i+1] == 1 && !allSameDigit(run[i+2:i+12]) {
 				return true
 			}
 		}
@@ -89,8 +95,6 @@ func isPhoneShaped(run []int) bool {
 		return false
 	}
 }
-
-func isMobilePrefix(d int) bool { return d >= 6 && d <= 9 }
 
 // allSameDigit filters out "0000000000"-style placeholder junk that
 // technically matches the shape but is never a real number.

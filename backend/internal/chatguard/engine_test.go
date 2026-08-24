@@ -36,6 +36,26 @@ func TestPhoneNumbers_Blocked(t *testing.T) {
 	}
 }
 
+// TestPhoneNumbers_NonMobilePrefixStillBlocked is a regression test for a
+// real bypass found in production testing: a 10-digit sequence that
+// doesn't start with 6-9 (so isn't shaped like a real Indian mobile
+// number) used to sail through untouched, e.g. spacing digits out one
+// per space so each individual character looks harmless. Any bare
+// 10-digit sequence is now blocked regardless of its first digit.
+func TestPhoneNumbers_NonMobilePrefixStillBlocked(t *testing.T) {
+	e := newTestEngine()
+	cases := []string{
+		"1 2 4 5 6 7 8 9 0 1",
+		"1245678901",
+		"0123456789",
+	}
+	for _, c := range cases {
+		if r := e.ModerateText(c); r.Decision == Allow {
+			t.Errorf("expected BLOCK for non-mobile-prefix 10-digit case %q, got ALLOW", c)
+		}
+	}
+}
+
 func TestPhoneNumbers_UnicodeDigits(t *testing.T) {
 	e := newTestEngine()
 	// Devanagari digits for 9876543210
