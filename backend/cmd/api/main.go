@@ -92,7 +92,22 @@ func main() {
 	}
 	// Flush buffered events before the program exits (normal or panic)
 	defer sentry.Flush(2 * time.Second)
-	defer sentry.Recover()
+	// BUG: sentry.Recover() (bare, no repanic) swallows a startup panic
+	// completely — Sentry gets the event, but the process just returns
+	// from main() normally afterward: exit code 0, nothing on
+	// stdout/stderr, nothing in `docker logs`. A panic during service
+	// wiring (anywhere between here and srv.ListenAndServe) looked
+	// identical to a clean, silent shutdown from outside the process,
+	// which is exactly what made this so hard to diagnose without Sentry
+	// dashboard access. Capturing manually and re-panicking (after the
+	// deferred Flush above has already run, since defers execute LIFO)
+	// means a startup panic now shows up in the container's own logs.
+	defer func() {
+		if r := recover(); r != nil {
+			sentry.CurrentHub().Recover(r)
+			panic(r)
+		}
+	}()
 
 	ctx := context.Background()
 
