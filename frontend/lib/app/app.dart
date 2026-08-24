@@ -64,20 +64,19 @@ class ShaadiApp extends ConsumerWidget {
   }
 }
 
-/// App-wide system-back interception: a back press steps back one screen
-/// at a time exactly like normal (onboarding step, chat window, profile
-/// detail, settings, … all pop one level per press) until there's nowhere
-/// left to pop to — the bottom-nav shell sitting on any tab but Home, or
-/// the Home tab itself. From a non-Home tab, back switches to the Home tab
-/// rather than exiting outright. Only once actually on the Home tab does
-/// back arm a "press again to exit" window; a second press inside that
-/// window exits the app, and letting the window lapse resets it.
+/// App-wide system-back interception: no matter how deep the current
+/// screen was pushed (onboarding step, chat window, profile detail,
+/// settings, …), the first back press always collapses the stack straight
+/// back to the bottom-nav Home tab in one step, rather than popping one
+/// screen at a time. Only once the user is already sitting on the Home
+/// tab does back arm a "press again to exit" window (a visible snackbar);
+/// a second press inside that window is what actually closes the app —
+/// one press alone, from anywhere, must never exit.
 ///
-/// This has flip-flopped with a collapse-to-Dashboard version a few times
-/// in this repo's history. Per an explicit, detailed spec (with acceptance
-/// tests) received directly, one-screen-at-a-time is the intended final
-/// behavior — if you're about to change it again, treat that spec as
-/// authoritative over any earlier comment claiming otherwise.
+/// This has flip-flopped a few times in this repo's history (most
+/// recently to a one-screen-at-a-time version). Collapse-to-Home is the
+/// latest explicit instruction — if you're about to change it again,
+/// confirm with whoever's asking first.
 ///
 /// go_router 14.x runs every declared [GoRoute] on a single root
 /// [Navigator] (nested navigators only appear with ShellRoute/
@@ -134,13 +133,22 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
     super.dispose();
   }
 
-  /// Only ever called when [canPop] was false, i.e. the shell is sitting on
-  /// AppRoutes.home with nowhere left in the route stack to pop to — so
-  /// this only ever needs to handle "switch off a non-Home tab" or the
-  /// exit-confirmation window, never a normal screen-to-screen back.
-  void _handleRootBack() {
-    if (ref.read(appShellTabProvider) != AppTab.home) {
-      ref.read(appShellTabProvider.notifier).state = AppTab.home;
+  void _handleBack() {
+    final location =
+        widget.router.routerDelegate.currentConfiguration.uri.toString();
+    final onHomeRoute = location == AppRoutes.home;
+    final onHomeTab = ref.read(appShellTabProvider) == AppTab.home;
+
+    // Not on the Home tab of the bottom nav yet (either a pushed screen
+    // on top of the shell, or a different tab selected) — one press
+    // always collapses straight there, never exits on this press.
+    if (!onHomeRoute || !onHomeTab) {
+      if (!onHomeTab) {
+        ref.read(appShellTabProvider.notifier).state = AppTab.home;
+      }
+      if (!onHomeRoute) {
+        widget.router.go(AppRoutes.home);
+      }
       return;
     }
 
@@ -170,23 +178,14 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
 
   @override
   Widget build(BuildContext context) {
-    final location =
-        widget.router.routerDelegate.currentConfiguration.uri.toString();
-    // Nothing left to pop to once we're back at the shell's base route —
-    // switching bottom-nav tabs never changes this location (the tabs
-    // live inside one route via appShellTabProvider, not real navigation
-    // stack entries), so canPop must key off location alone: gating it on
-    // "and already on the Home tab" too would leave canPop wrongly true
-    // while sitting on e.g. Matches with nothing actually left to pop,
-    // letting the system fall through to its own default (closing the
-    // app) instead of reaching _handleRootBack to switch to Home first.
-    final atRoot = location == AppRoutes.home;
-
+    // Always intercepted (never canPop: true) — every case, including the
+    // final exit, is decided inside _handleBack rather than delegated to
+    // the system's own pop/close behavior.
     return PopScope(
-      canPop: !atRoot,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _handleRootBack();
+        _handleBack();
       },
       child: widget.child,
     );
