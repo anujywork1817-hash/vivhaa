@@ -161,11 +161,13 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
     _exitWindowTimer = Timer(_exitWindow, () => _lastBackPressAt = null);
 
     ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
+      ..clearSnackBars()
       ..showSnackBar(
         const SnackBar(
           content: Text('Press back again to exit'),
           duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
         ),
       );
   }
