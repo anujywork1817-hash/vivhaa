@@ -261,7 +261,11 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
             ? const Text('Chat')
             : Row(
                 children: [
-                  ProfileAvatar(name: conversation.withProfile.name, size: 34),
+                  ProfileAvatar(
+                    name: conversation.withProfile.name,
+                    size: 34,
+                    photoUrl: conversation.withProfile.photoSeed,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(conversation.withProfile.name,
