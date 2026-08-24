@@ -7,9 +7,11 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/tour/app_tour_controller.dart';
 import '../../../../shared/models/match_profile.dart';
+import '../../../../shared/models/profile.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/locked_profile_photo.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
+import '../../../authentication/presentation/controllers/auth_controller.dart';
 import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../../../interests/presentation/controllers/interests_controller.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
@@ -35,16 +37,24 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     // tab) — exactly what's wanted for a "first time only" auto-trigger.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final seen = await ref.read(appTourControllerProvider).hasSeenTour();
+      final userId = ref.read(authControllerProvider).user?.id;
+      if (userId == null) return;
+      final seen = await ref.read(appTourControllerProvider).hasSeenTour(userId);
       if (!mounted || seen) return;
       _startTour();
-      await ref.read(appTourControllerProvider).markSeen();
+      await ref.read(appTourControllerProvider).markSeen(userId);
     });
   }
 
   void _startTour() {
+    ref.read(tourActiveProvider.notifier).state = true;
     final keys = ref.read(appTourKeysProvider);
     ShowCaseWidget.of(context).startShowCase(keys.orderedSteps);
+  }
+
+  void _skipTour() {
+    ShowCaseWidget.of(context).dismiss();
+    ref.read(tourActiveProvider.notifier).state = false;
   }
 
   @override
@@ -52,6 +62,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final draft = ref.watch(profileCreationControllerProvider).draft;
     final tourKeys = ref.watch(appTourKeysProvider);
+    final tourActive = ref.watch(tourActiveProvider);
 
     // The "Take a Tour" row in the hamburger menu can't reach this
     // widget's GlobalKeys directly, so it flips this flag and navigates
@@ -65,6 +76,34 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       });
     });
 
+    return Stack(
+      children: [
+        _buildScaffold(context, unreadCount, draft, tourKeys),
+        if (tourActive)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + AppSpacing.sm,
+            right: AppSpacing.lg,
+            child: SafeArea(
+              child: TextButton(
+                onPressed: _skipTour,
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
+                ),
+                child: const Text('Skip'),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, int unreadCount, Profile draft,
+      AppShellTourKeys tourKeys) {
     return Scaffold(
       appBar: AppBar(
         leading: Showcase(
