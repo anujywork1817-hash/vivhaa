@@ -78,7 +78,12 @@ class AppRoutes {
   static const String interests = '/interests';
   static const String interestDecision = '/interests/decision/:id';
   static const String chatWindow = '/chat/:id';
-  static const String callHistory = '/chat/call-history';
+  // Deliberately NOT under /chat/... — that prefix is already claimed by
+  // the chatWindow wildcard above (/chat/:id), and go_router matched
+  // '/chat/call-history' against it as a chat window with the literal id
+  // "call-history" instead of this route, so opening "Calls" silently
+  // opened a broken chat conversation rather than the call log.
+  static const String callHistory = '/call-history';
 
   static String interestDecisionPath(String interestId) => '/interests/decision/$interestId';
   static String chatWindowPath(String conversationId) => '/chat/$conversationId';
