@@ -83,6 +83,14 @@ func (r *Repository) LinkPhone(ctx context.Context, userID, phone string) error 
 	return err
 }
 
+// SetPhone attaches phone to userID's account without marking it
+// verified — see Service.SetPhoneUnverified.
+func (r *Repository) SetPhone(ctx context.Context, userID, phone string) error {
+	const q = `UPDATE users SET phone = $2, phone_verified = FALSE, updated_at = now() WHERE id = $1`
+	_, err := r.db.Exec(ctx, q, userID, phone)
+	return err
+}
+
 // ActivateUser flips status straight to active with no channel-verified
 // flag set — used by password signup, which treats a chosen password as
 // proof enough to start using the app, deferring proof of the email/phone

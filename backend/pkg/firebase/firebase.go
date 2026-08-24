@@ -9,7 +9,12 @@ import (
 )
 
 type Sender interface {
-	Send(ctx context.Context, userID, title, body string) error
+	// data rides alongside the visible notification as the FCM message's
+	// data payload — the client reads it (RemoteMessage.data) to know
+	// what a tapped notification is actually about (e.g. which chat
+	// partner, which interest) so it can navigate there instead of just
+	// opening to wherever the app happened to be.
+	Send(ctx context.Context, userID, title, body string, data map[string]string) error
 
 	// SendData delivers a data-only message: no notification block, so
 	// the OS never auto-draws anything and doesn't wake the app for it —
@@ -29,8 +34,8 @@ func NewConsoleSender(log *slog.Logger) *ConsoleSender {
 	return &ConsoleSender{Log: log}
 }
 
-func (s *ConsoleSender) Send(_ context.Context, userID, title, body string) error {
-	s.Log.Info("push (mock)", "user_id", userID, "title", title, "body", body)
+func (s *ConsoleSender) Send(_ context.Context, userID, title, body string, data map[string]string) error {
+	s.Log.Info("push (mock)", "user_id", userID, "title", title, "body", body, "data", data)
 	return nil
 }
 

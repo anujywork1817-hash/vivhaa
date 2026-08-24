@@ -63,12 +63,13 @@ func NewFCMSender(ctx context.Context, credentialsJSON, credentialsFile, project
 // devices is not an error — they simply aren't reachable by push (never
 // opened the app on a device, or denied notification permission), and the
 // in-app notification has already been persisted by the caller.
-func (s *FCMSender) Send(ctx context.Context, userID, title, body string) error {
+func (s *FCMSender) Send(ctx context.Context, userID, title, body string, data map[string]string) error {
 	return s.send(ctx, userID, &messaging.MulticastMessage{
 		Notification: &messaging.Notification{
 			Title: title,
 			Body:  body,
 		},
+		Data: data,
 		Android: &messaging.AndroidConfig{
 			Priority: "high",
 			Notification: &messaging.AndroidNotification{

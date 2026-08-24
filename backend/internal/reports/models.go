@@ -8,6 +8,8 @@ type Report struct {
 	ReportedUserID string
 	Reason         string
 	Details        *string
+	Category       string
+	Priority       string
 	Status         string
 	CreatedAt      time.Time
 }

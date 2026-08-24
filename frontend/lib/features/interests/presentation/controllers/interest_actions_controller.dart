@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api_shortlist_repository.dart';
 import '../../domain/shortlist_repository.dart';
+import 'shortlisted_list_controller.dart';
 
 /// Tracks which profile IDs the current user has shortlisted, backed by
 /// the real `/shortlisted/*` endpoints. Expressing interest is handled
@@ -18,8 +19,9 @@ class InterestActionsState {
 
 class InterestActionsController extends StateNotifier<InterestActionsState> {
   final ShortlistRepository _repository;
+  final Ref _ref;
 
-  InterestActionsController(this._repository) : super(const InterestActionsState()) {
+  InterestActionsController(this._repository, this._ref) : super(const InterestActionsState()) {
     _load();
   }
 
@@ -43,7 +45,7 @@ class InterestActionsController extends StateNotifier<InterestActionsState> {
     final result =
         wasShortlisted ? await _repository.remove(profileId) : await _repository.add(profileId);
     result.when(
-      success: (_) {},
+      success: (_) => _ref.invalidate(shortlistedListProvider),
       failure: (_) {
         final reverted = {...state.shortlisted};
         wasShortlisted ? reverted.add(profileId) : reverted.remove(profileId);
@@ -57,5 +59,5 @@ class InterestActionsController extends StateNotifier<InterestActionsState> {
 
 final interestActionsProvider =
     StateNotifierProvider<InterestActionsController, InterestActionsState>((ref) {
-  return InterestActionsController(ref.watch(shortlistRepositoryProvider));
+  return InterestActionsController(ref.watch(shortlistRepositoryProvider), ref);
 });

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/app_notification.dart';
@@ -8,6 +10,28 @@ import '../../../../shared/widgets/feedback/error_state.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../dashboard/presentation/controllers/dashboard_controller.dart';
 import '../../../../core/exceptions/app_exception.dart';
+
+/// Where tapping a notification should navigate, if anywhere — shared by
+/// the in-app list (below) and, eventually, a tapped push notification,
+/// since both need to answer the same question from the same payload
+/// shape. Returns null for types with nothing to navigate to (e.g. a
+/// missed-call notification, or an unrecognized/system one).
+String? notificationTargetRoute(AppNotification notification) {
+  switch (notification.type) {
+    case NotificationType.interest:
+    case NotificationType.match:
+      final interestId = notification.data['interest_id'] as String?;
+      if (interestId == null) return null;
+      return AppRoutes.interestDecisionPath(interestId);
+    case NotificationType.message:
+      final partnerUserId = notification.data['sender_user_id'] as String?;
+      if (partnerUserId == null) return null;
+      return AppRoutes.chatWindowPath(partnerUserId);
+    case NotificationType.visitor:
+    case NotificationType.system:
+      return null;
+  }
+}
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -105,11 +129,13 @@ class _NotificationTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      onTap: notification.read
-          ? null
-          : () => ref
-              .read(notificationsProvider.notifier)
-              .markAsRead(notification.id),
+      onTap: () {
+        if (!notification.read) {
+          ref.read(notificationsProvider.notifier).markAsRead(notification.id);
+        }
+        final route = notificationTargetRoute(notification);
+        if (route != null) context.push(route);
+      },
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(

@@ -192,16 +192,21 @@ class ApiDashboardRepository implements DashboardRepository {
       body: (json['body'] as String?) ?? '',
       timestamp: DateTime.parse(json['created_at'] as String),
       read: json['read'] as bool? ?? false,
+      data: (json['data'] as Map<String, dynamic>?) ?? const {},
     );
   }
 
   NotificationType _typeFromBackend(String type) {
     switch (type) {
       case 'interest_received':
+      case 'interest_reminder':
         return NotificationType.interest;
       case 'match':
         return NotificationType.match;
       case 'new_message':
+      case 'contact_request':
+      case 'contact_accepted':
+      case 'contact_declined':
         return NotificationType.message;
       default:
         return NotificationType.system;

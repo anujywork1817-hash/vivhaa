@@ -76,8 +76,15 @@ func (r *Repository) Search(ctx context.Context, excludeUserIDs []string, q Quer
 		// a general keyword search, so a query for e.g. "Mumbai" or
 		// "Engineer" should not surface unrelated people who merely live or
 		// work there.
+		//
+		// match_phrase_prefix (not a plain "match") so this behaves like
+		// Instagram/every other people-search: typing "a" surfaces every
+		// name with a word starting "a...", narrowing live as more letters
+		// are typed, rather than "match"'s default OR-across-tokens
+		// full-word matching (which wouldn't match anything until a whole
+		// word was typed, and even then would match unrelated tokens).
 		filters = append(filters, map[string]any{
-			"match": map[string]any{"full_name": *q.Query},
+			"match_phrase_prefix": map[string]any{"full_name": *q.Query},
 		})
 	}
 

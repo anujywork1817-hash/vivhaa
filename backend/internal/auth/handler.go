@@ -136,6 +136,22 @@ func (h *Handler) ConfirmLinkPhone(c *gin.Context) {
 	response.OK(c, gin.H{"message": "phone number linked"})
 }
 
+// SetPhone attaches a phone number to the caller's account with no OTP
+// step — see Service.SetPhoneUnverified.
+func (h *Handler) SetPhone(c *gin.Context) {
+	var req SetPhoneRequest
+	if !bindAndValidate(c, &req) {
+		return
+	}
+
+	userID := c.GetString("user_id")
+	if err := h.service.SetPhoneUnverified(c.Request.Context(), userID, req.Phone); err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, gin.H{"message": "phone number saved"})
+}
+
 func (h *Handler) RequestOTP(c *gin.Context) {
 	var req RequestOTPRequest
 	if !bindAndValidate(c, &req) {

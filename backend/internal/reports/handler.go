@@ -44,6 +44,10 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusBadRequest, "self_report", err.Error(), nil)
 	case errors.Is(err, ErrNotFound):
 		response.Fail(c, http.StatusNotFound, "not_found", err.Error(), nil)
+	case errors.Is(err, ErrInvalidReason):
+		response.Fail(c, http.StatusBadRequest, "invalid_reason", err.Error(), nil)
+	case errors.Is(err, ErrCustomReasonNeedsDetails):
+		response.Fail(c, http.StatusBadRequest, "details_required", err.Error(), nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}

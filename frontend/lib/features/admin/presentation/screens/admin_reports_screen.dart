@@ -45,6 +45,21 @@ class AdminReportsScreen extends ConsumerWidget {
   }
 }
 
+String _categoryLabel(String category) {
+  switch (category) {
+    case 'chat':
+      return 'Chat / message';
+    case 'photo':
+      return 'Photo';
+    case 'safety':
+      return 'Safety';
+    case 'money':
+      return 'Money / fraud';
+    default:
+      return 'Profile';
+  }
+}
+
 class _ReportCard extends ConsumerStatefulWidget {
   final AdminReport report;
   const _ReportCard({required this.report});
@@ -65,21 +80,35 @@ class _ReportCardState extends ConsumerState<_ReportCard> {
   @override
   Widget build(BuildContext context) {
     final r = widget.report;
+    final isHighPriority = r.priority == 'high';
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: context.colors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: context.colors.line),
+        border: Border.all(
+            color: isHighPriority ? context.colors.danger : context.colors.line,
+            width: isHighPriority ? 1.5 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Reason: ${r.reason}', style: context.textStyles.titleSmall),
-          const SizedBox(height: 4),
-          Text('Reported user: ${r.reportedUserId}',
+          Row(
+            children: [
+              if (isHighPriority) ...[
+                Icon(Icons.priority_high_rounded, size: 16, color: context.colors.danger),
+                const SizedBox(width: 2),
+              ],
+              Expanded(child: Text(r.reasonLabel, style: context.textStyles.titleSmall)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text('${_categoryLabel(r.category)} report',
               style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
-          Text('Reported by: ${r.reporterUserId}',
+          const SizedBox(height: 4),
+          Text('Reported: ${r.reportedName ?? r.reportedUserId}',
+              style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
+          Text('Reported by: ${r.reporterName ?? r.reporterUserId}',
               style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
           if (r.details != null && r.details!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),

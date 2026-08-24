@@ -275,6 +275,11 @@ class MenuScreen extends ConsumerWidget {
                     onTap: () => context.push(AppRoutes.favourites),
                   ),
                   _Row(
+                    icon: Icons.bookmark_border_rounded,
+                    label: 'Shortlisted',
+                    onTap: () => context.push(AppRoutes.shortlisted),
+                  ),
+                  _Row(
                     icon: Icons.visibility_outlined,
                     label: 'Profile Visitors',
                     onTap: () => context.push(AppRoutes.visitors),

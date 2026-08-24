@@ -10,6 +10,7 @@ import '../../features/chat/presentation/screens/chat_window_screen.dart';
 import '../../features/dashboard/presentation/screens/app_shell.dart';
 import '../../features/discover_matches/presentation/screens/discover_screen.dart';
 import '../../features/favourites/presentation/screens/favourites_screen.dart';
+import '../../features/interests/presentation/screens/shortlisted_screen.dart';
 import '../../features/admin/presentation/screens/admin_dashboard_screen.dart';
 import '../../features/admin/presentation/screens/admin_reports_screen.dart';
 import '../../features/admin/presentation/screens/admin_users_screen.dart';
@@ -131,6 +132,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: AppRoutes.menu, builder: (_, __) => const MenuScreen()),
       GoRoute(path: AppRoutes.favourites, builder: (_, __) => const FavouritesScreen()),
+      GoRoute(path: AppRoutes.shortlisted, builder: (_, __) => const ShortlistedScreen()),
       GoRoute(path: AppRoutes.visitors, builder: (_, __) => const VisitorsScreen()),
       GoRoute(path: AppRoutes.blockedUsers, builder: (_, __) => const BlockedUsersScreen()),
       GoRoute(path: AppRoutes.editProfile, builder: (_, __) => const EditProfileScreen()),

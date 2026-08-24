@@ -37,6 +37,7 @@ class AppRoutes {
   static const String notifications = '/home/notifications';
   static const String menu = '/home/menu';
   static const String favourites = '/home/favourites';
+  static const String shortlisted = '/home/shortlisted';
   static const String visitors = '/home/visitors';
   static const String blockedUsers = '/home/blocked-users';
   static const String editProfile = '/home/edit-profile';

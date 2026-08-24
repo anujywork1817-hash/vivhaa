@@ -14,13 +14,14 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) Create(ctx context.Context, reporterID, reportedID, reason string, details *string) (Report, error) {
+func (r *Repository) Create(ctx context.Context, reporterID, reportedID, reason string, details *string, category, priority string) (Report, error) {
 	const q = `
-		INSERT INTO reports (reporter_user_id, reported_user_id, reason, details)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, reporter_user_id, reported_user_id, reason, details, status, created_at`
+		INSERT INTO reports (reporter_user_id, reported_user_id, reason, details, category, priority)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, reporter_user_id, reported_user_id, reason, details, category, priority, status, created_at`
 	var rep Report
-	err := r.db.QueryRow(ctx, q, reporterID, reportedID, reason, details).Scan(
-		&rep.ID, &rep.ReporterUserID, &rep.ReportedUserID, &rep.Reason, &rep.Details, &rep.Status, &rep.CreatedAt)
+	err := r.db.QueryRow(ctx, q, reporterID, reportedID, reason, details, category, priority).Scan(
+		&rep.ID, &rep.ReporterUserID, &rep.ReportedUserID, &rep.Reason, &rep.Details,
+		&rep.Category, &rep.Priority, &rep.Status, &rep.CreatedAt)
 	return rep, err
 }

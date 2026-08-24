@@ -9,6 +9,12 @@ type LinkPhoneVerifyRequest struct {
 	Code  string `json:"code" validate:"required,len=6,numeric"`
 }
 
+// SetPhoneRequest attaches a phone number to the caller's account with no
+// OTP round-trip — see Service.SetPhoneUnverified's doc comment for why.
+type SetPhoneRequest struct {
+	Phone string `json:"phone" validate:"required,e164"`
+}
+
 type SignupRequest struct {
 	Phone    string `json:"phone" validate:"omitempty,e164"`
 	Email    string `json:"email" validate:"omitempty,email"`

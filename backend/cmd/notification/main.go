@@ -102,9 +102,26 @@ func main() {
 			appwebsocket.PublishToUser(ctx, redisClient, log, event.UserID, payload)
 		}
 
-		return pushSender.Send(ctx, event.UserID, event.Title, event.Body)
+		return pushSender.Send(ctx, event.UserID, event.Title, event.Body, pushData(event))
 	}
 
 	log.Info("notification dispatcher started", "topic", queue.TopicNotificationDispatch)
 	kafka.Consume(ctx, cfg.Kafka.Brokers, queue.TopicNotificationDispatch, "notification-dispatcher", handler, log)
+}
+
+// pushData flattens a notification event's type and Data map into the
+// string-only payload FCM's data messages require, so a tapped push can
+// navigate to the specific thing it's about (see firebase.Sender.Send's
+// doc comment). event.Data values are whatever a caller passed as
+// map[string]any (e.g. an interest_id, a sender_user_id) — always simple
+// strings/IDs in practice, so fmt.Sprint is enough without needing a
+// typed schema per event.Type.
+func pushData(event queue.NotificationDispatchEvent) map[string]string {
+	out := map[string]string{"type": event.Type}
+	for k, v := range event.Data {
+		if v != nil {
+			out[k] = fmt.Sprint(v)
+		}
+	}
+	return out
 }

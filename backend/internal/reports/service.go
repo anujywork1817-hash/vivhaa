@@ -3,14 +3,19 @@ package reports
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"matrimony-backend/internal/profiles"
 )
 
 var (
-	ErrSelfReport = errors.New("cannot report your own profile")
-	ErrNotFound   = errors.New("not found")
+	ErrSelfReport    = errors.New("cannot report your own profile")
+	ErrNotFound      = errors.New("not found")
+	ErrInvalidReason = errors.New("unrecognized report reason")
+	// ErrCustomReasonNeedsDetails guards the "other" (custom) reason —
+	// picking it with no explanation gives an admin nothing to act on.
+	ErrCustomReasonNeedsDetails = errors.New("please describe the issue for a custom report")
 )
 
 type Service struct {
@@ -35,7 +40,15 @@ func (s *Service) Submit(ctx context.Context, reporterUserID, targetProfileID st
 		return Response{}, ErrSelfReport
 	}
 
-	rep, err := s.repo.Create(ctx, reporterUserID, targetProfile.UserID, req.Reason, req.Details)
+	category, priority, _, ok := ReasonMeta(req.Reason)
+	if !ok {
+		return Response{}, ErrInvalidReason
+	}
+	if req.Reason == "other" && (req.Details == nil || strings.TrimSpace(*req.Details) == "") {
+		return Response{}, ErrCustomReasonNeedsDetails
+	}
+
+	rep, err := s.repo.Create(ctx, reporterUserID, targetProfile.UserID, req.Reason, req.Details, category, priority)
 	if err != nil {
 		return Response{}, err
 	}
@@ -50,6 +63,8 @@ func toResponse(r Report) Response {
 		ReportedUserID: r.ReportedUserID,
 		Reason:         r.Reason,
 		Details:        r.Details,
+		Category:       r.Category,
+		Priority:       r.Priority,
 		Status:         r.Status,
 		CreatedAt:      r.CreatedAt.Format(time.RFC3339),
 	}

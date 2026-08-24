@@ -122,8 +122,13 @@ class ApiAdminRepository implements AdminRepository {
                 id: j['id'] as String,
                 reporterUserId: j['reporter_user_id'] as String,
                 reportedUserId: j['reported_user_id'] as String,
+                reporterName: j['reporter_name'] as String?,
+                reportedName: j['reported_name'] as String?,
                 reason: j['reason'] as String,
+                reasonLabel: (j['reason_label'] as String?) ?? (j['reason'] as String),
                 details: j['details'] as String?,
+                category: (j['category'] as String?) ?? 'profile',
+                priority: (j['priority'] as String?) ?? 'normal',
                 status: j['status'] as String,
                 createdAt: DateTime.parse(j['created_at'] as String),
               ))

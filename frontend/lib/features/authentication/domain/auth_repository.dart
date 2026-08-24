@@ -92,4 +92,9 @@ abstract class AuthRepository {
   /// Verifies the code [requestLinkPhoneOtp] sent and, on success,
   /// attaches phone to the signed-in account.
   Future<ApiResult<void>> confirmLinkPhone(String phone, String code);
+
+  /// Attaches phone to the signed-in account directly, with no OTP
+  /// proof-of-ownership step — used by onboarding's phone field, which is
+  /// meant to be zero-friction rather than gated on a code.
+  Future<ApiResult<void>> setPhone(String phone);
 }

@@ -64,14 +64,6 @@ class MatchesTabScreen extends ConsumerWidget {
                 context.push(AppRoutes.searchByProfileId);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.swipe_rounded),
-              title: const Text('Discover (swipe)'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push(AppRoutes.discover);
-              },
-            ),
           ],
         ),
       ),
@@ -104,6 +96,12 @@ class MatchesTabScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg, vertical: AppSpacing.xs),
               children: [
+                // Swipe is the app's primary discovery mechanic (Tinder-
+                // style card swiping) — surfaced as the first, most
+                // visually prominent chip rather than buried in the
+                // "More" sheet the other secondary tools live behind.
+                _SwipeChip(onTap: () => context.push(AppRoutes.discover)),
+                const SizedBox(width: AppSpacing.sm),
                 _FilterChip(
                   icon: Icons.badge_outlined,
                   label: 'Search by ID',
@@ -155,6 +153,43 @@ class MatchesTabScreen extends ConsumerWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A visually distinct, always-visible chip for Discover (swipe) — filled
+/// with the accent gradient rather than the plain outline the other
+/// filter chips use, so it reads as "the main feature" rather than one
+/// option among equals.
+class _SwipeChip extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SwipeChip({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+                colors: [context.colors.accent, context.colors.accentPressed]),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.swipe_rounded, size: 16, color: Colors.white),
+              SizedBox(width: 6),
+              Text('Swipe',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
       ),
     );
   }

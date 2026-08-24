@@ -70,8 +70,13 @@ class AdminReport {
   final String id;
   final String reporterUserId;
   final String reportedUserId;
+  final String? reporterName;
+  final String? reportedName;
   final String reason;
+  final String reasonLabel;
   final String? details;
+  final String category;
+  final String priority;
   final String status;
   final DateTime createdAt;
 
@@ -79,8 +84,13 @@ class AdminReport {
     required this.id,
     required this.reporterUserId,
     required this.reportedUserId,
+    this.reporterName,
+    this.reportedName,
     required this.reason,
+    required this.reasonLabel,
     this.details,
+    required this.category,
+    required this.priority,
     required this.status,
     required this.createdAt,
   });

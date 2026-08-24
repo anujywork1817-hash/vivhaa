@@ -235,6 +235,16 @@ class ApiAuthRepository implements AuthRepository {
       return ApiResult.failure(mapDioException(e));
     }
   }
+
+  @override
+  Future<ApiResult<void>> setPhone(String phone) async {
+    try {
+      await _client.dio.put(ApiEndpoints.setPhone, data: {'phone': phone});
+      return const ApiResult.success(null);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

@@ -56,4 +56,5 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter
 		middleware.RequireAuth(issuer),
 		middleware.RateLimit(limiter, "otp_verify:ip", otpVerifyIPLimit, otpVerifyIPWindow, middleware.ByIP()),
 		h.ConfirmLinkPhone)
+	auth.PUT("/phone", middleware.RequireAuth(issuer), h.SetPhone)
 }

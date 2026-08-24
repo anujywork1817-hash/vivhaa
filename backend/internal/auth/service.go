@@ -436,6 +436,23 @@ func (s *Service) ConfirmLinkPhone(ctx context.Context, userID, phone, code stri
 	return s.repo.LinkPhone(ctx, userID, phone)
 }
 
+// SetPhoneUnverified attaches phone to userID's account directly, with no
+// OTP proof-of-ownership step — a product decision to let onboarding
+// capture a contact number with zero friction (no code to wait for/type)
+// while still recording it against the account so it's visible in the
+// admin site, at the cost of not proving the person entering it actually
+// owns that number. Still checked against being already claimed by a
+// different account, same as the verified LinkPhone path, so this can't
+// silently steal someone else's number out from under them.
+func (s *Service) SetPhoneUnverified(ctx context.Context, userID, phone string) error {
+	if existing, err := s.repo.GetUserByIdentifier(ctx, phone); err == nil && existing.ID != userID {
+		return ErrPhoneAlreadyLinked
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	return s.repo.SetPhone(ctx, userID, phone)
+}
+
 // Login authenticates with identifier + password.
 // BUG-H10: rate-limited per identifier before the password is even
 // checked — brute-force protection against guessing one account's

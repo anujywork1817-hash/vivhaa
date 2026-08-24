@@ -43,11 +43,11 @@ class ApiProfileDetailRepository implements ProfileDetailRepository {
   }
 
   @override
-  Future<ApiResult<void>> reportProfile(String id, String reason) async {
+  Future<ApiResult<void>> reportProfile(String id, String reason, {String? details}) async {
     try {
       await _client.dio.post(
         ApiEndpoints.reportUser(id),
-        data: {'reason': _reasonToBackend(reason), 'details': reason},
+        data: {'reason': reason, if (details != null) 'details': details},
       );
       return const ApiResult.success(null);
     } on DioException catch (e) {
@@ -127,18 +127,6 @@ class ApiProfileDetailRepository implements ProfileDetailRepository {
     return years;
   }
 
-  String _reasonToBackend(String uiReason) {
-    switch (uiReason) {
-      case 'Fake profile':
-        return 'fake_profile';
-      case 'Inappropriate photos':
-        return 'inappropriate_content';
-      case 'Asking for money':
-        return 'spam';
-      default:
-        return 'other';
-    }
-  }
 }
 
 final profileDetailRepositoryProvider = Provider<ProfileDetailRepository>((ref) {

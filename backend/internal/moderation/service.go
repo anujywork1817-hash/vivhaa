@@ -3,6 +3,8 @@ package moderation
 import (
 	"context"
 	"time"
+
+	"matrimony-backend/internal/reports"
 )
 
 type Service struct {
@@ -66,12 +68,21 @@ func toResponse(r Report) Response {
 		s := r.ReviewedAt.Format(time.RFC3339)
 		reviewedAt = &s
 	}
+	_, _, label, ok := reports.ReasonMeta(r.Reason)
+	if !ok {
+		label = r.Reason
+	}
 	return Response{
 		ID:             r.ID,
 		ReporterUserID: r.ReporterUserID,
 		ReportedUserID: r.ReportedUserID,
+		ReporterName:   r.ReporterName,
+		ReportedName:   r.ReportedName,
 		Reason:         r.Reason,
+		ReasonLabel:    label,
 		Details:        r.Details,
+		Category:       r.Category,
+		Priority:       r.Priority,
 		Status:         r.Status,
 		ReviewNotes:    r.ReviewNotes,
 		CreatedAt:      r.CreatedAt.Format(time.RFC3339),

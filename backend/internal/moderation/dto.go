@@ -4,8 +4,13 @@ type Response struct {
 	ID             string  `json:"id"`
 	ReporterUserID string  `json:"reporter_user_id"`
 	ReportedUserID string  `json:"reported_user_id"`
+	ReporterName   *string `json:"reporter_name"`
+	ReportedName   *string `json:"reported_name"`
 	Reason         string  `json:"reason"`
+	ReasonLabel    string  `json:"reason_label"`
 	Details        *string `json:"details"`
+	Category       string  `json:"category"`
+	Priority       string  `json:"priority"`
 	Status         string  `json:"status"`
 	ReviewNotes    *string `json:"review_notes"`
 	CreatedAt      string  `json:"created_at"`

@@ -14,6 +14,6 @@ class ContactInfo {
 abstract class ProfileDetailRepository {
   Future<ApiResult<ProfileDetail>> getProfileDetail(String id);
   Future<ApiResult<List<MatchProfile>>> getSimilarProfiles(String id, {int count = 6});
-  Future<ApiResult<void>> reportProfile(String id, String reason);
+  Future<ApiResult<void>> reportProfile(String id, String reason, {String? details});
   Future<ApiResult<ContactInfo>> getContact(String id);
 }
