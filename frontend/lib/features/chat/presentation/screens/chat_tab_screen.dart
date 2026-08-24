@@ -104,22 +104,28 @@ class _FilterPill extends StatelessWidget {
 /// Time as the reference shows it: clock time today, "Yesterday", then a
 /// date — a bare "3d" is much harder to place at a glance.
 String _timestampLabel(DateTime t) {
+  // The backend sends UTC (an RFC3339 timestamp with a "Z" suffix), so
+  // t.hour/t.day/t.weekday read directly off it are UTC clock digits, not
+  // what a member in India actually sees on their own clock — toLocal()
+  // converts to the device's timezone (IST for every user this app is
+  // built for) before any of those fields are read.
+  final local = t.toLocal();
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final that = DateTime(t.year, t.month, t.day);
+  final that = DateTime(local.year, local.month, local.day);
   final daysApart = today.difference(that).inDays;
 
   if (daysApart == 0) {
-    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
-    final minute = t.minute.toString().padLeft(2, '0');
-    return '$hour:$minute ${t.hour < 12 ? 'am' : 'pm'}';
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${local.hour < 12 ? 'am' : 'pm'}';
   }
   if (daysApart == 1) return 'Yesterday';
   if (daysApart < 7) {
     const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return names[t.weekday - 1];
+    return names[local.weekday - 1];
   }
-  return '${t.day}/${t.month}/${t.year % 100}';
+  return '${local.day}/${local.month}/${local.year % 100}';
 }
 
 class _ConversationsList extends ConsumerWidget {
