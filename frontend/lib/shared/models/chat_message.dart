@@ -1,4 +1,4 @@
-enum MessageKind { text, contactRequest, contactAccepted, contactDeclined, contactShared, system }
+enum MessageKind { text, contactRequest, contactAccepted, contactDeclined, contactShared, image, document, system }
 
 /// Truncated (140 char) snapshot of a message being replied to, for
 /// rendering a quoted preview inside the replying message's bubble. Mirrors
@@ -30,6 +30,7 @@ class ChatMessage {
   final DateTime timestamp;
   final MessageKind kind;
   final ReplyToPreview? replyTo;
+  final String? attachmentUrl;
 
   const ChatMessage({
     required this.id,
@@ -38,5 +39,6 @@ class ChatMessage {
     required this.timestamp,
     this.kind = MessageKind.text,
     this.replyTo,
+    this.attachmentUrl,
   });
 }

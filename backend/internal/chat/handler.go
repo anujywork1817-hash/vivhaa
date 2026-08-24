@@ -2,19 +2,22 @@ package chat
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"matrimony-backend/internal/storage"
 	"matrimony-backend/pkg/response"
 )
 
 type Handler struct {
-	service *Service
+	service  *Service
+	uploader *storage.PhotoUploader
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *Service, uploader *storage.PhotoUploader) *Handler {
+	return &Handler{service: service, uploader: uploader}
 }
 
 type sendMessageRequest struct {
@@ -31,6 +34,63 @@ func (h *Handler) SendMessage(c *gin.Context) {
 
 	userID := c.GetString("user_id")
 	resp, err := h.service.SendMessage(c.Request.Context(), userID, c.Param("userId"), req.Body, req.ReplyToID)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.Success(c, http.StatusCreated, resp, nil)
+}
+
+// UploadAttachment sends an image or document as a chat message: uploads
+// the file (reusing the same public-photos-bucket path profile photos
+// use), then creates the message with the resulting URL. multipart form
+// fields: "file" (required), "caption" (optional, shown as the message
+// body/notification text).
+func (h *Handler) UploadAttachment(c *gin.Context) {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid_body", "form field 'file' is required", nil)
+		return
+	}
+
+	isImage, err := storage.ValidateChatAttachment(fileHeader.Size, fileHeader.Header.Get("Content-Type"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid_file", err.Error(), nil)
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid_body", "could not read uploaded file", nil)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid_body", "could not read uploaded file", nil)
+		return
+	}
+
+	userID := c.GetString("user_id")
+	_, url, err := h.uploader.UploadChatAttachment(c.Request.Context(), userID, data, fileHeader.Header.Get("Content-Type"))
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "upload_failed", "could not upload the file", nil)
+		return
+	}
+
+	kind := MessageKindDocument
+	caption := c.PostForm("caption")
+	if isImage {
+		kind = MessageKindImage
+		if caption == "" {
+			caption = "Photo"
+		}
+	} else if caption == "" {
+		caption = fileHeader.Filename
+	}
+
+	resp, err := h.service.SendAttachment(c.Request.Context(), userID, c.Param("userId"), kind, caption, url)
 	if err != nil {
 		writeServiceError(c, err)
 		return

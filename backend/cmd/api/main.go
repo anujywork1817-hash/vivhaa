@@ -310,7 +310,7 @@ func main() {
 		RestrictDuration:  cfg.Moderation.RestrictDuration,
 		ReviewThreshold:   cfg.Moderation.ReviewThreshold,
 	})
-	chatHandler := chat.NewHandler(chatService)
+	chatHandler := chat.NewHandler(chatService, photoUploader)
 
 	callsRepo := calls.NewRepository(dbPool)
 	callsService := calls.NewService(callsRepo, interestsRepo, blockedRepo, profilesRepo, wsHub, publisher, calls.Config{

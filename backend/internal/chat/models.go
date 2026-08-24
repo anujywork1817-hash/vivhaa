@@ -14,6 +14,8 @@ const (
 	MessageKindContactAccepted = "contact_accepted"
 	MessageKindContactDeclined = "contact_declined"
 	MessageKindContactShared   = "contact_shared"
+	MessageKindImage           = "image"
+	MessageKindDocument        = "document"
 )
 
 type Message struct {
@@ -22,8 +24,13 @@ type Message struct {
 	ReceiverUserID string
 	Body           string
 	Kind           string
-	ReadAt         *time.Time
-	CreatedAt      time.Time
+	// AttachmentURL is set only for kind IN (image, document) — the
+	// uploaded file's public URL. Body still carries a short caption/
+	// filename for these kinds so history/notifications have something
+	// readable even before the attachment itself loads.
+	AttachmentURL *string
+	ReadAt        *time.Time
+	CreatedAt     time.Time
 
 	// ReplyToMessageID is set when this message was sent as a reply to an
 	// earlier one (swipe-to-reply). ReplyToBody/ReplyToSenderUserID are a

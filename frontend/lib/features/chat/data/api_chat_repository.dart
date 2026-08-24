@@ -113,6 +113,47 @@ class ApiChatRepository implements ChatRepository {
     }
   }
 
+  @override
+  Future<ApiResult<ChatMessage>> sendAttachment(
+    String conversationId,
+    List<int> bytes,
+    String filename,
+  ) async {
+    try {
+      final response = await _client.dio.post(
+        ApiEndpoints.chatAttachment(conversationId),
+        data: FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            // Required — without an explicit content-type dio defaults to
+            // application/octet-stream, which the backend's
+            // storage.ValidateChatAttachment rejects outright.
+            contentType: _attachmentMediaType(filename),
+          ),
+        }),
+      );
+      final data = response.data['data'] as Map<String, dynamic>;
+      return ApiResult.success(_fromJson(data, conversationId));
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  DioMediaType _attachmentMediaType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return DioMediaType('image', 'png');
+    if (lower.endsWith('.webp')) return DioMediaType('image', 'webp');
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return DioMediaType('image', 'jpeg');
+    if (lower.endsWith('.pdf')) return DioMediaType('application', 'pdf');
+    if (lower.endsWith('.docx')) {
+      return DioMediaType(
+          'application', 'vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    if (lower.endsWith('.doc')) return DioMediaType('application', 'msword');
+    return DioMediaType('application', 'octet-stream');
+  }
+
   ChatMessage _fromJson(Map<String, dynamic> json, String conversationId) {
     final replyToJson = json['reply_to'] as Map<String, dynamic>?;
     return ChatMessage(
@@ -122,6 +163,7 @@ class ApiChatRepository implements ChatRepository {
       timestamp: DateTime.parse(json['created_at'] as String),
       kind: _kindFromBackend(json['kind'] as String?),
       replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
+      attachmentUrl: json['attachment_url'] as String?,
     );
   }
 
@@ -135,6 +177,10 @@ class ApiChatRepository implements ChatRepository {
         return MessageKind.contactDeclined;
       case 'contact_shared':
         return MessageKind.contactShared;
+      case 'image':
+        return MessageKind.image;
+      case 'document':
+        return MessageKind.document;
       default:
         return MessageKind.text;
     }

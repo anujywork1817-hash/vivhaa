@@ -91,6 +91,7 @@ class ApiEndpoints {
   static const String conversations = '/chat/conversations';
   static String messages(String userId) => '/chat/messages/$userId';
   static String requestContact(String userId) => '/chat/messages/$userId/contact-request';
+  static String chatAttachment(String userId) => '/chat/messages/$userId/attachment';
   static String acceptContact(String messageId) => '/chat/contact-requests/$messageId/accept';
   static String declineContact(String messageId) => '/chat/contact-requests/$messageId/decline';
   static const String wsChat = '/ws/chat';

@@ -6,6 +6,7 @@ type MessageResponse struct {
 	ReceiverUserID string           `json:"receiver_user_id"`
 	Body           string           `json:"body"`
 	Kind           string           `json:"kind"`
+	AttachmentURL  *string          `json:"attachment_url,omitempty"`
 	Read           bool             `json:"read"`
 	CreatedAt      string           `json:"created_at"`
 	ReplyTo        *ReplyToResponse `json:"reply_to,omitempty"`

@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -24,6 +27,8 @@ class ChatWindowScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<ChatWindowScreen> createState() => _ChatWindowScreenState();
 }
+
+enum _AttachChoice { gallery, camera, document }
 
 class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
   final _textController = TextEditingController();
@@ -119,6 +124,82 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
     );
+  }
+
+  Future<void> _attach() async {
+    final choice = await showModalBottomSheet<_AttachChoice>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.of(sheetContext).pop(_AttachChoice.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Camera'),
+              onTap: () => Navigator.of(sheetContext).pop(_AttachChoice.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Document'),
+              onTap: () => Navigator.of(sheetContext).pop(_AttachChoice.document),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    List<int>? bytes;
+    String? filename;
+    try {
+      switch (choice) {
+        case _AttachChoice.gallery:
+        case _AttachChoice.camera:
+          final picked = await ImagePicker().pickImage(
+            source: choice == _AttachChoice.camera ? ImageSource.camera : ImageSource.gallery,
+            imageQuality: 85,
+          );
+          if (picked == null) return;
+          bytes = await picked.readAsBytes();
+          filename = picked.name.isNotEmpty ? picked.name : 'photo.jpg';
+        case _AttachChoice.document:
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['pdf', 'doc', 'docx'],
+            withData: true,
+          );
+          final file = result?.files.singleOrNull;
+          if (file?.bytes == null) return;
+          bytes = file!.bytes;
+          filename = file.name;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          duration: Duration(seconds: 3), content: Text('Could not open the picker.')));
+      return;
+    }
+    if (bytes == null || !mounted) return;
+
+    final failure = await ref
+        .read(messagesControllerProvider(widget.conversationId).notifier)
+        .sendAttachment(bytes, filename);
+    if (!mounted) return;
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3), content: Text(failure.message)));
+    } else {
+      _scrollToBottom();
+    }
   }
 
   Future<void> _requestContact() async {
@@ -245,6 +326,7 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
             _Composer(
               controller: _textController,
               onSend: _send,
+              onAttach: _attach,
               onRequestContact: _requestContact,
               contactAlreadyShared: conversation?.contactShared ?? false,
               replyTarget: replyTarget,
@@ -483,6 +565,7 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
               : 'This member declined your contact request.'
         ),
       MessageKind.contactShared => (Icons.phone_rounded, message.text),
+      MessageKind.document => (Icons.description_outlined, message.text),
       _ => (null, message.text),
     };
 
@@ -562,27 +645,84 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
                 ],
               ),
             ),
-          if (isSpecial)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
+          if (message.kind == MessageKind.image && message.attachmentUrl != null)
+            GestureDetector(
+              onTap: () => showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  insetPadding: const EdgeInsets.all(AppSpacing.md),
+                  child: InteractiveViewer(
+                    child: Image.network(message.attachmentUrl!, fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240, minWidth: 160),
+                  child: Image.network(
+                    message.attachmentUrl!,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) => progress == null
+                        ? child
+                        : const SizedBox(
+                            height: 120,
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          ),
+                    errorBuilder: (context, error, stack) => const SizedBox(
+                      height: 120,
+                      child: Center(child: Icon(Icons.broken_image_outlined)),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (message.kind == MessageKind.document && message.attachmentUrl != null)
+            InkWell(
+              onTap: () => launchUrlString(message.attachmentUrl!),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Icon(icon,
-                      size: 14,
-                      color: message.fromMe
-                          ? Colors.white
-                          : context.colors.accent),
-                  const SizedBox(width: 4),
+                      size: 20,
+                      color: message.fromMe ? Colors.white : context.colors.accent),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: message.fromMe ? Colors.white : context.colors.ink,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
                 ],
-              ],
+              ),
+            )
+          else ...[
+            if (isSpecial)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon,
+                        size: 14,
+                        color: message.fromMe
+                            ? Colors.white
+                            : context.colors.accent),
+                    const SizedBox(width: 4),
+                  ],
+                ],
+              ),
+            Text(
+              label,
+              style: TextStyle(
+                color: message.fromMe ? Colors.white : context.colors.ink,
+                fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
-          Text(
-            label,
-            style: TextStyle(
-              color: message.fromMe ? Colors.white : context.colors.ink,
-              fontWeight: isSpecial ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
+          ],
           if (awaitingMyResponse) ...[
             const SizedBox(height: 8),
             Row(
@@ -647,6 +787,7 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
 class _Composer extends ConsumerWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
+  final VoidCallback onAttach;
   final VoidCallback onRequestContact;
   final bool contactAlreadyShared;
   final ChatMessage? replyTarget;
@@ -656,6 +797,7 @@ class _Composer extends ConsumerWidget {
   const _Composer({
     required this.controller,
     required this.onSend,
+    required this.onAttach,
     required this.onRequestContact,
     required this.contactAlreadyShared,
     required this.replyTarget,
@@ -685,6 +827,11 @@ class _Composer extends ConsumerWidget {
               ),
             Row(
               children: [
+                IconButton(
+                  icon: Icon(Icons.attach_file_rounded, color: context.colors.muted),
+                  tooltip: 'Attach photo or document',
+                  onPressed: onAttach,
+                ),
                 IconButton(
                   icon: Icon(
                     Icons.contact_phone_outlined,

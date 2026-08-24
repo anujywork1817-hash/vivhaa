@@ -107,6 +107,7 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
       timestamp: DateTime.parse(data['created_at'] as String),
       kind: _kindFromBackend(data['kind'] as String?),
       replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
+      attachmentUrl: data['attachment_url'] as String?,
     );
   }
 
@@ -120,6 +121,10 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
         return MessageKind.contactDeclined;
       case 'contact_shared':
         return MessageKind.contactShared;
+      case 'image':
+        return MessageKind.image;
+      case 'document':
+        return MessageKind.document;
       default:
         return MessageKind.text;
     }
@@ -148,6 +153,17 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
       replyToMessageId: replyToMessageId,
     );
     sending = false;
+    AppFailure? failure;
+    result.when(success: _appendIfNew, failure: (f) => failure = f);
+    return failure;
+  }
+
+  bool sendingAttachment = false;
+
+  Future<AppFailure?> sendAttachment(List<int> bytes, String filename) async {
+    sendingAttachment = true;
+    final result = await _repository.sendAttachment(conversationId, bytes, filename);
+    sendingAttachment = false;
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
     return failure;

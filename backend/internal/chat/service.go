@@ -76,25 +76,28 @@ func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRe
 	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub, guard: guard, abuseCfg: abuseCfg}
 }
 
-func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string, replyToID *string) (MessageResponse, error) {
+// checkCanSend runs the checks every send path (text, attachment, contact
+// request) shares: not messaging yourself, a live mutual match, neither
+// side has blocked the other, and sending is premium-gated.
+func (s *Service) checkCanSend(ctx context.Context, senderID, receiverID string) error {
 	if senderID == receiverID {
-		return MessageResponse{}, ErrSelfMessage
+		return ErrSelfMessage
 	}
 
 	allowed, err := s.interestsRepo.IsAccepted(ctx, senderID, receiverID)
 	if err != nil {
-		return MessageResponse{}, err
+		return err
 	}
 	if !allowed {
-		return MessageResponse{}, ErrChatNotAllowed
+		return ErrChatNotAllowed
 	}
 
 	isBlocked, err := s.blockedRepo.IsBlocked(ctx, senderID, receiverID)
 	if err != nil {
-		return MessageResponse{}, err
+		return err
 	}
 	if isBlocked {
-		return MessageResponse{}, ErrBlocked
+		return ErrBlocked
 	}
 
 	// Sending is premium-gated (the "chat" plan feature — see the
@@ -106,10 +109,17 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 	// in handler.go) so the UI can show a real paywall instead of a no-op.
 	canChat, err := s.subsSvc.HasFeature(ctx, senderID, "chat")
 	if err != nil {
-		return MessageResponse{}, err
+		return err
 	}
 	if !canChat {
-		return MessageResponse{}, ErrPremiumRequired
+		return ErrPremiumRequired
+	}
+	return nil
+}
+
+func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string, replyToID *string) (MessageResponse, error) {
+	if err := s.checkCanSend(ctx, senderID, receiverID); err != nil {
+		return MessageResponse{}, err
 	}
 
 	// A reply target must actually belong to this conversation — otherwise
@@ -157,6 +167,43 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 		Type:   "new_message",
 		Title:  "New message",
 		Body:   truncate(body, 140),
+		Data:   map[string]any{"sender_user_id": senderID, "message_id": m.ID},
+	})
+	_ = s.analyticsSvc.Track(ctx, "message_sent", &senderID, map[string]string{"receiver_user_id": receiverID, "message_id": m.ID})
+
+	return resp, nil
+}
+
+// SendAttachment sends an image/document message — same authorization as
+// SendMessage, but no text moderation: the contact-info detector only
+// ever inspected kind='text' bodies (attachments have no OCR/content
+// scanning wired up — see internal/chatguard's ImageModerator doc
+// comment for why that's a documented gap, not an oversight), and
+// caption is a short filename/label, not free-form user prose worth
+// scanning on its own.
+func (s *Service) SendAttachment(ctx context.Context, senderID, receiverID, kind, caption, attachmentURL string) (MessageResponse, error) {
+	if err := s.checkCanSend(ctx, senderID, receiverID); err != nil {
+		return MessageResponse{}, err
+	}
+
+	m, err := s.repo.CreateAttachmentMessage(ctx, senderID, receiverID, caption, kind, attachmentURL)
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
+	resp := toResponse(m)
+	s.pushEvent(receiverID, "message", resp)
+	s.pushEvent(senderID, "message", resp)
+
+	notifBody := "Sent a photo"
+	if kind == MessageKindDocument {
+		notifBody = "Sent a document"
+	}
+	_ = s.publisher.PublishNotificationDispatch(ctx, queue.NotificationDispatchEvent{
+		UserID: receiverID,
+		Type:   "new_message",
+		Title:  "New message",
+		Body:   notifBody,
 		Data:   map[string]any{"sender_user_id": senderID, "message_id": m.ID},
 	})
 	_ = s.analyticsSvc.Track(ctx, "message_sent", &senderID, map[string]string{"receiver_user_id": receiverID, "message_id": m.ID})
@@ -439,6 +486,7 @@ func toResponse(m Message) MessageResponse {
 		ReceiverUserID: m.ReceiverUserID,
 		Body:           m.Body,
 		Kind:           m.Kind,
+		AttachmentURL:  m.AttachmentURL,
 		Read:           m.ReadAt != nil,
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
 	}

@@ -17,4 +17,14 @@ abstract class ChatRepository {
   /// of the contact-request message itself (the backend mutates that same
   /// row in place rather than tracking requests separately).
   Future<ApiResult<ChatMessage>> respondContactRequest(String messageId, {required bool accept});
+
+  /// Uploads [bytes] (an image from gallery/camera, or a document — PDF/
+  /// Word) as a new message. [filename] drives both content-type
+  /// detection and, for a non-image file, the caption shown in the
+  /// bubble/notification.
+  Future<ApiResult<ChatMessage>> sendAttachment(
+    String conversationId,
+    List<int> bytes,
+    String filename,
+  );
 }

@@ -16,6 +16,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, ws *WSHandler, issuer *jwt.
 	chatGroup.GET("/conversations", h.ListConversations)
 	chatGroup.GET("/messages/:userId", h.GetHistory)
 	chatGroup.POST("/messages/:userId", h.SendMessage)
+	chatGroup.POST("/messages/:userId/attachment", h.UploadAttachment)
 	chatGroup.POST("/messages/:userId/contact-request", h.RequestContact)
 	chatGroup.POST("/contact-requests/:messageId/accept", h.AcceptContact)
 	chatGroup.POST("/contact-requests/:messageId/decline", h.DeclineContact)

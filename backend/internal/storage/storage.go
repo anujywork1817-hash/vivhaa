@@ -62,6 +62,48 @@ func (u *PhotoUploader) Delete(ctx context.Context, key string) error {
 	return u.client.Delete(ctx, key)
 }
 
+// allowedChatAttachmentTypes covers both images and simple documents —
+// chat attachments aren't identity documents (unlike verification docs),
+// so they go through the same public-bucket path as profile photos
+// rather than the private, presigned-URL-only document bucket.
+var allowedChatAttachmentTypes = map[string]string{
+	"image/jpeg":         ".jpg",
+	"image/png":          ".png",
+	"image/webp":         ".webp",
+	"application/pdf":    ".pdf",
+	"application/msword": ".doc",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+}
+
+const MaxChatAttachmentSizeBytes = 15 * 1024 * 1024 // 15MB
+
+// ValidateChatAttachment checks size and content-type before an upload is
+// attempted, and reports whether the type is an image (vs. a document) —
+// the chat message Kind (image vs document) is picked from this rather
+// than trusting a client-supplied field.
+func ValidateChatAttachment(size int64, contentType string) (isImage bool, err error) {
+	if size > MaxChatAttachmentSizeBytes {
+		return false, fmt.Errorf("file too large: max %d bytes", MaxChatAttachmentSizeBytes)
+	}
+	if _, ok := allowedChatAttachmentTypes[contentType]; !ok {
+		return false, fmt.Errorf("unsupported content type %q", contentType)
+	}
+	return contentType == "image/jpeg" || contentType == "image/png" || contentType == "image/webp", nil
+}
+
+// UploadChatAttachment uploads a validated image/document under a
+// per-user prefix and returns its object key and public URL.
+func (u *PhotoUploader) UploadChatAttachment(ctx context.Context, userID string, data []byte, contentType string) (key, url string, err error) {
+	ext := allowedChatAttachmentTypes[contentType]
+	key = fmt.Sprintf("chat/%s/%s%s", userID, uuid.NewString(), ext)
+
+	url, err = u.client.Upload(ctx, key, data, contentType)
+	if err != nil {
+		return "", "", err
+	}
+	return key, url, nil
+}
+
 var allowedDocumentTypes = map[string]string{
 	"image/jpeg":      ".jpg",
 	"image/png":       ".png",
