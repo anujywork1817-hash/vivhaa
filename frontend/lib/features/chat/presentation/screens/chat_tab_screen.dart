@@ -20,8 +20,10 @@ final chatFilterProvider = StateProvider<ChatFilter>((ref) => ChatFilter.all);
 
 /// Chat tab — conversations (all or unread only). A conversation exists
 /// per profile whose interest was accepted in either direction. Call
-/// history lives one tap away via the app bar's history icon
-/// (CallHistoryScreen), not inline in this list.
+/// history is a third pill alongside All/Unread rather than inline in
+/// this list — calls and conversations are different data (voice/video
+/// call log vs. message threads), so it opens CallHistoryScreen instead
+/// of switching the list shown here.
 class ChatTabScreen extends ConsumerWidget {
   const ChatTabScreen({super.key});
 
@@ -58,6 +60,16 @@ class ChatTabScreen extends ConsumerWidget {
                   selected: filter == ChatFilter.unread,
                   onTap: () => ref.read(chatFilterProvider.notifier).state = ChatFilter.unread,
                 ),
+                const SizedBox(width: AppSpacing.sm),
+                _FilterPill(
+                  label: 'Calls',
+                  icon: Icons.call_outlined,
+                  // Never "selected" — this pill doesn't switch the list
+                  // below, it opens CallHistoryScreen (a different data
+                  // model: the voice/video call log, not message threads).
+                  selected: false,
+                  onTap: () => context.push(AppRoutes.callHistory),
+                ),
               ],
             ),
           ),
@@ -72,9 +84,15 @@ class ChatTabScreen extends ConsumerWidget {
 
 class _FilterPill extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
-  const _FilterPill({required this.label, required this.selected, required this.onTap});
+  const _FilterPill({
+    required this.label,
+    this.icon,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,12 +107,21 @@ class _FilterPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
           border: Border.all(color: selected ? context.colors.ink : context.colors.line),
         ),
-        child: Text(
-          label,
-          style: context.textStyles.bodyMedium?.copyWith(
-            color: selected ? Colors.white : context.colors.ink,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: selected ? Colors.white : context.colors.ink),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: context.textStyles.bodyMedium?.copyWith(
+                color: selected ? Colors.white : context.colors.ink,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
         ),
       ),
     );
