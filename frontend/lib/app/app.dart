@@ -58,13 +58,14 @@ class ShaadiApp extends ConsumerWidget {
   }
 }
 
-/// App-wide system-back interception: no matter how deep the current
-/// screen was pushed (onboarding step, chat window, profile detail,
-/// settings, …), the first back press always collapses the stack back to
-/// the Dashboard/Home tab in one step rather than popping one screen at a
-/// time. Only once the user is already sitting on the Home tab does back
-/// arm a "press again to exit" window; a second press inside that window
-/// exits the app, and letting the window lapse resets it.
+/// App-wide system-back interception: a back press steps back one screen
+/// at a time exactly like normal (onboarding step, chat window, profile
+/// detail, settings, … all pop one level per press) until there's nowhere
+/// left to pop to — the bottom-nav shell sitting on any tab but Home, or
+/// the Home tab itself. From a non-Home tab, back switches to the Home tab
+/// rather than exiting outright. Only once actually on the Home tab does
+/// back arm a "press again to exit" window; a second press inside that
+/// window exits the app, and letting the window lapse resets it.
 ///
 /// go_router 14.x runs every declared [GoRoute] on a single root
 /// [Navigator] (nested navigators only appear with ShellRoute/
@@ -121,19 +122,13 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
     super.dispose();
   }
 
-  void _handleBack() {
-    final location =
-        widget.router.routerDelegate.currentConfiguration.uri.toString();
-    final onHomeRoute = location == AppRoutes.home;
-    final onHomeTab = ref.read(appShellTabProvider) == AppTab.home;
-
-    if (!onHomeRoute || !onHomeTab) {
-      if (!onHomeTab) {
-        ref.read(appShellTabProvider.notifier).state = AppTab.home;
-      }
-      if (!onHomeRoute) {
-        widget.router.go(AppRoutes.home);
-      }
+  /// Only ever called when [canPop] was false, i.e. the shell is sitting on
+  /// AppRoutes.home with nowhere left in the route stack to pop to — so
+  /// this only ever needs to handle "switch off a non-Home tab" or the
+  /// exit-confirmation window, never a normal screen-to-screen back.
+  void _handleRootBack() {
+    if (ref.read(appShellTabProvider) != AppTab.home) {
+      ref.read(appShellTabProvider.notifier).state = AppTab.home;
       return;
     }
 
@@ -161,11 +156,23 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
 
   @override
   Widget build(BuildContext context) {
+    final location =
+        widget.router.routerDelegate.currentConfiguration.uri.toString();
+    // Nothing left to pop to once we're back at the shell's base route —
+    // switching bottom-nav tabs never changes this location (the tabs
+    // live inside one route via appShellTabProvider, not real navigation
+    // stack entries), so canPop must key off location alone: gating it on
+    // "and already on the Home tab" too would leave canPop wrongly true
+    // while sitting on e.g. Matches with nothing actually left to pop,
+    // letting the system fall through to its own default (closing the
+    // app) instead of reaching _handleRootBack to switch to Home first.
+    final atRoot = location == AppRoutes.home;
+
     return PopScope(
-      canPop: false,
+      canPop: !atRoot,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        _handleBack();
+        _handleRootBack();
       },
       child: widget.child,
     );
