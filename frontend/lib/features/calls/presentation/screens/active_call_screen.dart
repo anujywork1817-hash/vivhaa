@@ -110,13 +110,13 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
             if (call.status == CallStatus.ended)
               Positioned.fill(
-                child: Container(
-                  color: Colors.black54,
-                  alignment: Alignment.center,
-                  child: Text(
-                    _endReasonLabel(call.endReason),
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
+                child: _CallEndedOverlay(
+                  call: call,
+                  reasonLabel: _endReasonLabel(call.endReason),
+                  durationLabel: call.duration > Duration.zero ? _formatDuration(call.duration) : null,
+                  onClose: () {
+                    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+                  },
                 ),
               ),
 
@@ -232,6 +232,53 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
       CallStatus.connected => call.isVideo ? 'Connecting…' : '',
       _ => '',
     };
+  }
+}
+
+/// WhatsApp-style call-ended state: peer avatar, the reason (or how long
+/// the call lasted, if it actually connected), and a red end-call button
+/// the user can tap to dismiss immediately instead of waiting for the
+/// ~2s auto-close (CallController._reset) to kick in.
+class _CallEndedOverlay extends StatelessWidget {
+  final CallState call;
+  final String reasonLabel;
+  final String? durationLabel;
+  final VoidCallback onClose;
+
+  const _CallEndedOverlay({
+    required this.call,
+    required this.reasonLabel,
+    required this.durationLabel,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black87,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ProfileAvatar(name: call.peerName, size: 120, photoUrl: call.peerPhotoUrl),
+          const SizedBox(height: AppSpacing.lg),
+          Text(call.peerName,
+              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Text(
+            durationLabel != null ? 'Call ended · $durationLabel' : reasonLabel,
+            style: const TextStyle(color: Colors.white70, fontSize: 15),
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          _ControlButton(
+            icon: Icons.call_end_rounded,
+            color: context.colors.danger,
+            large: true,
+            onTap: onClose,
+          ),
+        ],
+      ),
+    );
   }
 }
 

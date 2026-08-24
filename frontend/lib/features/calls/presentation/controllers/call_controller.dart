@@ -413,19 +413,29 @@ class CallController extends StateNotifier<CallState> {
   void _markConnected() {
     debugPrint('CallController: _markConnected (callId=${state.callId}, isCaller=${state.isCaller})');
     _connectedAt = DateTime.now();
-    state = state.copyWith(status: CallStatus.connected, duration: Duration.zero, speakerOn: false);
+    state = state.copyWith(
+      status: CallStatus.connected,
+      duration: Duration.zero,
+      // A video call's audio must default to the loudspeaker, not the
+      // voice-call default below — see the comment on setSpeakerphoneOn.
+      speakerOn: state.isVideo,
+    );
     _durationTimer?.cancel();
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_connectedAt == null) return;
       state = state.copyWith(duration: DateTime.now().difference(_connectedAt!));
     });
-    // Force the OS-level route to match state.speakerOn's earpiece
-    // default — the platform's own default route isn't guaranteed to be
-    // the earpiece (some devices/OEMs default a fresh audio session to
-    // speaker), and this is voice-only; video calls leave routing alone.
-    if (!state.isVideo) {
-      Helper.setSpeakerphoneOn(false);
-    }
+    // Force the OS-level audio route explicitly rather than trusting
+    // whatever the platform's own default happens to be. Android/WebRTC
+    // puts a fresh call's audio session in voice-call mode, which routes
+    // to the EARPIECE by default regardless of whether the call has
+    // video — nobody holds a video call up to their ear to hear it, so
+    // without this, a video call's remote audio was technically playing
+    // the whole time, just at earpiece volume with the phone sitting on
+    // a table: audibly indistinguishable from "no audio at all". Voice
+    // calls keep the real phone-call default (earpiece, with a speaker
+    // toggle in the UI); video calls always start on the loudspeaker.
+    Helper.setSpeakerphoneOn(state.isVideo);
   }
 
   Future<void> _onRemoteIceCandidate(Map<String, dynamic> data) async {
