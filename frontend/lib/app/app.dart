@@ -10,6 +10,7 @@ import '../core/router/app_routes.dart';
 import '../core/theme/app_scroll_behavior.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_preferences_controller.dart';
+import '../core/tour/app_tour_controller.dart';
 import '../features/dashboard/presentation/controllers/app_shell_controller.dart';
 
 class ShaadiApp extends ConsumerWidget {
@@ -50,6 +51,11 @@ class ShaadiApp extends ConsumerWidget {
           textScaler: TextScaler.linear(preferences.fontSize.scale),
         ),
         child: ShowCaseWidget(
+          // Only fires on a natural "reached the last step" completion —
+          // Skip calls ShowCaseWidgetState.dismiss() directly, which
+          // bypasses this, so the Skip button clears tourActiveProvider
+          // itself (see home_dashboard_screen.dart).
+          onFinish: () => ref.read(tourActiveProvider.notifier).state = false,
           builder: (context) => _BackButtonGate(router: router, child: child!),
         ),
       ),
