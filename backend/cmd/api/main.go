@@ -313,7 +313,7 @@ func main() {
 	chatHandler := chat.NewHandler(chatService)
 
 	callsRepo := calls.NewRepository(dbPool)
-	callsService := calls.NewService(callsRepo, interestsRepo, blockedRepo, profilesRepo, wsHub, calls.Config{
+	callsService := calls.NewService(callsRepo, interestsRepo, blockedRepo, profilesRepo, wsHub, publisher, calls.Config{
 		StunURLs:   cfg.WebRTC.StunURLs,
 		TURNURL:    cfg.WebRTC.TURNURL,
 		TURNSecret: cfg.WebRTC.TURNSecret,

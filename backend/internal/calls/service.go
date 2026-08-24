@@ -12,6 +12,7 @@ import (
 	"matrimony-backend/internal/blocked"
 	"matrimony-backend/internal/interests"
 	"matrimony-backend/internal/profiles"
+	"matrimony-backend/internal/queue"
 	appwebsocket "matrimony-backend/internal/websocket"
 )
 
@@ -56,12 +57,13 @@ type Service struct {
 	blockedRepo   *blocked.Repository
 	profilesRepo  *profiles.Repository
 	hub           *appwebsocket.Hub
+	publisher     *queue.Publisher
 	cfg           Config
 }
 
-func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesRepo *profiles.Repository, hub *appwebsocket.Hub, cfg Config) *Service {
+func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesRepo *profiles.Repository, hub *appwebsocket.Hub, publisher *queue.Publisher, cfg Config) *Service {
 	s := &Service{
-		repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesRepo: profilesRepo, hub: hub, cfg: cfg,
+		repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesRepo: profilesRepo, hub: hub, publisher: publisher, cfg: cfg,
 	}
 	// Runs for the process lifetime, same as Hub's background loops —
 	// there's no general shutdown-hook mechanism for background work in
@@ -76,6 +78,31 @@ func (s *Service) pushEvent(userID, eventType string, data any) {
 		return
 	}
 	s.hub.SendToUser(userID, payload)
+}
+
+// notifyMissedCall sends a real push notification (FCM, via the same
+// pipeline chat/interests already use) so a callee whose app has no live
+// WebSocket connection — closed/killed, not just backgrounded — still
+// finds out someone tried to reach them. Calling is WebSocket-only: with
+// no connection there is no way to make the device actually ring, so
+// this can't recreate a real incoming-call screen while the app is
+// dead, only tell them afterward, the same way a missed call works on
+// a phone that was off.
+func (s *Service) notifyMissedCall(ctx context.Context, calleeUserID, callerName string) {
+	_ = s.publisher.PublishNotificationDispatch(ctx, queue.NotificationDispatchEvent{
+		UserID: calleeUserID,
+		Type:   "missed_call",
+		Title:  "Missed call",
+		Body:   callerName + " tried to call you",
+		Data:   map[string]any{"caller_name": callerName},
+	})
+}
+
+func (s *Service) callerDisplayName(ctx context.Context, callerUserID string) string {
+	if p, err := s.profilesRepo.GetByUserID(ctx, callerUserID); err == nil && p.FullName != nil && *p.FullName != "" {
+		return *p.FullName
+	}
+	return "Someone"
 }
 
 // ICEServers returns the caller's STUN + TURN server list, with a fresh
@@ -189,6 +216,9 @@ func (s *Service) initiate(ctx context.Context, callerUserID string, in Incoming
 
 	if !s.hub.IsOnline(ctx, calleeUserID) {
 		s.pushEvent(callerUserID, "error", map[string]string{"message": "this member is currently offline"})
+		// The callee's app has no live connection to ring on — see
+		// notifyMissedCall's doc comment. At least let them find out.
+		s.notifyMissedCall(ctx, calleeUserID, s.callerDisplayName(ctx, callerUserID))
 		return
 	}
 
@@ -219,10 +249,7 @@ func (s *Service) initiate(ctx context.Context, callerUserID string, in Incoming
 		return
 	}
 
-	callerName := "Someone"
-	if p, err := s.profilesRepo.GetByUserID(ctx, callerUserID); err == nil && p.FullName != nil && *p.FullName != "" {
-		callerName = *p.FullName
-	}
+	callerName := s.callerDisplayName(ctx, callerUserID)
 
 	s.pushEvent(calleeUserID, "call:incoming", map[string]any{
 		"call_id":     callID,
@@ -358,6 +385,13 @@ func (s *Service) sweepOnce(ctx context.Context) {
 	for _, call := range swept {
 		s.pushEvent(call.CallerUserID, "call:timeout", map[string]string{"call_id": call.ID})
 		s.pushEvent(call.CalleeUserID, "call:timeout", map[string]string{"call_id": call.ID})
+		// Unlike the offline-callee case in initiate(), the callee here
+		// DID have a live connection when the call started (IsOnline
+		// passed) but never answered within ringTimeout — could be a
+		// closed app that dropped its socket mid-ring, could be a
+		// genuinely missed ring. Either way, a missed-call notification
+		// is the right outcome, same as every other calling app.
+		s.notifyMissedCall(ctx, call.CalleeUserID, s.callerDisplayName(ctx, call.CallerUserID))
 	}
 }
 
