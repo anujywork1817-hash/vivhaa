@@ -11,20 +11,44 @@ import (
 )
 
 type Config struct {
-	Env      string
-	HTTP     HTTPConfig
-	DB       DBConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	S3       S3Config
-	Razorpay RazorpayConfig
-	Kafka    KafkaConfig
-	ES       ElasticsearchConfig
-	CORS     CORSConfig
-	Google   GoogleAuthConfig
-	AI       AIConfig
-	FCM      FCMConfig
-	WebRTC   WebRTCConfig
+	Env        string
+	HTTP       HTTPConfig
+	DB         DBConfig
+	Redis      RedisConfig
+	JWT        JWTConfig
+	S3         S3Config
+	Razorpay   RazorpayConfig
+	Kafka      KafkaConfig
+	ES         ElasticsearchConfig
+	CORS       CORSConfig
+	Google     GoogleAuthConfig
+	AI         AIConfig
+	FCM        FCMConfig
+	WebRTC     WebRTCConfig
+	Moderation ModerationConfig
+}
+
+// ModerationConfig configures the chat contact-sharing moderation
+// pipeline (internal/chatguard + internal/chat's abuse-escalation
+// logic). Thresholds are configurable rather than hard-coded so they can
+// be tuned post-launch without a code deploy.
+type ModerationConfig struct {
+	Enabled bool
+
+	// AllowedDomains are the app's own domains -- links to these are
+	// never treated as an "external link" attempt.
+	AllowedDomains []string
+
+	// RestrictThreshold: once a user's cumulative violation count
+	// reaches this, they're temporarily blocked from sending for
+	// RestrictDuration.
+	RestrictThreshold int
+	RestrictDuration  time.Duration
+
+	// ReviewThreshold: once reached, the user is flagged for manual
+	// admin review (chat_restrictions.flagged_for_review) -- this never
+	// bans on its own, it only surfaces the account to a human.
+	ReviewThreshold int
 }
 
 type HTTPConfig struct {
@@ -206,6 +230,13 @@ func Load() (*Config, error) {
 			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvInt("REDIS_DB", 0),
+		},
+		Moderation: ModerationConfig{
+			Enabled:           getEnv("CHAT_MODERATION_ENABLED", "true") == "true",
+			AllowedDomains:    splitAndTrim(getEnv("CHAT_MODERATION_ALLOWED_DOMAINS", "")),
+			RestrictThreshold: getEnvInt("CHAT_MODERATION_RESTRICT_THRESHOLD", 3),
+			RestrictDuration:  time.Duration(getEnvInt("CHAT_MODERATION_RESTRICT_MINUTES", 60)) * time.Minute,
+			ReviewThreshold:   getEnvInt("CHAT_MODERATION_REVIEW_THRESHOLD", 6),
 		},
 		JWT: JWTConfig{
 			AccessSecret:  accessSecret,

@@ -106,6 +106,10 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusForbidden, "forbidden", err.Error(), nil)
 	case errors.Is(err, ErrContactRequestResolved):
 		response.Fail(c, http.StatusConflict, "already_resolved", err.Error(), nil)
+	case errors.Is(err, ErrContactInfoBlocked):
+		response.Fail(c, http.StatusUnprocessableEntity, "message_blocked", userFacingBlockMessage, nil)
+	case errors.Is(err, ErrChatRestricted):
+		response.Fail(c, http.StatusTooManyRequests, "chat_restricted", "You're temporarily unable to send messages. Please try again later.", nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}

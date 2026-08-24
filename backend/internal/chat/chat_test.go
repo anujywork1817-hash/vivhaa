@@ -15,6 +15,7 @@ import (
 
 	"matrimony-backend/internal/analytics"
 	"matrimony-backend/internal/blocked"
+	"matrimony-backend/internal/chatguard"
 	"matrimony-backend/internal/interests"
 	"matrimony-backend/internal/queue"
 	"matrimony-backend/internal/websocket"
@@ -66,7 +67,8 @@ func newTestDeps(t *testing.T) *testDeps {
 	analyticsSvc := analytics.NewService(analytics.NewRepository(pool))
 	publisher := queue.NewPublisher(kafka.NewProducer([]string{"127.0.0.1:1"}))
 
-	svc := NewService(repo, interestsRepo, blockedRepo, nil, publisher, nil, analyticsSvc, hub)
+	guard := chatguard.NewEngine(chatguard.Config{Enabled: true})
+	svc := NewService(repo, interestsRepo, blockedRepo, nil, publisher, nil, analyticsSvc, hub, guard, AbuseConfig{RestrictThreshold: 3, RestrictDuration: time.Hour, ReviewThreshold: 6})
 	return &testDeps{svc: svc, pool: pool, interestsRepo: interestsRepo, blockedRepo: blockedRepo}
 }
 
@@ -209,5 +211,74 @@ func TestRequestContact_DuplicatePending_ReturnsErrContactRequestPending(t *test
 	_, err := deps.svc.RequestContact(ctx, userA, userB)
 	if !errors.Is(err, ErrContactRequestPending) {
 		t.Errorf("second RequestContact() while one is pending = %v, want ErrContactRequestPending", err)
+	}
+}
+
+// TestSendMessage_ContactInfoBlocked_NotPersisted is the core Phase 17/22
+// guarantee: a phone number sent as plain text is rejected server-side
+// and never written to chat_messages, even though the exact same call
+// path (SendMessage) succeeds for ordinary text once matched.
+func TestSendMessage_ContactInfoBlocked_NotPersisted(t *testing.T) {
+	deps := newTestDeps(t)
+	userA := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	userB := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	mustMutualMatch(t, deps, userA, userB)
+	ctx := context.Background()
+
+	_, err := deps.svc.SendMessage(ctx, userA, userB, "call me on 9876543210", nil)
+	if !errors.Is(err, ErrContactInfoBlocked) {
+		t.Fatalf("SendMessage() with a phone number = %v, want ErrContactInfoBlocked", err)
+	}
+
+	history, err := deps.svc.repo.History(ctx, userA, userB, 50)
+	if err != nil {
+		t.Fatalf("History(): %v", err)
+	}
+	if len(history) != 0 {
+		t.Errorf("expected no persisted messages after a blocked send, got %d: %+v", len(history), history)
+	}
+}
+
+// TestSendMessage_RepeatedViolations_Restricted exercises Phase 14's
+// escalation: once violationCount crosses RestrictThreshold, further
+// sends — even benign ones — are rejected with ErrChatRestricted until
+// the restriction expires.
+func TestSendMessage_RepeatedViolations_Restricted(t *testing.T) {
+	deps := newTestDeps(t)
+	userA := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	userB := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	mustMutualMatch(t, deps, userA, userB)
+	ctx := context.Background()
+
+	for i := 0; i < 3; i++ {
+		_, err := deps.svc.SendMessage(ctx, userA, userB, "email me at name@example.com", nil)
+		if !errors.Is(err, ErrContactInfoBlocked) {
+			t.Fatalf("violation #%d = %v, want ErrContactInfoBlocked", i+1, err)
+		}
+	}
+
+	_, err := deps.svc.SendMessage(ctx, userA, userB, "hello, totally normal message", nil)
+	if !errors.Is(err, ErrChatRestricted) {
+		t.Errorf("SendMessage() after crossing RestrictThreshold = %v, want ErrChatRestricted", err)
+	}
+}
+
+// TestSendMessage_ContactSharedFlow_BypassesModeration confirms the
+// explicit mutual-consent flow (RequestContact -> RespondContact) is
+// unaffected by moderation — it's the one sanctioned way a real number
+// reaches the other participant.
+func TestSendMessage_ContactSharedFlow_BypassesModeration(t *testing.T) {
+	deps := newTestDeps(t)
+	userA := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	userB := testdb.NewUser(t, deps.pool, uniquePhone(t))
+	mustMutualMatch(t, deps, userA, userB)
+	ctx := context.Background()
+
+	req, err := deps.svc.RequestContact(ctx, userA, userB)
+	if err != nil {
+		t.Fatalf("RequestContact(): %v", err)
+	}
+	if _, err := deps.svc.RespondContact(ctx, userB, req.ID, true); err != nil {
+		t.Fatalf("RespondContact(accept): %v", err)
 	}
 }

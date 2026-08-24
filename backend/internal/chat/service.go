@@ -8,6 +8,7 @@ import (
 
 	"matrimony-backend/internal/analytics"
 	"matrimony-backend/internal/blocked"
+	"matrimony-backend/internal/chatguard"
 	"matrimony-backend/internal/interests"
 	"matrimony-backend/internal/profiles"
 	"matrimony-backend/internal/queue"
@@ -25,7 +26,22 @@ var (
 	ErrContactRequestNotFound = errors.New("contact request not found")
 	ErrNotContactRecipient    = errors.New("only the recipient of this request can respond to it")
 	ErrContactRequestResolved = errors.New("this contact request has already been responded to")
+
+	// ErrContactInfoBlocked is returned for any message the moderation
+	// engine rejects (phone/email/social/link) — the message is NEVER
+	// persisted or broadcast. The category/reason is intentionally not
+	// exposed here (Phase 15) — see the generic userFacingBlockMessage.
+	ErrContactInfoBlocked = errors.New("message blocked by moderation")
+
+	// ErrChatRestricted is returned when the sender is under a temporary
+	// send restriction from repeated moderation violations (Phase 14).
+	ErrChatRestricted = errors.New("you're temporarily restricted from sending messages")
 )
+
+// userFacingBlockMessage is the ONLY thing ever shown to a user whose
+// message is blocked for containing contact info — no detection
+// category, pattern, or reason ever reaches the client (Phase 15).
+const userFacingBlockMessage = "Contact details can't be shared through chat yet. You can continue getting to know each other here."
 
 const historyLimit = 50
 
@@ -43,10 +59,21 @@ type Service struct {
 	subsSvc       *subscriptions.Service
 	analyticsSvc  *analytics.Service
 	hub           *websocket.Hub
+	guard         *chatguard.Engine
+	abuseCfg      AbuseConfig
 }
 
-func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesSvc *profiles.Service, publisher *queue.Publisher, subsSvc *subscriptions.Service, analyticsSvc *analytics.Service, hub *websocket.Hub) *Service {
-	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub}
+// AbuseConfig drives the escalating restriction applied to repeated
+// moderation violations (Phase 14) — configurable, not hard-coded, so
+// thresholds can be tuned without a deploy.
+type AbuseConfig struct {
+	RestrictThreshold int
+	RestrictDuration  time.Duration
+	ReviewThreshold   int
+}
+
+func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesSvc *profiles.Service, publisher *queue.Publisher, subsSvc *subscriptions.Service, analyticsSvc *analytics.Service, hub *websocket.Hub, guard *chatguard.Engine, abuseCfg AbuseConfig) *Service {
+	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub, guard: guard, abuseCfg: abuseCfg}
 }
 
 func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string, replyToID *string) (MessageResponse, error) {
@@ -99,6 +126,16 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 		} else {
 			replyToID = nil
 		}
+	}
+
+	// Moderation runs BEFORE persistence and BEFORE any WS broadcast — a
+	// blocked message is never written to chat_messages and never reaches
+	// the other participant. This is the one send path both REST
+	// (SendMessage handler) and WebSocket (HandleIncoming below) funnel
+	// through, so both are covered by this single check — see Phase 1's
+	// architecture note on why this is the correct insertion point.
+	if err := s.enforceModeration(ctx, senderID, receiverID, body); err != nil {
+		return MessageResponse{}, err
 	}
 
 	m, err := s.repo.CreateMessage(ctx, senderID, receiverID, body, MessageKindText, replyToID)

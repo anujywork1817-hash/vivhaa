@@ -22,6 +22,7 @@ import (
 	"matrimony-backend/internal/blocked"
 	"matrimony-backend/internal/calls"
 	"matrimony-backend/internal/chat"
+	"matrimony-backend/internal/chatguard"
 	"matrimony-backend/internal/coupons"
 	"matrimony-backend/internal/devices"
 	"matrimony-backend/internal/email"
@@ -299,8 +300,16 @@ func main() {
 	recommendationService := recommendation.NewService(matchRepo, profilesRepo, preferencesRepo, redisClient)
 	recommendationHandler := recommendation.NewHandler(recommendationService)
 
+	chatGuard := chatguard.NewEngine(chatguard.Config{
+		Enabled:        cfg.Moderation.Enabled,
+		AllowedDomains: cfg.Moderation.AllowedDomains,
+	})
 	chatRepo := chat.NewRepository(dbPool)
-	chatService := chat.NewService(chatRepo, interestsRepo, blockedRepo, profilesService, publisher, subscriptionsService, analyticsService, wsHub)
+	chatService := chat.NewService(chatRepo, interestsRepo, blockedRepo, profilesService, publisher, subscriptionsService, analyticsService, wsHub, chatGuard, chat.AbuseConfig{
+		RestrictThreshold: cfg.Moderation.RestrictThreshold,
+		RestrictDuration:  cfg.Moderation.RestrictDuration,
+		ReviewThreshold:   cfg.Moderation.ReviewThreshold,
+	})
 	chatHandler := chat.NewHandler(chatService)
 
 	callsRepo := calls.NewRepository(dbPool)
