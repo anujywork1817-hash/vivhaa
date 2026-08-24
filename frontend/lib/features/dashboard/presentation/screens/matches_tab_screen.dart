@@ -6,6 +6,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/match_profile.dart';
+import '../../../../shared/models/search_filters.dart';
 import '../../../../shared/widgets/feedback/empty_state.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/locked_profile_photo.dart';
@@ -14,6 +15,8 @@ import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../../../interests/presentation/controllers/interest_actions_controller.dart';
 import '../../../interests/presentation/controllers/interests_controller.dart';
 import '../../../profile_detail/presentation/widgets/profile_actions_sheet.dart';
+import '../../../search/presentation/controllers/search_filters_controller.dart';
+import '../../../search/presentation/controllers/search_results_controller.dart';
 import '../controllers/app_shell_controller.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/location_controller.dart';
@@ -957,47 +960,67 @@ class _NearbyErrorState extends ConsumerWidget {
   }
 }
 
-/// Tappable search entry, same pattern/destination as Home's own search
-/// bar (AppRoutes.basicSearch) — Matches previously had no way to search
-/// by name/city/profession at all, only the ID-specific chip and the
-/// filter-heavy Advanced Search buried in the "More" sheet.
-class _MatchesSearchBarEntry extends StatelessWidget {
+/// Name-only search entry. This used to open the full Basic Search screen
+/// (age/height/religion/location filters, no name field at all) — but the
+/// Matches search bar is meant to just find someone by name, not double as
+/// an entry point into unrelated filters. Submitting here sets a fresh
+/// [SearchFilters] carrying only the typed name (so leftover Basic/Advanced
+/// Search state from a previous session can't silently narrow these
+/// results) and pushes straight to the results list.
+class _MatchesSearchBarEntry extends ConsumerStatefulWidget {
   const _MatchesSearchBarEntry();
+
+  @override
+  ConsumerState<_MatchesSearchBarEntry> createState() => _MatchesSearchBarEntryState();
+}
+
+class _MatchesSearchBarEntryState extends ConsumerState<_MatchesSearchBarEntry> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit(String value) {
+    final name = value.trim();
+    if (name.isEmpty) return;
+    final filters = SearchFilters(query: name);
+    ref.read(searchFiltersProvider.notifier).update((_) => filters);
+    ref.read(searchResultsControllerProvider.notifier).runSearch(filters);
+    context.push(AppRoutes.searchResults);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Material(
-        color: context.colors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => context.push(AppRoutes.basicSearch),
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              border: Border.all(color: context.colors.line),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search_rounded,
-                    size: 20, color: context.colors.muted),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Search by name, city, profession…',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.textStyles.bodyMedium
-                        ?.copyWith(color: context.colors.muted),
-                  ),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: context.colors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          border: Border.all(color: context.colors.line),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _submit,
+                decoration: const InputDecoration(
+                  isCollapsed: true,
+                  border: InputBorder.none,
+                  hintText: 'Search by name',
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

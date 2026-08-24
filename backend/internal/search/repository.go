@@ -72,11 +72,12 @@ func (r *Repository) Search(ctx context.Context, excludeUserIDs []string, q Quer
 		filters = append(filters, map[string]any{"range": map[string]any{"height_cm": heightRange}})
 	}
 	if q.Query != nil && *q.Query != "" {
+		// Name only — the Matches screen's search bar is a name search, not
+		// a general keyword search, so a query for e.g. "Mumbai" or
+		// "Engineer" should not surface unrelated people who merely live or
+		// work there.
 		filters = append(filters, map[string]any{
-			"multi_match": map[string]any{
-				"query":  *q.Query,
-				"fields": []string{"full_name", "occupation", "city"},
-			},
+			"match": map[string]any{"full_name": *q.Query},
 		})
 	}
 
