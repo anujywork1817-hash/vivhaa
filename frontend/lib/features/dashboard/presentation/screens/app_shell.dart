@@ -42,7 +42,23 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     // network switch) without the app ever finding out — force a fresh
     // connection on every resume rather than trusting a possibly-zombie
     // one. See ChatSocketService.forceReconnect for the full story.
-    if (state == AppLifecycleState.resumed) {
+    //
+    // BUG: the OS camera/mic permission dialog is a system overlay that
+    // fires this exact paused -> resumed cycle even though the app never
+    // really left the foreground — every "Allow microphone/camera access?"
+    // prompt during startCall()/acceptCall() used to trigger a
+    // forceReconnect() right in the middle of call signaling. Closing and
+    // reopening the socket there drops whatever call:initiate/call:accept/
+    // ICE-candidate send was in flight (ChatSocketService.send is
+    // fire-and-forget and silently no-ops while _channel is briefly null
+    // mid-reconnect), which is exactly what made a call "cut on one end"
+    // the moment the permission prompt appeared. Skipping the reconnect
+    // while a call is active avoids tearing down the signaling channel a
+    // call setup is actively relying on; a genuinely stale/zombie socket
+    // from a real backgrounding will still be caught on the next resume
+    // that isn't mid-call.
+    if (state == AppLifecycleState.resumed &&
+        !ref.read(callControllerProvider.notifier).isCallSetupInProgress) {
       ref.read(chatSocketServiceProvider).forceReconnect();
     }
   }

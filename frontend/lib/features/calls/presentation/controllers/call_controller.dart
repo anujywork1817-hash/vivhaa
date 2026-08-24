@@ -123,6 +123,18 @@ class CallController extends StateNotifier<CallState> {
   MediaStream? get remoteStreamValue => _remoteStream;
   MediaStream? _remoteStream;
 
+  // True from the first line of startCall()/acceptCall() — before
+  // permissions are even requested — through to the call either being
+  // torn down or fully connected. state.isActive alone isn't enough here:
+  // it only flips to true *after* the permission grant (startCall doesn't
+  // set status to calling until _ensurePermissions resolves), so the
+  // window during the very first permission prompt of a fresh install —
+  // exactly when Android's dialog is most likely to appear — would
+  // otherwise look identical to no call being in progress at all. See
+  // isCallSetupInProgress's use in AppShell for why that gap matters.
+  bool _callSetupInProgress = false;
+  bool get isCallSetupInProgress => _callSetupInProgress || state.isActive;
+
   Timer? _ringTimeoutTimer;
   Timer? _durationTimer;
   Timer? _reconnectGraceTimer;
@@ -252,9 +264,11 @@ class CallController extends StateNotifier<CallState> {
     bool isVideo = true,
   }) async {
     if (state.isActive) return;
+    _callSetupInProgress = true;
 
     final granted = await _ensurePermissions(isVideo);
     if (!granted) {
+      _callSetupInProgress = false;
       state = CallState(
         status: CallStatus.ended,
         endReason: CallEndReason.permissionDenied,
@@ -311,8 +325,10 @@ class CallController extends StateNotifier<CallState> {
   Future<void> acceptCall() async {
     if (state.status != CallStatus.ringing || _pendingOffer == null) return;
 
+    _callSetupInProgress = true;
     final granted = await _ensurePermissions(state.isVideo);
     if (!granted) {
+      _callSetupInProgress = false;
       _socket.send({'type': 'call:reject', 'call_id': state.callId});
       state = CallState(
         status: CallStatus.ended,
@@ -726,6 +742,7 @@ class CallController extends StateNotifier<CallState> {
   /// active camera/mic track left dangling after a call ends is exactly
   /// the "camera light stays on" bug this guards against.
   Future<void> _cleanupMedia() async {
+    _callSetupInProgress = false;
     _ringTimeoutTimer?.cancel();
     _durationTimer?.cancel();
     _reconnectGraceTimer?.cancel();
