@@ -153,3 +153,51 @@ near the ramp-down tail (VUs scaling down from 1000), consistent with
 brief client-side connection churn rather than a backend regression.
 No 500s or 504s reappeared - the /search/profiles and identity-
 verification fixes both held under load.
+
+================================================================
+6. LOAD TEST RE-RUN (2026-08-25) - AFTER HARDENING DEPLOY
+   (.ebextensions, readiness-check /health, bucket-error handling)
+================================================================
+
+Same 1000-VU ramp re-run against vivaha-api-prod after deploying
+application version "hardening-v1" (see hardening commit a60684e):
+env vars codified via .ebextensions, /health extended to probe
+Elasticsearch, Kafka, and both storage buckets on every call, and
+bucket-not-found errors now surfaced distinctly instead of a generic
+500.
+
+RESULTS
+-------
+Total requests:        366,605
+Throughput:             1,009 req/s sustained
+http_req_failed:        0.83%   (threshold was <5%  -> PASSED)
+p95 latency:             382.28 ms  (threshold was <2000ms -> PASSED,
+                          but notably worse than run #2's 47.64ms)
+p90 latency:             196.39 ms
+avg latency:              70.04 ms
+max latency:             1.22 s
+Completed iterations:   122,098
+Interrupted iterations:    186
+
+Check breakdown:
+  health ok  : 99.02% (121,094 / 122,284)
+  search ok  : 99.15% (121,182 / 122,217)
+  me ok      : 99.30% (121,249 / 122,103)
+
+FINDING: /health got measurably heavier under load. Throughput dropped
+from ~1,300 req/s to ~1,000 req/s, p95 latency roughly 8x'd (48ms ->
+382ms), and failure rate roughly doubled (0.45% -> 0.83%) compared to
+the pre-hardening run against the identical test script. Root cause:
+GET /health now performs five live dependency probes per call
+(Postgres ping, Redis ping, an Elasticsearch cluster ping, a raw TCP
+dial to a Kafka broker, and two S3 HeadBucket calls), each within a
+shared 3-second timeout - previously it only checked DB and Redis. The
+load test hits /health on every iteration alongside /search/profiles
+and /users/me, so at 1000 concurrent VUs this added real, repeated
+network round-trips per request that didn't exist before. All
+thresholds still passed and no 500s/504s reappeared, but this is worth
+addressing before considering /health production-hardened at scale:
+consider caching the dependency-probe results for a few seconds (a
+readiness cache) rather than re-checking every hard dependency on
+every single /health call, especially since load balancers and
+monitoring tools typically poll /health frequently on their own.
