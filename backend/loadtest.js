@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-const BASE = 'http://localhost:58080';
+const BASE = 'http://localhost:8080';
 
 export const options = {
   stages: [
@@ -18,8 +18,8 @@ export const options = {
 export default function () {
   // login (reuse a pre-seeded test user for the load test)
   const loginRes = http.post(`${BASE}/auth/login`, JSON.stringify({
-    identifier: '+15551234567',
-    password: 'SuperSecret123',
+    identifier: '+917000000001',
+    password: 'Passw0rd!123',
   }), { headers: { 'Content-Type': 'application/json' } });
 
   check(loginRes, { 'login ok': (r) => r.status === 200 });

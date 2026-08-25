@@ -2,9 +2,9 @@ import ws from 'k6/ws';
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-const BASE = 'http://localhost:58080';
-const WS_BASE = 'ws://localhost:58080';
-const PARTNER_USER_ID = 'd1ff7fac-322f-4fd8-85cc-8d12c85d491b';
+const BASE = 'http://localhost:8080';
+const WS_BASE = 'ws://localhost:8080';
+const PARTNER_USER_ID = 'c562ca70-2b14-4650-9f6b-d6a1cfa3d68c';
 
 export const options = {
   scenarios: {
@@ -34,8 +34,8 @@ export default function () {
   let token = __ENV.TOKEN;
   if (!token) {
     const loginRes = http.post(`${BASE}/auth/login`, JSON.stringify({
-      identifier: '+15556660001',
-      password: 'SuperSecret123',
+      identifier: '+917000000001',
+      password: 'Passw0rd!123',
     }), { headers: { 'Content-Type': 'application/json' } });
 
     token = loginRes.json('data.access_token');

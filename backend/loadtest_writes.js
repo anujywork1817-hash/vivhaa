@@ -1,10 +1,10 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-const BASE = 'http://localhost:58080';
+const BASE = 'http://localhost:8080';
 
 // ⚠️ Replace these with real values from your database
-const PARTNER_USER_ID = 'd1ff7fac-322f-4fd8-85cc-8d12c85d491b';
+const PARTNER_USER_ID = 'c562ca70-2b14-4650-9f6b-d6a1cfa3d68c';
 
 export const options = {
   stages: [
@@ -28,8 +28,8 @@ export const options = {
 export function setup() {
   if (__ENV.TOKEN) return { token: __ENV.TOKEN };
   const res = http.post(`${BASE}/auth/login`, JSON.stringify({
-    identifier: '+15556660001',
-    password: 'SuperSecret123',
+    identifier: '+917000000001',
+    password: 'Passw0rd!123',
   }), { headers: { 'Content-Type': 'application/json' } });
   return { token: res.json('data.access_token') };
 }
