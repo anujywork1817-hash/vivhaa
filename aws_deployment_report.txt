@@ -201,3 +201,64 @@ consider caching the dependency-probe results for a few seconds (a
 readiness cache) rather than re-checking every hard dependency on
 every single /health call, especially since load balancers and
 monitoring tools typically poll /health frequently on their own.
+
+================================================================
+7. /health REGRESSION - FIXED (readiness cache) + LOAD TEST RE-RUN #4
+================================================================
+
+FIX (commit 8430abd): added pkg/health, a background checker that runs
+all 5 dependency probes on a fixed interval (default 5s, configurable
+via HEALTH_CHECK_INTERVAL_SECONDS) and caches the results in memory.
+GET /health now only reads the cache - zero live network calls in the
+request path. A staleness safeguard reports a dependency as
+unavailable if its last successful probe is older than 3x the
+interval, so a stalled background loop can't serve stale "ok" forever.
+Probe panics are recovered and logged, not fatal. Confirmed via the
+Beanstalk ELB config (aws:elb:healthcheck Target=TCP:80) that nothing
+in the infra actually polls /health itself, so splitting it into
+separate liveness/readiness endpoints wasn't warranted - kept as one
+endpoint backed by the cache. Three unit tests added
+(pkg/health/health_test.go) proving: Snapshot doesn't block on a
+slow/unreachable probe, a stale result is reported as not-OK rather
+than serving old data forever, and a panicking probe doesn't take down
+the checker or the process.
+
+Deployed as application version health-cache-fix-v1. GET /health
+verified live: same-shape response (all 5 dependencies "ok"),
+responding in 70-237ms (ordinary network round-trip, no dependency
+probing in the request path).
+
+RE-RUN RESULTS (same 1000-VU ramp, identical script)
+-----------------------------------------------------
+Total requests:        439,888
+Throughput:             1,209 req/s sustained
+http_req_failed:        0.62%   (threshold <5%  -> PASSED)
+p95 latency:              29.77 ms  (threshold <2000ms -> PASSED)
+p90 latency:              20.42 ms
+avg latency:              14.15 ms
+max latency:            1.38 s
+Completed iterations:   146,538
+
+Check breakdown:
+  health ok  : 99.25% (145,608 / 146,705)
+  search ok  : 99.38% (145,740 / 146,638)
+  me ok      : 99.50% (145,806 / 146,544)
+
+COMPARISON ACROSS ALL FOUR RUNS
+--------------------------------
+                  Run #2        Run #3           Run #4
+                  (baseline)    (regression)     (fixed)
+Throughput        1,307 req/s   1,009 req/s      1,209 req/s
+p95 latency       47.64 ms      382.28 ms        29.77 ms
+p90 latency       32.62 ms      196.39 ms        20.42 ms
+avg latency       19.67 ms      70.04 ms         14.15 ms
+Failure rate      0.45%         0.83%            0.62%
+
+CONCLUSION: the readiness-cache fix fully closes the regression -
+p95 latency is now BETTER than the pre-hardening baseline (run #2),
+not just back to parity, since /health responses no longer depend on
+live network round-trips to five separate dependencies at all. The
+0.62% failure rate sits between runs #2 and #3, consistent with the
+same benign client-side ramp-down connection churn noted earlier
+(dial tcp: connectex ... did not properly respond), not a server-side
+regression.
