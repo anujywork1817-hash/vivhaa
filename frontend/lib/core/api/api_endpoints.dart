@@ -8,14 +8,15 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 class ApiEndpoints {
   ApiEndpoints._();
 
-  /// The shared backend on the local network — the same host every client
-  /// (phone, web, desktop) talks to, so a device no longer has to be on the
-  /// developer's own machine to work.
+  /// The shared backend every client (phone, web, desktop) talks to, so a
+  /// device no longer has to be on the developer's own machine to work.
   ///
-  /// This used to point at whichever laptop was running `docker compose`,
-  /// which meant every DHCP lease renewal silently broke every installed
-  /// build, and a phone could only reach the API while that one laptop was
-  /// up. The server address is stable, so it is the sane default.
+  /// Moved off the home-network server (192.168.1.222) to the AWS
+  /// deployment (ap-south-1 / Mumbai): API + admin panel on Elastic
+  /// Beanstalk, Postgres on RDS, Kafka/Redis/Elasticsearch/MinIO/coturn
+  /// self-hosted on an EC2 box. Elastic Beanstalk's own nginx proxy passes
+  /// the WebSocket upgrade through to /ws/chat untouched (verified against
+  /// the live deployment — no extra proxy config needed).
   ///
   /// Override per-run without touching this file when you do want a local
   /// backend — e.g. against your own machine:
@@ -23,7 +24,8 @@ class ApiEndpoints {
   ///   --dart-define=WS_BASE_URL=ws://192.168.1.20:8080
   /// or the Android emulator's host alias (10.0.2.2), or localhost plus
   /// `adb reverse tcp:8080 tcp:8080` for a USB-tethered device.
-  static const String _serverHost = '192.168.1.222:58080';
+  static const String _serverHost =
+      'vivaha-api-prod.eba-7txximqk.ap-south-1.elasticbeanstalk.com';
 
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');

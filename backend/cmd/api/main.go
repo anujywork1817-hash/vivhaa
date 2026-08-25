@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -52,6 +53,7 @@ import (
 	"matrimony-backend/pkg/database"
 	"matrimony-backend/pkg/elasticsearch"
 	"matrimony-backend/pkg/googleauth"
+	"matrimony-backend/pkg/health"
 	"matrimony-backend/pkg/groq"
 	"matrimony-backend/pkg/jwt"
 	"matrimony-backend/pkg/kafka"
@@ -93,7 +95,22 @@ func main() {
 	}
 	// Flush buffered events before the program exits (normal or panic)
 	defer sentry.Flush(2 * time.Second)
-	defer sentry.Recover()
+	// BUG: sentry.Recover() (bare, no repanic) swallows a startup panic
+	// completely — Sentry gets the event, but the process just returns
+	// from main() normally afterward: exit code 0, nothing on
+	// stdout/stderr, nothing in `docker logs`. A panic during service
+	// wiring (anywhere between here and srv.ListenAndServe) looked
+	// identical to a clean, silent shutdown from outside the process,
+	// which is exactly what made this so hard to diagnose without Sentry
+	// dashboard access. Capturing manually and re-panicking (after the
+	// deferred Flush above has already run, since defers execute LIFO)
+	// means a startup panic now shows up in the container's own logs.
+	defer func() {
+		if r := recover(); r != nil {
+			sentry.CurrentHub().Recover(r)
+			panic(r)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -186,30 +203,56 @@ func main() {
 		log.Warn("CORS: allowing all origins (dev default) — set CORS_ALLOWED_ORIGINS in prod")
 	}
 
+	// Dependency reachability probes added after the 2026-08-24 incident,
+	// where Kafka/Elasticsearch were unreachable (missing security-group
+	// rules) and a missing storage bucket both went undetected until real
+	// requests failed — /health only checked DB/Redis, so nothing caught
+	// either until a user hit them.
+	//
+	// These run on a background interval rather than inline per-request:
+	// an earlier version ran all 5 probes synchronously on every /health
+	// call, which under a 1000-VU load test (hitting /health every
+	// iteration) measurably degraded latency and throughput for the whole
+	// service (p95 48ms -> 382ms). See pkg/health for the caching design.
+	healthCheckInterval := 5 * time.Second
+	if v := os.Getenv("HEALTH_CHECK_INTERVAL_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			healthCheckInterval = time.Duration(n) * time.Second
+		}
+	}
+	healthChecker := health.New(healthCheckInterval, 3*healthCheckInterval, 3*time.Second, log, map[string]health.Probe{
+		"database": func(ctx context.Context) error { return dbPool.Ping(ctx) },
+		"redis":    func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
+		"elasticsearch": func(ctx context.Context) error {
+			return esClient.Ping(ctx)
+		},
+		"kafka": func(ctx context.Context) error {
+			return kafkaProducer.Ping(ctx)
+		},
+		"storage": func(ctx context.Context) error {
+			return s3Client.BucketsReachable(ctx)
+		},
+	})
+	healthCheckerCtx, stopHealthChecker := context.WithCancel(context.Background())
+	defer stopHealthChecker()
+	healthChecker.Start(healthCheckerCtx)
+
 	router.GET("/health", func(c *gin.Context) {
-		checkCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
-		defer cancel()
-
-		dbStatus := "ok"
-		if err := dbPool.Ping(checkCtx); err != nil {
-			dbStatus = "unavailable"
-		}
-
-		redisStatus := "ok"
-		if err := redisClient.Ping(checkCtx).Err(); err != nil {
-			redisStatus = "unavailable"
-		}
+		snapshot := healthChecker.Snapshot()
 
 		status := http.StatusOK
-		if dbStatus != "ok" || redisStatus != "ok" {
-			status = http.StatusServiceUnavailable
+		body := gin.H{"status": "ok"}
+		for _, name := range []string{"database", "redis", "elasticsearch", "kafka", "storage"} {
+			result := snapshot[name]
+			if !result.OK {
+				status = http.StatusServiceUnavailable
+				body[name] = result.Message
+			} else {
+				body[name] = "ok"
+			}
 		}
 
-		response.Success(c, status, gin.H{
-			"status":   "ok",
-			"database": dbStatus,
-			"redis":    redisStatus,
-		}, gin.H{
+		response.Success(c, status, body, gin.H{
 			"env": cfg.Env,
 		})
 	})

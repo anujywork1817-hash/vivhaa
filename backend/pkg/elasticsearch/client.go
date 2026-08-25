@@ -22,11 +22,41 @@ type Client struct {
 }
 
 func NewClient(cfg configs.ElasticsearchConfig) (*Client, error) {
-	es, err := esv8.NewClient(esv8.Config{Addresses: cfg.Addresses})
+	es, err := esv8.NewClient(esv8.Config{
+		Addresses: cfg.Addresses,
+		// The client's connection pool otherwise updates itself from
+		// whatever address the cluster's own nodes-info response reports
+		// for each node — inside Docker, Elasticsearch commonly reports
+		// itself as 127.0.0.1, which is meaningless to a remote client
+		// (works fine when the API and ES share one host, breaks the
+		// instant they're on separate machines like this AWS deployment:
+		// the client silently switches from the configured address to
+		// "127.0.0.1:9200" and every subsequent request fails with
+		// "connection refused"). Disabling discovery keeps it pinned to
+		// exactly the Addresses given here.
+		DiscoverNodesOnStart:  false,
+		DiscoverNodesInterval: 0,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create elasticsearch client: %w", err)
 	}
 	return &Client{es: es}, nil
+}
+
+// Ping confirms the cluster is reachable, for use by the app's readiness
+// check (see the 2026-08-24 incident where Elasticsearch was unreachable
+// from the API for hours — a missing security-group rule — and nothing
+// caught it until a real /search/profiles request timed out).
+func (c *Client) Ping(ctx context.Context) error {
+	res, err := c.es.Ping(c.es.Ping.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("elasticsearch ping: status %d", res.StatusCode)
+	}
+	return nil
 }
 
 // EnsureIndex creates the index with the given mapping if it doesn't

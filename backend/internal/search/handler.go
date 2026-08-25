@@ -1,6 +1,7 @@
 package search
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,7 @@ func (h *Handler) Search(c *gin.Context) {
 	userID := c.GetString("user_id")
 	results, meta, err := h.service.Search(c.Request.Context(), userID, q)
 	if err != nil {
+		slog.Error("search failed", "error", err, "query", q)
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 		return
 	}

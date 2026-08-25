@@ -6,6 +6,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,9 +14,29 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	smithy "github.com/aws/smithy-go"
 
 	"matrimony-backend/configs"
 )
+
+// ErrBucketNotFound distinguishes a missing/un-provisioned bucket from a
+// generic storage failure. Surfaced so callers can log and respond with a
+// specific, actionable message instead of a bare 500 — see the 2026-08-24
+// incident where a never-provisioned "matrimony-verification-docs" bucket
+// on a fresh environment made every ID-verification upload fail with a
+// generic "internal_error" that took manual log-diving to diagnose.
+var ErrBucketNotFound = errors.New("storage bucket not found")
+
+// wrapBucketError checks whether err is S3's "no such bucket" response and,
+// if so, wraps it in ErrBucketNotFound naming the bucket; otherwise it
+// passes err through wrapped with the given context message.
+func wrapBucketError(err error, msg, bucket string) error {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchBucket" {
+		return fmt.Errorf("%w: bucket %q: %s", ErrBucketNotFound, bucket, msg)
+	}
+	return fmt.Errorf("%s: %w", msg, err)
+}
 
 type Client struct {
 	s3            *s3.Client
@@ -67,6 +88,22 @@ func NewClient(ctx context.Context, cfg configs.S3Config) (*Client, error) {
 	}, nil
 }
 
+// BucketsReachable confirms both the public photos bucket and the private
+// verification-docs bucket exist and are reachable — read-only, unlike
+// EnsureBucket/EnsureDocsBucket, so it's safe to call on every readiness
+// probe rather than only at APP_ENV=dev startup. Returns a descriptive
+// error naming whichever bucket is missing, since "storage unavailable"
+// alone sent someone down an hour of log-diving on 2026-08-24 to learn it
+// was specifically matrimony-verification-docs that had never been created.
+func (c *Client) BucketsReachable(ctx context.Context) error {
+	for _, bucket := range []string{c.bucket, c.docsBucket} {
+		if _, err := c.s3.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)}); err != nil {
+			return fmt.Errorf("bucket %q unreachable: %w", bucket, err)
+		}
+	}
+	return nil
+}
+
 // EnsureBucket creates the configured public profile-photos bucket if it
 // doesn't already exist. Intended for local/dev use against MinIO; in
 // staging/prod the bucket (and its public-read policy) is expected to be
@@ -103,7 +140,7 @@ func (c *Client) Upload(ctx context.Context, key string, body []byte, contentTyp
 		ContentType: aws.String(contentType),
 	})
 	if err != nil {
-		return "", fmt.Errorf("upload object: %w", err)
+		return "", wrapBucketError(err, "upload object", c.bucket)
 	}
 	return fmt.Sprintf("%s/%s", c.publicBaseURL, key), nil
 }
@@ -140,7 +177,7 @@ func (c *Client) UploadDoc(ctx context.Context, key string, body []byte, content
 		ContentType: aws.String(contentType),
 	})
 	if err != nil {
-		return fmt.Errorf("upload doc object: %w", err)
+		return wrapBucketError(err, "upload doc object", c.docsBucket)
 	}
 	return nil
 }

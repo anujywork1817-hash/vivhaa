@@ -3,15 +3,16 @@ package verification
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	"matrimony-backend/internal/storage"
 	"matrimony-backend/pkg/response"
+	"matrimony-backend/pkg/s3"
 )
-
-const maxUploadBytes = 11 * 1024 * 1024
 
 type Handler struct {
 	service *Service
@@ -29,7 +30,7 @@ func (h *Handler) Submit(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "invalid_body", "form field 'document' is required", nil)
 		return
 	}
-	if fileHeader.Size > maxUploadBytes {
+	if fileHeader.Size > storage.MaxDocumentSizeBytes {
 		response.Fail(c, http.StatusBadRequest, "file_too_large", "document exceeds the maximum allowed size", nil)
 		return
 	}
@@ -145,6 +146,16 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusConflict, "already_reviewed", err.Error(), nil)
 	case errors.Is(err, ErrNotFound):
 		response.Fail(c, http.StatusNotFound, "not_found", err.Error(), nil)
+	case errors.Is(err, s3.ErrBucketNotFound):
+		// Distinguished from a generic internal_error because this is a
+		// misconfiguration (a required bucket was never provisioned in
+		// this environment), not a transient failure — see
+		// backend/scripts/infra/provision-minio-buckets.sh. Logged at
+		// ERROR so it pages/alerts rather than requiring a user report
+		// and manual log-diving to discover, unlike the 2026-08-24
+		// incident this replaces.
+		slog.Error("storage misconfiguration: bucket not found", "error", err)
+		response.Fail(c, http.StatusInternalServerError, "storage_misconfigured", "verification storage is not available right now", nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}
