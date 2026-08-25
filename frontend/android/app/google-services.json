@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "879856026168-68bllba36bg6i5v41m58vvglabbike5c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.shaadiclone.shaadi_clone",
+            "certificate_hash": "8250cc309b8aecddaeea77e1134eb0d1aa72ce18"
+          }
+        },
+        {
           "client_id": "879856026168-k5fmr2t88smvojhga3fe4bdmogar0ogs.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
