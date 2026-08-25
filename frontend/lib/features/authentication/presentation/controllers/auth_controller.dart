@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show Widget;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignInAccount;
 import '../../../../core/api/api_result.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/notifications/push_notification_service.dart';
@@ -59,6 +61,15 @@ class AuthController extends StateNotifier<AuthState> {
   final PushNotificationService _push;
 
   AuthController(this._repository, this._googleAuth, this._push) : super(const AuthState());
+
+  /// Google's own rendered Sign-In button — null except on web, where it's
+  /// required (see GoogleAuthService.renderWebButton).
+  Widget? get googleWebButton => _googleAuth.renderWebButton();
+
+  /// Fires when a web sign-in completes via [googleWebButton] — see
+  /// [completeGoogleSignInWithAccount].
+  Stream<GoogleSignInAccount?> get googleAccountChanges =>
+      _googleAuth.onCurrentUserChanged;
 
   Future<bool> requestOtp(String contact) async {
     state = state.copyWith(isLoading: true, clearFailure: true, clearDevOtp: true);
@@ -215,7 +226,35 @@ class AuthController extends StateNotifier<AuthState> {
         state = state.copyWith(isLoading: false);
         return GoogleSignInResult.cancelled;
       }
+      return completeGoogleSignInWithAccount(account);
+    } on GoogleAuthNotConfiguredException catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        failure: AppFailure.unknown(
+          "Google Sign-In isn't set up for this platform yet. ${e.details}",
+        ),
+      );
+      return GoogleSignInResult.failed;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        failure: AppFailure.unknown('Google Sign-In failed. Please try again.'),
+      );
+      return GoogleSignInResult.failed;
+    }
+  }
 
+  /// Exchanges an already-obtained [GoogleSignInAccount] for a real backend
+  /// session — the shared second half of [signInWithGoogle], also called
+  /// directly for the web-only flow where the account instead arrives via
+  /// [GoogleAuthService.onCurrentUserChanged] (a click on Google's own
+  /// rendered button, not the imperative `signIn()` call above; see
+  /// GoogleAuthService's doc comments for why web needs that distinction).
+  Future<GoogleSignInResult> completeGoogleSignInWithAccount(
+    GoogleSignInAccount account,
+  ) async {
+    state = state.copyWith(isLoading: true, clearFailure: true);
+    try {
       final idToken = (await account.authentication).idToken;
       if (idToken == null) {
         state = state.copyWith(
@@ -252,14 +291,6 @@ class AuthController extends StateNotifier<AuthState> {
           return GoogleSignInResult.failed;
         },
       );
-    } on GoogleAuthNotConfiguredException catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        failure: AppFailure.unknown(
-          "Google Sign-In isn't set up for this platform yet. ${e.details}",
-        ),
-      );
-      return GoogleSignInResult.failed;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

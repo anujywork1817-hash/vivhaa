@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignInAccount;
 import '../../../../core/router/app_routes.dart';
 import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -76,8 +79,36 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen>
     duration: const Duration(seconds: 14),
   )..repeat();
 
+  // Web-only: a click on Google's own rendered button (see
+  // AuthController.googleWebButton) surfaces its result through this
+  // stream rather than through a return value — the imperative `signIn()`
+  // path other platforms use doesn't apply on web (see
+  // GoogleAuthService's doc comments for why).
+  StreamSubscription<GoogleSignInAccount?>? _googleWebSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _googleWebSub = ref
+          .read(authControllerProvider.notifier)
+          .googleAccountChanges
+          .listen(_onGoogleWebAccount);
+    }
+  }
+
+  Future<void> _onGoogleWebAccount(GoogleSignInAccount? account) async {
+    if (account == null) return;
+    final result = await ref
+        .read(authControllerProvider.notifier)
+        .completeGoogleSignInWithAccount(account);
+    if (!mounted) return;
+    await _handleGoogleResult(result);
+  }
+
   @override
   void dispose() {
+    _googleWebSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _entrance.dispose();
@@ -133,11 +164,34 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen>
           content: Text(failure.message)));
   }
 
+  /// On web, Google's own rendered button (required — see
+  /// GoogleAuthService.renderWebButton); everywhere else, the app's
+  /// custom-styled button plus the imperative sign-in flow.
+  Widget _buildGoogleButton(bool isLoading) {
+    if (kIsWeb) {
+      final webButton =
+          ref.read(authControllerProvider.notifier).googleWebButton;
+      if (webButton != null) {
+        return SizedBox(height: 44, child: Center(child: webButton));
+      }
+    }
+    return _GoogleButton(
+      loading: isLoading,
+      onTap: isLoading ? null : _signInWithGoogle,
+    );
+  }
+
   Future<void> _signInWithGoogle() async {
     final result =
         await ref.read(authControllerProvider.notifier).signInWithGoogle();
     if (!mounted) return;
+    await _handleGoogleResult(result);
+  }
 
+  /// Shared by both Google sign-in entry points: the imperative
+  /// [_signInWithGoogle] (non-web) and [_onGoogleWebAccount] (web, via
+  /// Google's own rendered button).
+  Future<void> _handleGoogleResult(GoogleSignInResult result) async {
     switch (result) {
       case GoogleSignInResult.signedIn:
         await _routeAfterAuth();
@@ -270,10 +324,7 @@ class _AuthChoiceScreenState extends ConsumerState<AuthChoiceScreen>
                               const SizedBox(height: 18),
                               _Reveal(
                                 animation: _reveal(0.55, 0.95),
-                                child: _GoogleButton(
-                                  loading: isLoading,
-                                  onTap: isLoading ? null : _signInWithGoogle,
-                                ),
+                                child: _buildGoogleButton(isLoading),
                               ),
                               const SizedBox(height: 26),
                               _Reveal(
