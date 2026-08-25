@@ -262,3 +262,40 @@ live network round-trips to five separate dependencies at all. The
 same benign client-side ramp-down connection churn noted earlier
 (dial tcp: connectex ... did not properly respond), not a server-side
 regression.
+
+================================================================
+8. CLOSEOUT - REMAINING GAPS FIXED (2026-08-25)
+================================================================
+
+Three items identified after the /health fix as still open:
+
+1. Upload-size inconsistency: nginx (15MB), the verification handler
+   (hardcoded 11MB), and storage.MaxDocumentSizeBytes (10MB) disagreed.
+   A file between 10-11MB would pass the handler's check then fail
+   inside storage.ValidateDocument with a confusing "invalid_file"
+   error. FIXED: handler now uses storage.MaxDocumentSizeBytes as the
+   single source of truth instead of a separate constant.
+
+2. Only KAFKA_BROKERS/ES_ADDRESSES had been codified into
+   .ebextensions; every other non-secret env var (DB_HOST, REDIS_ADDR,
+   S3_* endpoints/buckets, CORS_ALLOWED_ORIGINS, feature flags, STUN/
+   TURN URLs) remained console-only and carried the same rollback risk.
+   FIXED: all non-secret vars now codified in
+   backend/.ebextensions/01-environment-settings.config. Credentials
+   (DB_PASSWORD, JWT secrets, Razorpay keys, S3/TURN secrets) are
+   deliberately excluded and remain console/Parameter-Store only -
+   committing secrets to source control is a worse risk than the
+   config-drift problem this solves.
+
+3. A dead leftover env var, CORS_ALLOW_ALL_ORIGINS=true, was still set
+   on the live environment from an earlier (incorrect) fix attempt
+   during the original CORS panic debugging - confirmed via grep that
+   it doesn't exist anywhere in the codebase. FIXED: removed from the
+   live environment to avoid misleading a future engineer.
+
+Deployed as application version final-fixes-v1. Verified live after
+deploy: GET /health all-green, GET /search/profiles returns real data,
+POST /auth/login works - no regression from the full env-var
+codification.
+
+Committed as a43d312 (code + .ebextensions) and 418dd47 (report).
