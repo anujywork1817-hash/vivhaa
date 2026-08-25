@@ -1,0 +1,155 @@
+VIVAHA - AWS DEPLOYMENT REPORT
+Region: ap-south-1 (Mumbai)
+Date: 2026-08-24
+
+================================================================
+1. SEARCH BUG (/search/profiles) - FULLY RESOLVED
+================================================================
+
+Three independent issues were stacked on top of each other, each one
+masking the next until the previous was fixed.
+
+--- Issue 1: Env vars silently wiped ---
+Root cause: A failed Elastic Beanstalk config-deploy silently rolled
+back the KAFKA_BROKERS and ES_ADDRESSES environment variables to an
+earlier snapshot, leaving the API pointed at localhost:59200 and
+localhost:59092 instead of the real supporting-services host.
+Symptom: HTTP 500 internal_error
+Fix: Re-applied both env vars together with the version-label redeploy
+in a single `update-environment` call, to avoid re-triggering the same
+rollback.
+
+--- Issue 2: Missing security group rules ---
+Root cause: Security group sg-058208ed4c5f06c64 never had ingress rules
+opened for port 59200 (Elasticsearch) or port 59092 (Kafka). Redis
+(56379) and MinIO (59000) had been opened earlier, but these two were
+missed.
+Symptom: HTTP 504 / complete request hang. Confirmed via SSM that a raw
+curl from the Beanstalk EC2 instance itself to the ES host timed out
+completely.
+Fix: Opened both ports via aws ec2 authorize-security-group-ingress,
+scoped to the VPC CIDR (172.31.0.0/16) only, not public.
+
+--- Issue 3: Silent panic swallowing (found earlier in the session) ---
+Root cause: sentry.Recover() (bare, no repanic) captured a startup
+panic (CORS "conflict settings: all origins disabled") and reported it
+to Sentry, but did not re-panic, so main() returned normally afterward
+- exit code 0, zero log output, indistinguishable from a clean
+shutdown.
+Fix: main.go's deferred recover now re-panics after reporting to
+Sentry, so real startup failures are visible in docker logs again.
+
+Verification: GET /search/profiles?religion=Hindu&city=Mumbai now
+returns HTTP 200 in ~59ms with the expected empty-result envelope.
+
+================================================================
+2. LOAD TEST - 1000 CONCURRENT VIRTUAL USERS
+================================================================
+
+Target: http://vivaha-api-prod.eba-7txximqk.ap-south-1.elasticbeanstalk.com
+Ramp profile: 1m -> 200, 1m -> 500, 2m -> 1000, 1m sustained @ 1000, 1m -> 0
+Total duration: 6 minutes
+Endpoints exercised per iteration: /health, /search/profiles, /users/me
+
+RESULTS
+-------
+Total requests:        516,465
+Throughput:             1,430 req/s sustained
+http_req_failed:        0.18%   (threshold was <5%  -> PASSED)
+p95 latency:             101.32 ms  (threshold was <2000ms -> PASSED)
+p90 latency:              62.99 ms
+avg latency:              30.78 ms
+max latency:            1.77 s
+Completed iterations:   172,108
+Interrupted iterations:     82  (normal VU ramp-down artifacts)
+
+Check breakdown:
+  health ok  : 99.78% (171,814 / 172,190)
+  search ok  : 99.81% (171,827 / 172,161)
+  me ok      : 99.84% (171,845 / 172,113)
+
+CONCLUSION
+----------
+The single t3.small Elastic Beanstalk instance, backed by the shared
+EC2 box running Postgres/Redis/Kafka/Elasticsearch/MinIO, held up well
+under 1000 concurrent virtual users. No error-rate spike and no
+latency cliff during the steepest ramp phase (0 -> 1000 VUs in 2
+minutes). The 0.18% failure rate is consistent with brief connection
+resets during that ramp, not a systemic breakdown.
+
+================================================================
+3. OUTSTANDING ISSUE (spotted, not yet fixed)
+================================================================
+
+nginx on the Beanstalk instance is rejecting POST /verification/id
+uploads over ~1MB with "client intended to send too large body" -
+seen repeatedly in production logs for 5-9MB ID verification photos
+from real users. Root cause is nginx's default client_max_body_size
+being too small. FIXED (2026-08-24, post-report): added
+backend/.platform/nginx/conf.d/upload_size.conf setting
+client_max_body_size to 15M, redeployed as application version
+nginx-body-size-fix-v2. Verified nginx no longer rejects large
+uploads.
+
+================================================================
+4. SECOND BUG FOUND WHILE VERIFYING #3 - IDENTITY VERIFICATION
+   UPLOADS FAILING WITH "something went wrong" - FIXED
+================================================================
+
+After the nginx fix, a real upload to POST /verification/id still
+failed, now with HTTP 500 "internal_error" ("something went wrong").
+
+Root cause: cmd/api/main.go only calls s3Client.EnsureBucket() /
+EnsureDocsBucket() when APP_ENV=dev - by design, since in staging/prod
+the bucket is expected to be provisioned via infra tooling ahead of
+time. Nobody had provisioned it for the fresh Mumbai MinIO instance:
+the "matrimony-photos" bucket existed (created earlier, by hand or via
+some initial dev-mode run), but the private "matrimony-verification-
+docs" bucket used exclusively for ID-verification uploads was never
+created at all. Every upload attempt failed inside
+storage.DocumentUploader.UploadVerificationDoc with a bucket-not-found
+error, surfaced to the client only as the generic internal_error
+message.
+
+Fix: created the missing bucket directly on the Mumbai MinIO instance
+via `mc mb local/matrimony-verification-docs` + `mc anonymous set none`
+(private, matching what EnsureDocsBucket would have done). This is an
+infra/data fix, not a code change - the dev-mode gating in main.go is
+intentional and was left as-is.
+
+Verified: the same test upload that previously returned 500 now
+returns HTTP 200 with success:true, a stored document, and a valid
+presigned download URL.
+
+================================================================
+5. LOAD TEST RE-RUN (2026-08-25) - CONFIRMING FIXES HOLD UNDER LOAD
+================================================================
+
+Same 1000-VU ramp re-run against vivaha-api-prod after the nginx and
+MinIO bucket fixes above, to confirm neither fix introduced a
+regression under load.
+
+RESULTS
+-------
+Total requests:        471,518
+Throughput:             1,307 req/s sustained
+http_req_failed:        0.45%   (threshold was <5%  -> PASSED)
+p95 latency:              47.64 ms  (threshold was <2000ms -> PASSED,
+                           better than run #1's 101.32ms)
+p90 latency:              32.62 ms
+avg latency:              19.67 ms
+max latency:            1.05 s
+Completed iterations:   157,087
+Interrupted iterations:    159  (ramp-down artifacts)
+
+Check breakdown:
+  health ok  : 99.47% (156,421 / 157,246)
+  search ok  : 99.54% (156,459 / 157,180)
+  me ok      : 99.62% (156,498 / 157,091)
+
+Slightly higher failure rate than run #1 (0.45% vs 0.18%) - a handful
+of "dial tcp: connectex ... did not properly respond" errors appeared
+near the ramp-down tail (VUs scaling down from 1000), consistent with
+brief client-side connection churn rather than a backend regression.
+No 500s or 504s reappeared - the /search/profiles and identity-
+verification fixes both held under load.

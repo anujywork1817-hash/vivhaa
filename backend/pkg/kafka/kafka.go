@@ -12,11 +12,13 @@ import (
 )
 
 type Producer struct {
-	writer *kafka.Writer
+	writer  *kafka.Writer
+	brokers []string
 }
 
 func NewProducer(brokers []string) *Producer {
 	return &Producer{
+		brokers: brokers,
 		writer: &kafka.Writer{
 			Addr:                   kafka.TCP(brokers...),
 			Balancer:               &kafka.LeastBytes{},
@@ -24,6 +26,24 @@ func NewProducer(brokers []string) *Producer {
 			BatchTimeout:           50 * time.Millisecond,
 		},
 	}
+}
+
+// Ping dials the first configured broker to confirm it's reachable. Used by
+// the readiness check so a network-level misconfiguration (wrong host, a
+// missing security-group rule) is caught by a health probe instead of only
+// surfacing on the first real publish — see the 2026-08-24 incident where
+// Kafka/Elasticsearch ports were never opened on the supporting-services
+// security group, and the resulting failure was invisible until a real
+// request exercised the path.
+func (p *Producer) Ping(ctx context.Context) error {
+	if len(p.brokers) == 0 {
+		return nil
+	}
+	conn, err := kafka.DefaultDialer.DialContext(ctx, "tcp", p.brokers[0])
+	if err != nil {
+		return err
+	}
+	return conn.Close()
 }
 
 func (p *Producer) Publish(ctx context.Context, topic, key string, value []byte) error {

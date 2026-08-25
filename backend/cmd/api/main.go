@@ -204,15 +204,41 @@ func main() {
 			redisStatus = "unavailable"
 		}
 
+		// Dependency reachability checks added after the 2026-08-24
+		// incident, where Kafka/Elasticsearch were unreachable (missing
+		// security-group rules) and a missing storage bucket both went
+		// undetected until real requests failed — /health only checked
+		// DB/Redis, so nothing caught either until a user hit them.
+		esStatus := "ok"
+		if err := esClient.Ping(checkCtx); err != nil {
+			esStatus = "unavailable"
+			log.Error("readiness check: elasticsearch unreachable", "error", err)
+		}
+
+		kafkaStatus := "ok"
+		if err := kafkaProducer.Ping(checkCtx); err != nil {
+			kafkaStatus = "unavailable"
+			log.Error("readiness check: kafka unreachable", "error", err)
+		}
+
+		storageStatus := "ok"
+		if err := s3Client.BucketsReachable(checkCtx); err != nil {
+			storageStatus = "unavailable"
+			log.Error("readiness check: storage bucket unreachable", "error", err)
+		}
+
 		status := http.StatusOK
-		if dbStatus != "ok" || redisStatus != "ok" {
+		if dbStatus != "ok" || redisStatus != "ok" || esStatus != "ok" || kafkaStatus != "ok" || storageStatus != "ok" {
 			status = http.StatusServiceUnavailable
 		}
 
 		response.Success(c, status, gin.H{
-			"status":   "ok",
-			"database": dbStatus,
-			"redis":    redisStatus,
+			"status":        "ok",
+			"database":      dbStatus,
+			"redis":         redisStatus,
+			"elasticsearch": esStatus,
+			"kafka":         kafkaStatus,
+			"storage":       storageStatus,
 		}, gin.H{
 			"env": cfg.Env,
 		})
