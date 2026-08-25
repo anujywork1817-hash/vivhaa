@@ -7,13 +7,14 @@ export async function login(identifier: string, password: string): Promise<AuthR
 }
 
 export async function logout() {
-  const refreshToken = tokenStorage.getRefreshToken();
   tokenStorage.clear();
-  if (!refreshToken) return;
   try {
-    // Best-effort: invalidates the refresh token server-side. A failure
-    // here shouldn't block the local sign-out the user is waiting on.
-    await apiClient.post('/auth/logout', { refresh_token: refreshToken });
+    // No body: the backend reads refresh_token from the httpOnly cookie
+    // (see auth/handler.go's Logout) — this app never held a JS-readable
+    // copy of it to send. Best-effort: invalidates the refresh token and
+    // clears the cookies server-side; a failure here shouldn't block the
+    // local sign-out the user is waiting on.
+    await apiClient.post('/auth/logout', {});
   } catch {
     // ignore
   }

@@ -1,11 +1,17 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { Input, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ErrorState } from '../../components/ErrorState';
 import { useUsersList } from '../../hooks/useUsers';
 import type { UserResponse } from '../../types/api';
+
+// A search request fired on every keystroke against a potentially large
+// user table is a real performance/UX problem — debouncing waits for a
+// pause in typing before the query param (and so the API request)
+// actually updates.
+const SEARCH_DEBOUNCE_MS = 300;
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'green',
@@ -18,13 +24,25 @@ export function UserListPage() {
   const [status, setStatus] = useState<string | undefined>();
   const [role, setRole] = useState<string | undefined>();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const { data, isPending, isError, error, refetch, isFetching } = useUsersList({
     status,
     role,
-    search: search || undefined,
+    // A whitespace-only query would otherwise be sent as a real filter
+    // (returning zero results and confusing the admin) rather than being
+    // treated as empty — trimmed above before it ever reaches the API.
+    search: debouncedSearch || undefined,
     page,
     limit,
   });
@@ -66,10 +84,7 @@ export function UserListPage() {
           placeholder="Search phone or email"
           prefix={<SearchOutlined />}
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => setSearch(e.target.value)}
           allowClear
           style={{ width: 260 }}
         />

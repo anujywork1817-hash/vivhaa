@@ -77,16 +77,27 @@ export function VerificationDetailDrawer({
 
   const open = !!verification;
 
-  async function handleApprove() {
+  // A confirmation modal, matching Reject's — approving is an equally
+  // consequential trust decision (it grants a verified badge and unlocks
+  // features), not a lower-stakes action that should skip the guard
+  // Reject already has.
+  function confirmApprove() {
     if (!verification) return;
-    try {
-      await approve.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
-      message.success('Verification approved.');
-      setNotes('');
-      onClose();
-    } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Could not approve this verification.');
-    }
+    Modal.confirm({
+      title: 'Approve this verification?',
+      content: 'The applicant will be granted a verified badge and any features that require it.',
+      okText: 'Approve',
+      onOk: async () => {
+        try {
+          await approve.mutateAsync({ id: verification.id, req: { notes: notes || undefined } });
+          message.success('Verification approved.');
+          setNotes('');
+          onClose();
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : 'Could not approve this verification.');
+        }
+      },
+    });
   }
 
   function confirmReject() {
@@ -160,7 +171,7 @@ export function VerificationDetailDrawer({
               icon={<CheckOutlined />}
               loading={approve.isPending}
               disabled={reject.isPending}
-              onClick={handleApprove}
+              onClick={confirmApprove}
             >
               Approve
             </Button>

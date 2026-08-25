@@ -25,7 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (res.user.role !== 'admin') {
       throw new Error('This account does not have admin access.');
     }
-    tokenStorage.setTokens(res.access_token, res.refresh_token);
+    // Session tokens are never stored here — the backend already set them
+    // as httpOnly cookies as part of the login response. Only the
+    // non-sensitive user object is cached, for UI display on refresh.
     tokenStorage.setUser(res.user);
     setUser(res.user);
   }, []);

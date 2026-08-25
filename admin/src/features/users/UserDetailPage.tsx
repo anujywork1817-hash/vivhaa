@@ -25,6 +25,21 @@ function isImageUrl(url: string): boolean {
   return /\.(png|jpe?g|gif|webp|bmp|heic|heif)(\?|$)/i.test(url);
 }
 
+// document_url comes straight from the API into <Image src>/<a href> with
+// no scheme check — normally always the app's own S3/CDN URL, but if that
+// assumption is ever broken (a compromised upload pipeline, e.g.), an
+// unvalidated javascript:/data: URI could execute in this admin session's
+// authenticated origin the moment someone clicks "View / download
+// document". Only http(s) is ever a legitimate document link.
+function isSafeHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -44,8 +59,15 @@ export function UserDetailPage() {
       okText: 'Suspend',
       okButtonProps: { danger: true },
       onOk: async () => {
-        await suspend.mutateAsync(id as string);
-        message.success('User suspended.');
+        try {
+          await suspend.mutateAsync(id as string);
+          message.success('User suspended.');
+        } catch {
+          // Without this, a failed request (network error, 403, 500) just
+          // silently closed the modal with no feedback — the admin had no
+          // way to tell the suspend didn't actually happen.
+          message.error('Could not suspend this user. Please try again.');
+        }
       },
     });
   }
@@ -57,8 +79,12 @@ export function UserDetailPage() {
       content: 'They will regain full access to the app.',
       okText: 'Activate',
       onOk: async () => {
-        await activate.mutateAsync(id as string);
-        message.success('User activated.');
+        try {
+          await activate.mutateAsync(id as string);
+          message.success('User activated.');
+        } catch {
+          message.error('Could not activate this user. Please try again.');
+        }
       },
     });
   }
@@ -148,7 +174,7 @@ export function UserDetailPage() {
               <List.Item>
                 <List.Item.Meta
                   avatar={
-                    isImageUrl(doc.document_url) ? (
+                    isSafeHttpUrl(doc.document_url) && isImageUrl(doc.document_url) ? (
                       <Image
                         src={doc.document_url}
                         alt={doc.document_type}
@@ -172,9 +198,13 @@ export function UserDetailPage() {
                       <span>Submitted {new Date(doc.created_at).toLocaleString()}</span>
                       {doc.reviewed_at && <span>Reviewed {new Date(doc.reviewed_at).toLocaleString()}</span>}
                       {doc.review_notes && <span>Notes: {doc.review_notes}</span>}
-                      <a href={doc.document_url} target="_blank" rel="noreferrer">
-                        View / download document
-                      </a>
+                      {isSafeHttpUrl(doc.document_url) ? (
+                        <a href={doc.document_url} target="_blank" rel="noreferrer">
+                          View / download document
+                        </a>
+                      ) : (
+                        <span style={{ color: '#8c8c8c' }}>Document link unavailable</span>
+                      )}
                     </Space>
                   }
                 />

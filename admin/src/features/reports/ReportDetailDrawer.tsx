@@ -37,10 +37,17 @@ export function ReportDetailDrawer({ report, onClose }: { report: ReportResponse
         okText: 'Resolve & suspend',
         okButtonProps: { danger: true },
         onOk: async () => {
-          await resolve.mutateAsync({ id: report.id, req });
-          message.success('Report resolved and user suspended.');
-          reset();
-          onClose();
+          try {
+            await resolve.mutateAsync({ id: report.id, req });
+            message.success('Report resolved and user suspended.');
+            reset();
+            onClose();
+          } catch {
+            // Without this, a failed suspend-via-report action gave the
+            // admin no feedback at all — the drawer just stayed open with
+            // no indication anything went wrong.
+            message.error('Could not resolve this report. Please try again.');
+          }
         },
       });
       return;
@@ -53,6 +60,9 @@ export function ReportDetailDrawer({ report, onClose }: { report: ReportResponse
           message.success('Report resolved.');
           reset();
           onClose();
+        },
+        onError: () => {
+          message.error('Could not resolve this report. Please try again.');
         },
       },
     );

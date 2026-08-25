@@ -1,30 +1,35 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { AuthResponse, Envelope } from '../types/api';
 
-const ACCESS_TOKEN_KEY = 'admin_access_token';
-const REFRESH_TOKEN_KEY = 'admin_refresh_token';
+// USER_KEY only ever caches the non-sensitive UserBrief (id/phone/email/
+// role) for restoring "who's logged in" UI on a page refresh without a
+// dedicated /auth/me endpoint. The actual session lives in httpOnly
+// access_token/refresh_token cookies the backend sets on login/refresh
+// (auth/handler.go's setAuthCookies) — NOT in localStorage. A raw bearer
+// token sitting in localStorage is readable (and stealable) by any XSS
+// bug anywhere in this app; an httpOnly cookie is invisible to JS
+// entirely, so there is nothing here for such a bug to steal.
 const USER_KEY = 'admin_user';
 
 export const tokenStorage = {
-  getAccessToken: () => localStorage.getItem(ACCESS_TOKEN_KEY),
-  getRefreshToken: () => localStorage.getItem(REFRESH_TOKEN_KEY),
-  setTokens: (accessToken: string, refreshToken: string) => {
-    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  },
-  // The login response's `user` (id/phone/email/role) is stashed
-  // alongside the tokens so a page refresh can restore "who's logged in
-  // and are they an admin" without a dedicated /auth/me endpoint — the
-  // backend doesn't have one; UserBrief only ever arrives as part of
-  // POST /auth/login or /auth/refresh-token's response.
+  // Best-effort cache only — never the source of truth for "is this user
+  // actually an admin". Every real admin action is re-authorized
+  // server-side (RequireRole("admin")) regardless of what this returns;
+  // this is UI convenience, not a security boundary.
   getUser: <T,>(): T | null => {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as T) : null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      // Malformed cached value (manual edit, partial write) — treat as
+      // logged out rather than throwing uncaught on every app load.
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
   },
   setUser: (user: unknown) => localStorage.setItem(USER_KEY, JSON.stringify(user)),
   clear: () => {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
   },
 };
@@ -32,34 +37,32 @@ export const tokenStorage = {
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-});
-
-apiClient.interceptors.request.use((config) => {
-  const token = tokenStorage.getAccessToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  // Required so the browser actually sends the httpOnly session cookies
+  // on every request (and accepts new ones from Set-Cookie responses) —
+  // without this, a cross-origin request (the admin panel is typically a
+  // separate origin from the API) omits cookies entirely.
+  withCredentials: true,
 });
 
 // Single-flight refresh: concurrent 401s while a refresh is already in
 // flight all wait on the same promise instead of each firing their own
 // refresh request (which would race and likely invalidate each other's
 // new refresh token — the backend rotates it on every use).
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
-async function refreshAccessToken(): Promise<string> {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) throw new Error('no refresh token');
-
+async function refreshAccessToken(): Promise<void> {
+  // No body: the backend falls back to the refresh_token cookie when the
+  // JSON body doesn't carry one (see auth/handler.go's Refresh) — this
+  // app no longer keeps a JS-readable copy of that token to send.
   const { data } = await axios.post<Envelope<AuthResponse>>(
     `${import.meta.env.VITE_API_BASE_URL}/auth/refresh-token`,
-    { refresh_token: refreshToken },
+    {},
+    { withCredentials: true },
   );
-  tokenStorage.setTokens(data.data.access_token, data.data.refresh_token);
   // The refresh response carries the same user object login does, but it
   // was being dropped here — if a role/status changed server-side, the
   // cached user in localStorage stayed stale until the next full login.
   tokenStorage.setUser(data.data.user);
-  return data.data.access_token;
 }
 
 apiClient.interceptors.response.use(
@@ -75,8 +78,10 @@ apiClient.interceptors.response.use(
       refreshPromise ??= refreshAccessToken().finally(() => {
         refreshPromise = null;
       });
-      const newToken = await refreshPromise;
-      original.headers.Authorization = `Bearer ${newToken}`;
+      await refreshPromise;
+      // The new access_token cookie is set by the browser itself from the
+      // refresh response's Set-Cookie header — no header to attach here,
+      // just replay the original request so it picks it up.
       return apiClient(original);
     } catch {
       tokenStorage.clear();
