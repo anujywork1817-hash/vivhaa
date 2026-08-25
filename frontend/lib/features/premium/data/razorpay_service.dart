@@ -89,4 +89,16 @@ class RazorpayService {
     _razorpay?.clear();
     _razorpay = null;
   }
+
+  /// Public entry point for whoever *owns* this service (the checkout
+  /// screen) to call from their own dispose() — the private [_dispose]
+  /// above only ever runs after a Razorpay callback (success/error/
+  /// wallet) actually fires. If the screen is popped before any callback
+  /// fires (backing out mid-checkout), nothing previously cleared the
+  /// native SDK's listeners, leaking them along with whatever context/ref
+  /// the in-flight [open] call had captured, and risking a callback firing
+  /// into an already-disposed screen.
+  void dispose() {
+    _dispose();
+  }
 }

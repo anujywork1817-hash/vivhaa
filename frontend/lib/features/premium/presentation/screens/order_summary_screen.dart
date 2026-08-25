@@ -28,6 +28,7 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
   @override
   void dispose() {
     _couponController.dispose();
+    _razorpay.dispose();
     super.dispose();
   }
 
@@ -94,8 +95,28 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
         return;
       }
 
+      // The payment is fully done and verified at this point — nothing
+      // below can "fail the payment" anymore. It used to sit inside this
+      // same try block, so a throw from submit() (a network blip, an
+      // unrelated profile-save error) fell into the generic catch below
+      // and told the user "Payment failed. Please try again." even though
+      // they'd already been charged and the subscription was already
+      // active — exactly the confused-user/duplicate-charge-attempt risk
+      // a payment flow can't afford. A failure here now gets its own,
+      // honest message and still lands them on Home (already active)
+      // rather than blocking on it.
       ref.invalidate(mySubscriptionProvider);
-      await ref.read(profileCreationControllerProvider.notifier).submit();
+      try {
+        await ref.read(profileCreationControllerProvider.notifier).submit();
+      } catch (e) {
+        debugPrint('OrderSummaryScreen: profile submit after successful payment failed — $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              duration: Duration(seconds: 4),
+              content: Text(
+                  'Payment successful! We had trouble saving a few profile details — you can update them from your profile.')));
+        }
+      }
       if (mounted) context.go(AppRoutes.home);
     } on PaymentFailure catch (f) {
       if (mounted) {

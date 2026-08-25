@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../../core/api/api_endpoints.dart';
@@ -50,8 +51,20 @@ class ChatSocketService {
         return;
       }
 
-      final uri = Uri.parse('${ApiEndpoints.wsBaseUrl}/ws/chat?token=$token');
-      final channel = WebSocketChannel.connect(uri);
+      // The access token travels in a header, not a "?token=" query
+      // string, wherever the platform allows it — query strings are
+      // routinely captured in reverse-proxy/load-balancer access logs and
+      // can leak via a Referer header, letting the token persist in
+      // infrastructure logs long after the connection closes. Only the
+      // web platform can't do this (browsers give WebSocket-constructing
+      // code no way to set arbitrary handshake headers at all, so the
+      // query-string fallback there is an unavoidable browser API
+      // limitation, not a choice) — the backend (ws_handler.go) accepts
+      // both forms specifically to support this.
+      final uri = Uri.parse('${ApiEndpoints.wsBaseUrl}/ws/chat');
+      final channel = kIsWeb
+          ? WebSocketChannel.connect(Uri.parse('$uri?token=$token'))
+          : IOWebSocketChannel.connect(uri, headers: {'Authorization': 'Bearer $token'});
       _channel = channel;
       _subscription = channel.stream.listen(
         _onData,

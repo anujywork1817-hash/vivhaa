@@ -58,11 +58,39 @@ import '../../features/search/presentation/screens/basic_search_screen.dart';
 import '../../features/search/presentation/screens/saved_searches_screen.dart';
 import '../../features/search/presentation/screens/search_by_profile_id_screen.dart';
 import '../../features/search/presentation/screens/search_results_screen.dart';
+import '../storage/secure_storage_service.dart';
 import 'app_routes.dart';
+
+// Routes reachable with no session at all — everything else requires a
+// stored access token. There was previously no guard here whatsoever: a
+// logged-out or session-expired user landing directly on an internal
+// screen (a deep link, a restored browser tab, manually typing a path)
+// saw broken UI (every API call failing) instead of being sent to the
+// auth gate — this relied entirely on the backend rejecting unauthorized
+// calls rather than the app's own navigation ever gating access to a
+// screen in the first place.
+const _publicRoutes = {
+  AppRoutes.splash,
+  AppRoutes.authChoice,
+  AppRoutes.otp,
+  AppRoutes.forgotPassword,
+  AppRoutes.resetPassword,
+};
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    redirect: (context, state) async {
+      final path = state.matchedLocation;
+      if (_publicRoutes.contains(path)) return null;
+      final token = await ref.read(secureStorageServiceProvider).readAccessToken();
+      // A present-but-expired token is fine to let through here — ApiClient
+      // transparently refreshes it on the first real API call the
+      // destination screen makes; this guard is only about "is there any
+      // session at all," not re-validating it on every navigation.
+      if (token == null) return AppRoutes.authChoice;
+      return null;
+    },
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: AppRoutes.authChoice, builder: (_, __) => const AuthChoiceScreen()),

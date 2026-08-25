@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 /// Central endpoint registry, matched to the actual matrimony_backend
 /// Go API (see that project's docs/postman_phase*.json for the full
 /// contract). Paths and the response envelope ({success, data, error,
@@ -26,12 +28,30 @@ class ApiEndpoints {
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) return override;
+    // A release build must NEVER silently fall back to the plaintext LAN
+    // dev server — that would ship every real user's credentials, OTP,
+    // tokens, chat, and payment data in cleartext with no build flag
+    // needed to trigger it. Failing loudly here forces whoever cuts a
+    // release build to explicitly pass a real (https/wss) API_BASE_URL /
+    // WS_BASE_URL — there is currently no TLS-terminated backend this app
+    // can default to, since that requires real infrastructure (a domain +
+    // certificate) that doesn't exist yet, not just a code change.
+    // assert() is stripped out of release builds entirely, so it can't be
+    // what enforces this — an explicit release-mode check is required.
+    if (kReleaseMode) {
+      throw StateError(
+          'API_BASE_URL must be set (--dart-define=API_BASE_URL=https://...) for a release build — refusing to silently ship plaintext HTTP to real users.');
+    }
     return 'http://$_serverHost';
   }
 
   static String get wsBaseUrl {
     const override = String.fromEnvironment('WS_BASE_URL');
     if (override.isNotEmpty) return override;
+    if (kReleaseMode) {
+      throw StateError(
+          'WS_BASE_URL must be set (--dart-define=WS_BASE_URL=wss://...) for a release build — refusing to silently ship plaintext WS to real users.');
+    }
     return 'ws://$_serverHost';
   }
 

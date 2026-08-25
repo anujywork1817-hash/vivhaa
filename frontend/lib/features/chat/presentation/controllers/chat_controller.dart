@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../shared/models/chat_message.dart';
@@ -47,8 +48,20 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
   final Ref _ref;
   final String conversationId;
   StreamSubscription<Map<String, dynamic>>? _subscription;
-  bool sending = false;
-  bool requestingContact = false;
+  Timer? _markReadDebounce;
+
+  // ValueNotifiers, not plain mutable bools: a StateNotifier only tells
+  // Riverpod watchers about a change when its own `state` is reassigned
+  // (here, `state` IS the message list) — a bare `bool` field set
+  // directly, as these were, never triggers a rebuild in anything
+  // watching this controller, so a "sending…" spinner wired up against
+  // them would silently never appear. Wrapping each in its own
+  // ValueNotifier makes them independently, correctly watchable (via
+  // ValueListenableBuilder or ref.watch(...).addListener) without
+  // changing what `state` itself means.
+  final sending = ValueNotifier<bool>(false);
+  final sendingAttachment = ValueNotifier<bool>(false);
+  final requestingContact = ValueNotifier<bool>(false);
 
   MessagesController(this._repository, this._socket, this._ref, this.conversationId)
       : super(const []) {
@@ -91,11 +104,18 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
 
     _appendIfNew(_messageFromJson(data, fromPeer));
     // A message from the peer that arrives while this window is already
-    // open is effectively seen immediately — re-running _load() marks it
-    // read server-side (GetHistory does that as a side effect) and
-    // refreshes the badge count, instead of leaving it counted as unread
-    // until the window is closed and reopened.
-    if (fromPeer) _load();
+    // open is effectively seen immediately — GetHistory marks unread
+    // messages read server-side as a side effect (there's no dedicated
+    // mark-read endpoint) and its response also refreshes the badge
+    // count, so re-running _load() is how that happens. Debounced rather
+    // than fired per-message: a burst of several incoming messages used
+    // to trigger one full history refetch each, even though the message
+    // itself was already appended above — this collapses a rapid burst
+    // into a single refetch shortly after it settles.
+    if (fromPeer) {
+      _markReadDebounce?.cancel();
+      _markReadDebounce = Timer(const Duration(milliseconds: 800), _load);
+    }
   }
 
   ChatMessage _messageFromJson(Map<String, dynamic> data, bool fromPeer) {
@@ -146,33 +166,31 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
   /// arrived, with no indication of what went wrong.
   Future<AppFailure?> send(String text, {String? replyToMessageId}) async {
     if (text.trim().isEmpty) return null;
-    sending = true;
+    sending.value = true;
     final result = await _repository.sendMessage(
       conversationId,
       text.trim(),
       replyToMessageId: replyToMessageId,
     );
-    sending = false;
+    sending.value = false;
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
     return failure;
   }
 
-  bool sendingAttachment = false;
-
   Future<AppFailure?> sendAttachment(List<int> bytes, String filename) async {
-    sendingAttachment = true;
+    sendingAttachment.value = true;
     final result = await _repository.sendAttachment(conversationId, bytes, filename);
-    sendingAttachment = false;
+    sendingAttachment.value = false;
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
     return failure;
   }
 
   Future<AppFailure?> requestContactNumber() async {
-    requestingContact = true;
+    requestingContact.value = true;
     final result = await _repository.requestContactNumber(conversationId);
-    requestingContact = false;
+    requestingContact.value = false;
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
     return failure;
@@ -192,6 +210,10 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _markReadDebounce?.cancel();
+    sending.dispose();
+    sendingAttachment.dispose();
+    requestingContact.dispose();
     super.dispose();
   }
 }
