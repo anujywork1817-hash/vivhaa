@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/config/google_auth_config.dart';
+import 'google_web_button.dart' as web_button;
 
 /// Thin wrapper around the real `google_sign_in` plugin — this talks to
 /// Google's actual OAuth consent screen, not a mock. The account it
@@ -43,6 +45,21 @@ class GoogleAuthService {
   Future<void> signOut() => _googleSignIn.signOut();
 
   Future<void> disconnect() => _googleSignIn.disconnect();
+
+  /// Fires whenever the signed-in Google account changes — including when
+  /// one is produced by Google's own rendered web button (see
+  /// [renderWebButton]), not just by [signIn]. On web this is the only
+  /// reliable way to learn a sign-in completed, since [signIn]'s return
+  /// value there never carries a usable ID token.
+  Stream<GoogleSignInAccount?> get onCurrentUserChanged =>
+      _googleSignIn.onCurrentUserChanged;
+
+  /// Google's own GIS Sign-In button, required on web only: Google
+  /// withholds the ID token from an imperative `signIn()` call triggered
+  /// by a custom button, issuing one only through a click on its own
+  /// rendered button. Returns null on every other platform, where the
+  /// custom "Continue with Google" button plus [signIn] already works.
+  Widget? renderWebButton() => web_button.renderGoogleWebButton();
 }
 
 class GoogleAuthNotConfiguredException implements Exception {
