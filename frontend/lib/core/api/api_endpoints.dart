@@ -14,9 +14,21 @@ class ApiEndpoints {
   /// Moved off the home-network server (192.168.1.222) to the AWS
   /// deployment (ap-south-1 / Mumbai): API + admin panel on Elastic
   /// Beanstalk, Postgres on RDS, Kafka/Redis/Elasticsearch/MinIO/coturn
-  /// self-hosted on an EC2 box. Elastic Beanstalk's own nginx proxy passes
-  /// the WebSocket upgrade through to /ws/chat untouched (verified against
-  /// the live deployment — no extra proxy config needed).
+  /// self-hosted on an EC2 box.
+  ///
+  /// Points at vivaha-api-prod-alb, not the original vivaha-api-prod —
+  /// the original environment's Classic Load Balancer silently rejected
+  /// every WebSocket upgrade with a 400 (confirmed: nginx and the Go app
+  /// both handled the same handshake correctly when hit directly,
+  /// bypassing the load balancer; only the Classic ELB broke it). Load
+  /// balancer type can't be changed on an existing Beanstalk environment
+  /// — it's create-time only — so this is a new environment with the
+  /// same app version, an Application Load Balancer (proper WebSocket
+  /// support, and AWS's modern default over the legacy Classic ELB), and
+  /// every secret manually copied over from the old environment's config
+  /// (NEW_ENVIRONMENT.md's exact "environment variables" gap). /ws/chat
+  /// now upgrades correctly — verified with a real end-to-end call test
+  /// (call:initiate reaching the callee as call:incoming).
   ///
   /// Override per-run without touching this file when you do want a local
   /// backend — e.g. against your own machine:
@@ -25,7 +37,7 @@ class ApiEndpoints {
   /// or the Android emulator's host alias (10.0.2.2), or localhost plus
   /// `adb reverse tcp:8080 tcp:8080` for a USB-tethered device.
   static const String _serverHost =
-      'vivaha-api-prod.eba-7txximqk.ap-south-1.elasticbeanstalk.com';
+      'vivaha-api-prod-alb.eba-7txximqk.ap-south-1.elasticbeanstalk.com';
 
   static String get baseUrl {
     const override = String.fromEnvironment('API_BASE_URL');
