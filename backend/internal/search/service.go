@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 
 	"matrimony-backend/internal/blocked"
 	"matrimony-backend/internal/profiles"
@@ -42,15 +43,24 @@ func (s *Service) Search(ctx context.Context, userID string, q Query) ([]Profile
 	// with a limit) showed both genders to everyone.
 	if q.Gender == nil {
 		ownProfile, err := s.profilesRepo.GetByUserID(ctx, userID)
-		if err != nil {
+		switch {
+		case errors.Is(err, profiles.ErrNotFound):
+			// A caller who hasn't created a profile yet (still mid-
+			// onboarding, or an admin/test account) is an expected, common
+			// state, not a failure — there's nothing to default the gender
+			// filter to here, same as an existing profile with gender
+			// unset (see opposite()). Only a genuine lookup error below
+			// fails closed.
+		case err != nil:
 			// Fail closed, not open: silently proceeding unfiltered on a
 			// transient DB error here would resurrect the exact bug this
 			// default gender filter exists to fix (both genders shown to
 			// everyone) — better to fail the request than to fail the
 			// safety filter.
 			return nil, Meta{}, err
+		default:
+			q.Gender = opposite(ownProfile.Gender)
 		}
-		q.Gender = opposite(ownProfile.Gender)
 	}
 
 	blockedIDs, err := s.blockedRepo.ListBlockedUserIDs(ctx, userID)
