@@ -1,0 +1,8 @@
+# Serves the pre-built Flutter web output with nginx. Build the web
+# bundle first (flutter build web --release) — this Dockerfile just
+# packages the static output, since running the full Flutter SDK inside
+# the image would make every deploy pull in the whole toolchain for no
+# benefit (the build already happened once on CI/the deploy machine).
+FROM nginx:1.27-alpine
+COPY build/web /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
