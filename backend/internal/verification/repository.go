@@ -117,10 +117,18 @@ func (r *Repository) HasApproved(ctx context.Context, userID string) (bool, erro
 	return exists, err
 }
 
+// Review transitions id from 'pending' to status (approved/rejected) —
+// gated on the row's *current* status being 'pending' in the WHERE
+// clause itself (an atomic conditional UPDATE, not a separate read-then-
+// write), so two admins hitting approve/reject on the same submission at
+// the same time, or a re-approve/re-reject of an already-decided one,
+// can't silently overwrite review history: only the first one to land
+// actually transitions the row, and every other caller gets ErrNotFound
+// (no row matched) back from the scan below.
 func (r *Repository) Review(ctx context.Context, id, status, reviewerID string, notes *string) (Verification, error) {
 	q := `
 		UPDATE verifications SET status = $2, reviewed_by = $3, review_notes = $4, reviewed_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND status = 'pending'
 		RETURNING ` + columns
 	return r.scan(r.db.QueryRow(ctx, q, id, status, reviewerID, notes))
 }

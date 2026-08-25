@@ -31,8 +31,34 @@ func (r *Repository) GetByCode(ctx context.Context, code string) (Coupon, error)
 	return c, err
 }
 
+// IncrementUsage atomically reserves one use of the coupon, only
+// succeeding while under max_uses — the UPDATE's WHERE clause and
+// increment happen as a single atomic statement, so two concurrent
+// callers can't both read used_count < max_uses and both increment,
+// oversubscribing a max-uses=1 coupon (the previous check-then-increment
+// across two separate calls had exactly that race). Returns
+// coupons.ErrExhausted if no row matched (limit already reached or hit by
+// a concurrent caller first).
 func (r *Repository) IncrementUsage(ctx context.Context, id string) error {
-	const q = `UPDATE coupons SET used_count = used_count + 1 WHERE id = $1`
+	const q = `
+		UPDATE coupons SET used_count = used_count + 1
+		WHERE id = $1 AND (max_uses IS NULL OR used_count < max_uses)`
+	tag, err := r.db.Exec(ctx, q, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrExhausted
+	}
+	return nil
+}
+
+// DecrementUsage releases a reservation IncrementUsage made, when the
+// checkout that reserved it doesn't end up completing (order-creation
+// failure, a DB write failure, ...) — without this, an abandoned checkout
+// would permanently burn one use of the coupon for nothing.
+func (r *Repository) DecrementUsage(ctx context.Context, id string) error {
+	const q = `UPDATE coupons SET used_count = used_count - 1 WHERE id = $1 AND used_count > 0`
 	_, err := r.db.Exec(ctx, q, id)
 	return err
 }

@@ -41,9 +41,16 @@ func (s *Service) Search(ctx context.Context, userID string, q Query) ([]Profile
 	// `gender` (e.g. the "New Members" list, which just hits this endpoint
 	// with a limit) showed both genders to everyone.
 	if q.Gender == nil {
-		if ownProfile, err := s.profilesRepo.GetByUserID(ctx, userID); err == nil {
-			q.Gender = opposite(ownProfile.Gender)
+		ownProfile, err := s.profilesRepo.GetByUserID(ctx, userID)
+		if err != nil {
+			// Fail closed, not open: silently proceeding unfiltered on a
+			// transient DB error here would resurrect the exact bug this
+			// default gender filter exists to fix (both genders shown to
+			// everyone) — better to fail the request than to fail the
+			// safety filter.
+			return nil, Meta{}, err
 		}
+		q.Gender = opposite(ownProfile.Gender)
 	}
 
 	blockedIDs, err := s.blockedRepo.ListBlockedUserIDs(ctx, userID)

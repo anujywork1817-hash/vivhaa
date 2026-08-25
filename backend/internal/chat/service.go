@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"matrimony-backend/internal/analytics"
@@ -14,6 +15,7 @@ import (
 	"matrimony-backend/internal/queue"
 	"matrimony-backend/internal/subscriptions"
 	"matrimony-backend/internal/websocket"
+	"matrimony-backend/pkg/ratelimit"
 )
 
 var (
@@ -36,6 +38,10 @@ var (
 	// ErrChatRestricted is returned when the sender is under a temporary
 	// send restriction from repeated moderation violations (Phase 14).
 	ErrChatRestricted = errors.New("you're temporarily restricted from sending messages")
+
+	ErrEmptyMessage   = errors.New("message body is required")
+	ErrMessageTooLong = errors.New("message is too long")
+	ErrRateLimited    = errors.New("you're sending messages too quickly — please slow down")
 )
 
 // userFacingBlockMessage is the ONLY thing ever shown to a user whose
@@ -61,7 +67,21 @@ type Service struct {
 	hub           *websocket.Hub
 	guard         *chatguard.Engine
 	abuseCfg      AbuseConfig
+	limiter       *ratelimit.Limiter
 }
+
+// messageRateLimit/messageRateWindow cap how fast an authorized,
+// non-blocked, already-matched user can send — every REST send goes
+// through Gin's per-route middleware too, but that doesn't cover the
+// WebSocket send path (HandleIncoming), which funnels through this same
+// SendMessage — without a check here, WS was a completely unthrottled
+// spam vector (each send triggers a DB write, Redis publish, analytics
+// event, and queued push notification) even between two mutually
+// matched, non-blocked users who'd done nothing else wrong.
+const (
+	messageRateLimit  = 30
+	messageRateWindow = time.Minute
+)
 
 // AbuseConfig drives the escalating restriction applied to repeated
 // moderation violations (Phase 14) — configurable, not hard-coded, so
@@ -72,8 +92,8 @@ type AbuseConfig struct {
 	ReviewThreshold   int
 }
 
-func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesSvc *profiles.Service, publisher *queue.Publisher, subsSvc *subscriptions.Service, analyticsSvc *analytics.Service, hub *websocket.Hub, guard *chatguard.Engine, abuseCfg AbuseConfig) *Service {
-	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub, guard: guard, abuseCfg: abuseCfg}
+func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRepo *blocked.Repository, profilesSvc *profiles.Service, publisher *queue.Publisher, subsSvc *subscriptions.Service, analyticsSvc *analytics.Service, hub *websocket.Hub, guard *chatguard.Engine, abuseCfg AbuseConfig, limiter *ratelimit.Limiter) *Service {
+	return &Service{repo: repo, interestsRepo: interestsRepo, blockedRepo: blockedRepo, profilesSvc: profilesSvc, publisher: publisher, subsSvc: subsSvc, analyticsSvc: analyticsSvc, hub: hub, guard: guard, abuseCfg: abuseCfg, limiter: limiter}
 }
 
 // checkCanSend runs the checks every send path (text, attachment, contact
@@ -114,10 +134,34 @@ func (s *Service) checkCanSend(ctx context.Context, senderID, receiverID string)
 	if !canChat {
 		return ErrPremiumRequired
 	}
+
+	if s.limiter != nil {
+		if err := s.limiter.Allow(ctx, "chat:send:"+senderID, messageRateLimit, messageRateWindow); err != nil {
+			var limitErr *ratelimit.LimitExceededError
+			if errors.As(err, &limitErr) {
+				return ErrRateLimited
+			}
+			return err
+		}
+	}
 	return nil
 }
 
+// maxMessageBodyLen matches the REST handler's validate:"max=4000" tag —
+// duplicated here (not read from a shared const in that struct tag) so
+// the WebSocket path, which has no validator middleware of its own,
+// enforces the identical limit. Without this, a client could send over
+// WS instead of REST to submit an empty or up-to-64KB message,
+// inconsistent with (and bypassing) the REST limit.
+const maxMessageBodyLen = 4000
+
 func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body string, replyToID *string) (MessageResponse, error) {
+	if len(body) == 0 {
+		return MessageResponse{}, ErrEmptyMessage
+	}
+	if len(body) > maxMessageBodyLen {
+		return MessageResponse{}, ErrMessageTooLong
+	}
 	if err := s.checkCanSend(ctx, senderID, receiverID); err != nil {
 		return MessageResponse{}, err
 	}
@@ -129,7 +173,7 @@ func (s *Service) SendMessage(ctx context.Context, senderID, receiverID, body st
 	// been deleted/moderated between the swipe and the send completing).
 	var repliedMsg *Message
 	if replyToID != nil {
-		if replied, err := s.repo.GetMessageByID(ctx, *replyToID); err == nil &&
+		if replied, err := s.repo.GetMessageByID(ctx, *replyToID, senderID); err == nil &&
 			(replied.SenderUserID == senderID || replied.SenderUserID == receiverID) &&
 			(replied.ReceiverUserID == senderID || replied.ReceiverUserID == receiverID) {
 			repliedMsg = &replied
@@ -272,7 +316,7 @@ func (s *Service) RequestContact(ctx context.Context, requesterID, targetID stri
 // message visible to both participants; on decline, only the request
 // message's status changes — no number is ever touched.
 func (s *Service) RespondContact(ctx context.Context, responderID, messageID string, accept bool) (MessageResponse, error) {
-	m, err := s.repo.GetMessageByID(ctx, messageID)
+	m, err := s.repo.GetMessageByID(ctx, messageID, responderID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return MessageResponse{}, ErrContactRequestNotFound
@@ -284,6 +328,22 @@ func (s *Service) RespondContact(ctx context.Context, responderID, messageID str
 	}
 	if m.ReceiverUserID != responderID {
 		return MessageResponse{}, ErrNotContactRecipient
+	}
+
+	// Blocking was only ever checked at the original request time — if
+	// either side blocked the other in the meantime, accepting here would
+	// still share contact info between them, contradicting the app's
+	// blocking guarantee. Declining a blocked request is harmless (no
+	// info is shared either way), so this only needs to gate the accept
+	// path.
+	if accept {
+		isBlocked, err := s.blockedRepo.IsBlocked(ctx, m.SenderUserID, m.ReceiverUserID)
+		if err != nil {
+			return MessageResponse{}, err
+		}
+		if isBlocked {
+			return MessageResponse{}, ErrBlocked
+		}
 	}
 
 	newKind := MessageKindContactDeclined
@@ -474,6 +534,7 @@ func (s *Service) ListConversations(ctx context.Context, userID string) ([]Conve
 func (s *Service) pushEvent(userID, eventType string, data any) {
 	payload, err := json.Marshal(OutgoingWSEvent{Type: eventType, Data: data})
 	if err != nil {
+		slog.Error("chat: failed to marshal outgoing WS event", "event_type", eventType, "error", err)
 		return
 	}
 	s.hub.SendToUser(userID, payload)

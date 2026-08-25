@@ -76,11 +76,12 @@ func main() {
 	log := logger.New(cfg.Env)
 
 	// --- Sentry init (do this first, before anything else can panic/error) ---
+	// No hardcoded fallback DSN: a value baked into this source file is
+	// visible to anyone reading it, letting them flood the project's
+	// error tracking with fabricated events. Sentry is simply disabled
+	// (sentry.Init with an empty Dsn is a documented no-op) until
+	// SENTRY_DSN is actually set.
 	sentryDsn := os.Getenv("SENTRY_DSN")
-	if sentryDsn == "" {
-		// fallback to the DSN from the setup wizard; prefer env var in real deployments
-		sentryDsn = "https://b72bf7cdc21835988f2f4b53dae172ec@o4511869673668608.ingest.de.sentry.io/4511869683171408"
-	}
 	err = sentry.Init(sentry.ClientOptions{
 		Dsn:              sentryDsn,
 		Environment:      cfg.Env,
@@ -169,7 +170,17 @@ func main() {
 		AllowOrigins:    cfg.CORS.AllowedOrigins,
 		AllowMethods:    []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:    []string{"Origin", "Content-Type", "Authorization"},
-		MaxAge:          12 * time.Hour,
+		// Required for the browser to actually send/accept the httpOnly
+		// access_token/refresh_token cookies auth/handler.go sets — a
+		// cross-origin request (the admin panel is a separate origin from
+		// the API) omits cookies entirely without this, regardless of
+		// what the server's Set-Cookie response contains. Note this is
+		// incompatible with AllowAllOrigins in a real browser (the CORS
+		// spec forbids `Access-Control-Allow-Origin: *` alongside
+		// credentials) — CORS_ALLOWED_ORIGINS must list the real admin
+		// panel origin explicitly outside dev.
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
 	}))
 	if cfg.CORS.AllowAllOrigins {
 		log.Warn("CORS: allowing all origins (dev default) — set CORS_ALLOWED_ORIGINS in prod")
@@ -273,7 +284,7 @@ func main() {
 		log.Warn("GROQ_API_KEY not set — AI assistant endpoints will return ai_not_configured")
 	}
 	aiRepo := ai.NewRepository(dbPool)
-	aiService := ai.NewService(groqClient, aiRepo, profilesRepo)
+	aiService := ai.NewService(groqClient, aiRepo, profilesRepo, profilesService)
 	aiHandler := ai.NewHandler(aiService)
 
 	// Built before the services that push through it — chat, calls, and
@@ -309,7 +320,7 @@ func main() {
 		RestrictThreshold: cfg.Moderation.RestrictThreshold,
 		RestrictDuration:  cfg.Moderation.RestrictDuration,
 		ReviewThreshold:   cfg.Moderation.ReviewThreshold,
-	})
+	}, rateLimiter)
 	chatHandler := chat.NewHandler(chatService, photoUploader)
 
 	callsRepo := calls.NewRepository(dbPool)
@@ -323,7 +334,7 @@ func main() {
 		log.Warn("TURN_SERVER_URL/TURN_SECRET not set — calls will rely on STUN/direct P2P only, with no relay fallback")
 	}
 
-	chatWSHandler := chat.NewWSHandler(chatService, callsService, wsHub, accessIssuer)
+	chatWSHandler := chat.NewWSHandler(chatService, callsService, wsHub, accessIssuer, cfg.CORS.AllowAllOrigins, cfg.CORS.AllowedOrigins)
 
 	docUploader := storage.NewDocumentUploader(s3Client)
 	verificationRepo := verification.NewRepository(dbPool)
@@ -373,7 +384,7 @@ func main() {
 	favourites.RegisterRoutes(api, favouritesHandler, accessIssuer)
 	shortlisted.RegisterRoutes(api, shortlistedHandler, accessIssuer)
 	blocked.RegisterRoutes(api, blockedHandler, accessIssuer)
-	devices.RegisterRoutes(api, devicesHandler, accessIssuer)
+	devices.RegisterRoutes(api, devicesHandler, accessIssuer, rateLimiter)
 	ai.RegisterRoutes(api, aiHandler, accessIssuer)
 	search.RegisterRoutes(api, searchHandler, accessIssuer)
 	recommendation.RegisterRoutes(api, recommendationHandler, accessIssuer)

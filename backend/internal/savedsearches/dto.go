@@ -5,7 +5,7 @@ import "encoding/json"
 type CreateRequest struct {
 	Name        string          `json:"name" validate:"required,max=100"`
 	Filters     json.RawMessage `json:"filters" validate:"required"`
-	ResultCount int             `json:"result_count"`
+	ResultCount int             `json:"result_count" validate:"gte=0"`
 }
 
 type Response struct {

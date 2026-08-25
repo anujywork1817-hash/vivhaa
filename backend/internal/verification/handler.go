@@ -141,6 +141,8 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusConflict, "already_pending", err.Error(), nil)
 	case errors.Is(err, ErrAlreadyApproved):
 		response.Fail(c, http.StatusConflict, "already_approved", err.Error(), nil)
+	case errors.Is(err, ErrAlreadyReviewed):
+		response.Fail(c, http.StatusConflict, "already_reviewed", err.Error(), nil)
 	case errors.Is(err, ErrNotFound):
 		response.Fail(c, http.StatusNotFound, "not_found", err.Error(), nil)
 	default:

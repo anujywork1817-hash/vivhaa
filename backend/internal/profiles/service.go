@@ -143,6 +143,24 @@ func (s *Service) Update(ctx context.Context, userID string, in ProfileInput) (P
 	return s.toResponse(ctx, updated)
 }
 
+// CheckViewable enforces the same block/visibility rule GetByID does,
+// without GetByID's visitor-recording side effect — for callers (like the
+// AI icebreaker/match-blurb features) that need to gate access to a
+// profile's data without that access itself counting as a profile "view".
+func (s *Service) CheckViewable(ctx context.Context, profileID, requestingUserID string) error {
+	p, err := s.repo.GetByID(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	if err := s.checkNotBlocked(ctx, requestingUserID, p.UserID); err != nil {
+		return err
+	}
+	if p.Visibility == "private" && p.UserID != requestingUserID {
+		return ErrForbidden
+	}
+	return nil
+}
+
 // GetByID returns another user's profile, enforcing visibility: private
 // profiles are only visible to their owner.
 func (s *Service) GetByID(ctx context.Context, profileID, requestingUserID string) (ProfileResponse, error) {
@@ -277,7 +295,7 @@ func (s *Service) UploadPhoto(ctx context.Context, userID string, data []byte, c
 		return PhotoResponse{}, err
 	}
 
-	if err := storage.ValidateImage(int64(len(data)), contentType); err != nil {
+	if err := storage.ValidateImage(data, contentType); err != nil {
 		return PhotoResponse{}, fmt.Errorf("%w: %v", ErrInvalidImage, err)
 	}
 
@@ -344,10 +362,16 @@ func (s *Service) DeletePhoto(ctx context.Context, userID, photoID string) error
 		return ErrPhotoNotOwned
 	}
 
-	if err := s.uploader.Delete(ctx, photo.ObjectKey); err != nil {
+	// DB row deleted first: if the S3 delete below fails after this, the
+	// worst case is an orphaned object in the bucket (harmless, invisible
+	// to any user). Deleting S3 first (the old order) risked the opposite
+	// — a DB failure after a successful S3 delete left a photo row
+	// permanently pointing at a now-missing object, showing as a broken
+	// image indefinitely.
+	if err := s.repo.DeletePhoto(ctx, photoID); err != nil {
 		return err
 	}
-	if err := s.repo.DeletePhoto(ctx, photoID); err != nil {
+	if err := s.uploader.Delete(ctx, photo.ObjectKey); err != nil {
 		return err
 	}
 

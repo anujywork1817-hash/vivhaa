@@ -104,7 +104,14 @@ func expireSubscriptions(ctx context.Context, subscriptionsRepo *subscriptions.R
 	count, err := subscriptionsRepo.ExpireEnded(ctx)
 	if err != nil {
 		log.Error("failed to expire subscriptions", "error", err)
+	} else {
+		log.Info("expired subscriptions past their end date", "count", count)
+	}
+
+	staleCount, err := subscriptionsRepo.ExpireStalePending(ctx)
+	if err != nil {
+		log.Error("failed to expire stale pending subscriptions", "error", err)
 		return
 	}
-	log.Info("expired subscriptions past their end date", "count", count)
+	log.Info("cancelled stale pending subscriptions", "count", staleCount)
 }

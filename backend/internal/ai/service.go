@@ -24,10 +24,11 @@ type Service struct {
 	client       *groq.Client
 	repo         *Repository
 	profilesRepo *profiles.Repository
+	profilesSvc  *profiles.Service
 }
 
-func NewService(client *groq.Client, repo *Repository, profilesRepo *profiles.Repository) *Service {
-	return &Service{client: client, repo: repo, profilesRepo: profilesRepo}
+func NewService(client *groq.Client, repo *Repository, profilesRepo *profiles.Repository, profilesSvc *profiles.Service) *Service {
+	return &Service{client: client, repo: repo, profilesRepo: profilesRepo, profilesSvc: profilesSvc}
 }
 
 func (s *Service) Configured() bool {
@@ -154,9 +155,19 @@ func (s *Service) MatchBlurb(ctx context.Context, userID, targetProfileID string
 	return MatchBlurbResponse{Blurb: strings.TrimSpace(reply)}, nil
 }
 
+// loadPair fetches both profiles for an icebreaker/match-blurb request.
+// CheckViewable enforces the exact same block/private-visibility rule a
+// normal profile view does — Icebreakers/MatchBlurb used to fetch
+// targetProfileID straight from the repository, bypassing both checks
+// entirely, so a private profile or one on either side of a block could
+// still have its about-me/hobbies/city/religion/education/occupation
+// pulled into an AI-generated blurb by anyone who had its profile ID.
 func (s *Service) loadPair(ctx context.Context, userID, targetProfileID string) (profiles.Profile, profiles.Profile, error) {
 	me, err := s.profilesRepo.GetByUserID(ctx, userID)
 	if err != nil {
+		return profiles.Profile{}, profiles.Profile{}, err
+	}
+	if err := s.profilesSvc.CheckViewable(ctx, targetProfileID, userID); err != nil {
 		return profiles.Profile{}, profiles.Profile{}, err
 	}
 	target, err := s.profilesRepo.GetByID(ctx, targetProfileID)

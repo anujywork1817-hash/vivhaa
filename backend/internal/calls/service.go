@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -75,6 +76,7 @@ func NewService(repo *Repository, interestsRepo *interests.Repository, blockedRe
 func (s *Service) pushEvent(userID, eventType string, data any) {
 	payload, err := json.Marshal(map[string]any{"type": eventType, "data": data})
 	if err != nil {
+		slog.Error("calls: failed to marshal outgoing WS event", "event_type", eventType, "error", err)
 		return
 	}
 	s.hub.SendToUser(userID, payload)
@@ -296,10 +298,14 @@ func (s *Service) relayICE(ctx context.Context, userID string, in IncomingCallMe
 	if !ok {
 		return
 	}
-	target := in.TargetUserID
-	if target == "" {
-		target = otherParty(call, userID)
-	}
+	// The client-supplied TargetUserID field was previously trusted as-is:
+	// a call only ever has two participants, so there is never a
+	// legitimate reason to relay to anyone but the other one — always
+	// deriving it server-side (ignoring whatever the client sent) closes
+	// an IDOR where a participant could redirect call:ice-candidate
+	// (network/ICE metadata) to an arbitrary third party who never
+	// consented to be part of the call.
+	target := otherParty(call, userID)
 	s.pushEvent(target, "call:ice-candidate", map[string]any{
 		"call_id":      call.ID,
 		"from_user_id": userID,

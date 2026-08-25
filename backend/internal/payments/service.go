@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"time"
 
 	"matrimony-backend/internal/coupons"
@@ -19,6 +20,7 @@ var (
 	ErrInvalidSignature   = errors.New("payment signature verification failed")
 	ErrAlreadyProcessed   = errors.New("this payment has already been processed")
 	ErrPaymentNotCaptured = errors.New("payment was not captured for the expected amount")
+	ErrCheckoutPending    = subscriptions.ErrCheckoutPending
 )
 
 type Service struct {
@@ -66,6 +68,16 @@ func (s *Service) Checkout(ctx context.Context, userID string, req CheckoutReque
 		if err != nil {
 			return CheckoutResponse{}, err
 		}
+		// Reserved here (checkout time), not after payment verification —
+		// Apply()'s own max-uses check is a read with no lock, so two
+		// concurrent checkouts against a max-uses=1 coupon could both pass
+		// it; Reserve's atomic increment-with-limit-check is what actually
+		// enforces the limit, and it needs to run before the discount is
+		// irrevocably granted, not after the user has already been
+		// charged the discounted amount.
+		if err := s.couponsSvc.Reserve(ctx, coupon.ID); err != nil {
+			return CheckoutResponse{}, err
+		}
 		discount = disc
 		couponID = &coupon.ID
 	}
@@ -73,16 +85,44 @@ func (s *Service) Checkout(ctx context.Context, userID string, req CheckoutReque
 
 	pendingSub, err := s.subsRepo.CreatePending(ctx, userID, plan.ID)
 	if err != nil {
+		if couponID != nil {
+			s.releaseCoupon(ctx, *couponID)
+		}
+		// ErrCheckoutPending surfaces as-is — a real, user-actionable
+		// state ("finish or abandon your other checkout first"), not an
+		// internal error to swallow. See CreatePending's doc comment: the
+		// partial unique index behind this is what actually prevents two
+		// concurrent Checkout() calls both creating a pending row for two
+		// different plans and, if both get paid, double-charging the user.
 		return CheckoutResponse{}, err
 	}
 
 	order, err := s.gateway.CreateOrder(ctx, finalAmount*100, "INR", pendingSub.ID)
 	if err != nil {
+		// Compensate: don't leave this pending row stuck blocking every
+		// future checkout attempt (idx_subscriptions_one_pending_per_user
+		// allows only one pending row per user) just because the gateway
+		// call failed. Best-effort — the 1-hour sweep in
+		// ExpireStalePending is the backstop if this itself fails.
+		s.markCheckoutFailed(ctx, pendingSub.ID)
+		if couponID != nil {
+			s.releaseCoupon(ctx, *couponID)
+		}
 		return CheckoutResponse{}, err
 	}
 
 	payment, err := s.repo.Create(ctx, userID, plan.ID, pendingSub.ID, order.ID, finalAmount, discount, couponID)
 	if err != nil {
+		// Same compensation — the order now sitting at Razorpay with
+		// nothing referencing it locally is financially harmless (an
+		// order isn't a charge, and this response's order ID was never
+		// returned to the client, so the checkout SDK was never opened
+		// against it), but the pending row itself must not survive to
+		// block a retry.
+		s.markCheckoutFailed(ctx, pendingSub.ID)
+		if couponID != nil {
+			s.releaseCoupon(ctx, *couponID)
+		}
 		return CheckoutResponse{}, err
 	}
 
@@ -100,6 +140,38 @@ func (s *Service) Checkout(ctx context.Context, userID string, req CheckoutReque
 // non-expired plan — 0 (free) if they have none. Mirrors the same
 // active-subscription lookup subscriptions.Service.GetMine does; kept
 // local since payments has no other reason to depend on that service.
+// markCheckoutFailed is Checkout's compensation step — best-effort, so a
+// failure here is logged rather than propagated (the caller is already
+// returning a real error from the step that triggered this).
+// releaseFailedCheckout compensates for a payment that terminally failed
+// verification (bad signature, or Razorpay never actually captured it) —
+// without this, the pending subscription row would sit blocking any
+// retry (idx_subscriptions_one_pending_per_user), and a coupon
+// Reserve()'d at checkout time would be permanently burned for a payment
+// that never went through.
+func (s *Service) releaseFailedCheckout(ctx context.Context, payment Payment) {
+	if payment.SubscriptionID != nil {
+		s.markCheckoutFailed(ctx, *payment.SubscriptionID)
+	}
+	if payment.CouponID != nil {
+		s.releaseCoupon(ctx, *payment.CouponID)
+	}
+}
+
+func (s *Service) releaseCoupon(ctx context.Context, couponID string) {
+	if err := s.couponsSvc.Release(ctx, couponID); err != nil {
+		slog.Error("payments: failed to release a coupon reservation after a checkout error",
+			"coupon_id", couponID, "error", err)
+	}
+}
+
+func (s *Service) markCheckoutFailed(ctx context.Context, pendingSubID string) {
+	if err := s.subsRepo.MarkFailed(ctx, pendingSubID); err != nil {
+		slog.Error("payments: failed to cancel a stuck pending subscription after a checkout error",
+			"subscription_id", pendingSubID, "error", err)
+	}
+}
+
 func (s *Service) currentTierRank(ctx context.Context, userID string) (int, error) {
 	sub, err := s.subsRepo.GetActiveByUserID(ctx, userID)
 	if errors.Is(err, subscriptions.ErrNotFound) {
@@ -141,6 +213,7 @@ func (s *Service) Verify(ctx context.Context, userID string, req VerifyRequest) 
 
 	if !s.gateway.VerifySignature(req.OrderID, req.PaymentID, req.Signature) {
 		_ = s.repo.MarkFailed(ctx, payment.ID)
+		s.releaseFailedCheckout(ctx, payment)
 		return VerifyResponse{}, ErrInvalidSignature
 	}
 
@@ -150,6 +223,7 @@ func (s *Service) Verify(ctx context.Context, userID string, req VerifyRequest) 
 	}
 	if fetched.OrderID != req.OrderID || fetched.Status != "captured" {
 		_ = s.repo.MarkFailed(ctx, payment.ID)
+		s.releaseFailedCheckout(ctx, payment)
 		return VerifyResponse{}, ErrPaymentNotCaptured
 	}
 
@@ -210,12 +284,10 @@ func (s *Service) finalizeCapturedPayment(ctx context.Context, orderID, gatewayP
 		return VerifyResponse{}, err
 	}
 
-	// Best-effort, outside the transaction — coupon usage-limit enforcement
-	// under concurrency is BUG-M11's concern, not this one; unchanged from
-	// before this fix.
-	if payment.CouponID != nil {
-		_ = s.couponsSvc.MarkUsed(ctx, *payment.CouponID)
-	}
+	// Coupon usage was already reserved atomically at checkout time
+	// (couponsSvc.Reserve in Checkout) — incrementing it again here would
+	// double-count every successful payment against the coupon's
+	// max_uses limit.
 
 	var endsAt string
 	if activated.EndsAt != nil {

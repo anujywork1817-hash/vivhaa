@@ -53,12 +53,6 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 		return
 	}
 
-	isImage, err := storage.ValidateChatAttachment(fileHeader.Size, fileHeader.Header.Get("Content-Type"))
-	if err != nil {
-		response.Fail(c, http.StatusBadRequest, "invalid_file", err.Error(), nil)
-		return
-	}
-
 	file, err := fileHeader.Open()
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid_body", "could not read uploaded file", nil)
@@ -69,6 +63,12 @@ func (h *Handler) UploadAttachment(c *gin.Context) {
 	data, err := io.ReadAll(file)
 	if err != nil {
 		response.Fail(c, http.StatusBadRequest, "invalid_body", "could not read uploaded file", nil)
+		return
+	}
+
+	isImage, err := storage.ValidateChatAttachment(data, fileHeader.Header.Get("Content-Type"))
+	if err != nil {
+		response.Fail(c, http.StatusBadRequest, "invalid_file", err.Error(), nil)
 		return
 	}
 
@@ -150,6 +150,12 @@ func (h *Handler) DeclineContact(c *gin.Context) {
 
 func writeServiceError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, ErrRateLimited):
+		response.Fail(c, http.StatusTooManyRequests, "rate_limited", err.Error(), nil)
+	case errors.Is(err, ErrEmptyMessage):
+		response.Fail(c, http.StatusBadRequest, "invalid_body", err.Error(), nil)
+	case errors.Is(err, ErrMessageTooLong):
+		response.Fail(c, http.StatusBadRequest, "invalid_body", err.Error(), nil)
 	case errors.Is(err, ErrSelfMessage):
 		response.Fail(c, http.StatusBadRequest, "self_message", err.Error(), nil)
 	case errors.Is(err, ErrChatNotAllowed):

@@ -41,6 +41,15 @@ func (h *Handler) setAuthCookies(c *gin.Context, accessToken, refreshToken strin
 	c.SetCookie("refresh_token", refreshToken, 30*24*60*60, "/", "", h.isProd, true)
 }
 
+// clearAuthCookies expires both cookies immediately (maxAge -1) — Logout
+// invalidates the refresh token server-side, but without this the
+// now-dead tokens would still sit in the browser's cookie jar.
+func (h *Handler) clearAuthCookies(c *gin.Context) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("access_token", "", -1, "/", "", h.isProd, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", h.isProd, true)
+}
+
 func (h *Handler) Signup(c *gin.Context) {
 	var req SignupRequest
 	if !bindAndValidate(c, &req) {
@@ -217,7 +226,19 @@ func (h *Handler) Login(c *gin.Context) {
 
 func (h *Handler) Refresh(c *gin.Context) {
 	var req RefreshTokenRequest
-	if !bindAndValidate(c, &req) {
+	// Best-effort JSON bind first — a client with no body at all (relying
+	// purely on the httpOnly cookie, e.g. the admin panel, which no
+	// longer keeps a readable copy of the refresh token in localStorage)
+	// isn't a bind error, just an empty req.RefreshToken for the cookie
+	// fallback below to fill in.
+	_ = c.ShouldBindJSON(&req)
+	if req.RefreshToken == "" {
+		if cookie, err := c.Cookie("refresh_token"); err == nil && cookie != "" {
+			req.RefreshToken = cookie
+		}
+	}
+	if fieldErrors := validator.Struct(&req); fieldErrors != nil {
+		response.Fail(c, http.StatusBadRequest, "validation_error", "one or more fields are invalid", fieldErrors)
 		return
 	}
 
@@ -232,7 +253,14 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest
-	if !bindAndValidate(c, &req) {
+	_ = c.ShouldBindJSON(&req)
+	if req.RefreshToken == "" {
+		if cookie, err := c.Cookie("refresh_token"); err == nil && cookie != "" {
+			req.RefreshToken = cookie
+		}
+	}
+	if fieldErrors := validator.Struct(&req); fieldErrors != nil {
+		response.Fail(c, http.StatusBadRequest, "validation_error", "one or more fields are invalid", fieldErrors)
 		return
 	}
 
@@ -241,6 +269,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	h.clearAuthCookies(c)
 	response.OK(c, gin.H{"message": "logged out"})
 }
 

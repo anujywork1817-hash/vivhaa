@@ -14,6 +14,7 @@ var (
 	ErrInvalidFile         = errors.New("invalid file")
 	ErrAlreadyPending      = errors.New("a verification request is already pending review")
 	ErrAlreadyApproved     = errors.New("your identity is already verified")
+	ErrAlreadyReviewed     = errors.New("this verification request has already been reviewed")
 )
 
 // ProfileVerifier flips a profile's verified badge — declared locally
@@ -24,10 +25,10 @@ type ProfileVerifier interface {
 }
 
 var validDocumentTypes = map[string]bool{
-	"aadhaar":         true,
-	"passport":        true,
-	"driving_license": true,
-	"voter_id":        true,
+	"aadhaar":           true,
+	"passport":          true,
+	"driving_license":   true,
+	"voter_id":          true,
 	"pan":               true,
 	"selfie":            true,
 	"personal_document": true,
@@ -47,7 +48,7 @@ func (s *Service) Submit(ctx context.Context, userID, documentType string, data 
 	if !validDocumentTypes[documentType] {
 		return Response{}, ErrInvalidDocumentType
 	}
-	if err := storage.ValidateDocument(int64(len(data)), contentType); err != nil {
+	if err := storage.ValidateDocument(data, contentType); err != nil {
 		return Response{}, fmt.Errorf("%w: %v", ErrInvalidFile, err)
 	}
 
@@ -148,6 +149,13 @@ func (s *Service) Reject(ctx context.Context, id, reviewerID string, notes *stri
 
 func (s *Service) review(ctx context.Context, id, status, reviewerID string, notes *string) (Response, error) {
 	v, err := s.repo.Review(ctx, id, status, reviewerID, notes)
+	if errors.Is(err, ErrNotFound) {
+		// Review()'s UPDATE only matches a still-'pending' row — this
+		// almost always means it was already approved/rejected (by a
+		// concurrent admin, or previously), not that the ID is bogus
+		// (ListPending already filtered to real, pending rows).
+		return Response{}, ErrAlreadyReviewed
+	}
 	if err != nil {
 		return Response{}, err
 	}

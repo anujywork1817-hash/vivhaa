@@ -169,6 +169,8 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusBadRequest, "invalid_plan", err.Error(), nil)
 	case errors.Is(err, ErrNotAnUpgrade):
 		response.Fail(c, http.StatusBadRequest, "not_an_upgrade", err.Error(), nil)
+	case errors.Is(err, ErrCheckoutPending):
+		response.Fail(c, http.StatusConflict, "checkout_pending", err.Error(), nil)
 	case errors.Is(err, ErrInvalidSignature):
 		response.Fail(c, http.StatusBadRequest, "invalid_signature", err.Error(), nil)
 	case errors.Is(err, ErrAlreadyProcessed):

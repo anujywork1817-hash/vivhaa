@@ -78,13 +78,19 @@ func (r *Repository) History(ctx context.Context, userID, partnerID string, limi
 	return messages, rows.Err()
 }
 
-// GetMessageByID fetches a single message — used by the contact-request
-// accept/decline flow to load and validate the request row.
-func (r *Repository) GetMessageByID(ctx context.Context, id string) (Message, error) {
+// GetMessageByID fetches a single message, but ONLY if participantUserID
+// is its sender or receiver — used by the contact-request accept/decline
+// flow and the reply-target lookup to load and validate a message. The
+// participant filter lives in the query itself (not left to each caller
+// to separately check afterward) specifically so a future caller can't
+// forget it and leak an arbitrary message's contents by ID enumeration —
+// every existing caller already checked this themselves too, so this is
+// defense in depth, not a behavior change for them.
+func (r *Repository) GetMessageByID(ctx context.Context, id, participantUserID string) (Message, error) {
 	const q = `SELECT id, sender_user_id, receiver_user_id, body, kind, read_at, created_at
-	           FROM chat_messages WHERE id = $1`
+	           FROM chat_messages WHERE id = $1 AND (sender_user_id = $2 OR receiver_user_id = $2)`
 	var m Message
-	err := r.db.QueryRow(ctx, q, id).Scan(
+	err := r.db.QueryRow(ctx, q, id, participantUserID).Scan(
 		&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Message{}, ErrNotFound

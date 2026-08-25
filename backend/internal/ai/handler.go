@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"matrimony-backend/internal/profiles"
 	"matrimony-backend/pkg/response"
 	"matrimony-backend/pkg/validator"
 )
@@ -72,6 +73,10 @@ func writeServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotConfigured):
 		response.Fail(c, http.StatusServiceUnavailable, "ai_not_configured", err.Error(), nil)
+	case errors.Is(err, profiles.ErrForbidden):
+		response.Fail(c, http.StatusForbidden, "forbidden", "You can't access this profile.", nil)
+	case errors.Is(err, profiles.ErrNotFound):
+		response.Fail(c, http.StatusNotFound, "not_found", "Profile not found.", nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}

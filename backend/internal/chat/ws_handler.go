@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	gorillaws "github.com/gorilla/websocket"
@@ -11,13 +12,6 @@ import (
 	appwebsocket "matrimony-backend/internal/websocket"
 	appjwt "matrimony-backend/pkg/jwt"
 )
-
-var upgrader = gorillaws.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	// Local/dev CORS is wide open; tighten to known frontend origins before prod.
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
 
 // WSHandler serves the single /ws/chat connection shared by chat messaging
 // and call signaling — one socket per client, multiplexed by a "type"
@@ -28,10 +22,46 @@ type WSHandler struct {
 	callsService *calls.Service
 	hub          *appwebsocket.Hub
 	issuer       *appjwt.Issuer
+	upgrader     gorillaws.Upgrader
 }
 
-func NewWSHandler(service *Service, callsService *calls.Service, hub *appwebsocket.Hub, issuer *appjwt.Issuer) *WSHandler {
-	return &WSHandler{service: service, callsService: callsService, hub: hub, issuer: issuer}
+// NewWSHandler builds the handler. allowAllOrigins/allowedOrigins mirror
+// the REST API's own CORS config (cfg.CORS) — a native mobile client
+// sends no Origin header at all (only browsers do), so CheckOrigin only
+// ever needs to reject a *browser* connecting from an origin outside the
+// same allowlist the REST API already enforces; it was previously
+// unconditionally `true`, disabling same-origin enforcement entirely and
+// leaving /ws/chat open to cross-site WebSocket hijacking (CSWSH) from
+// any page that could get a victim's token into script.
+func NewWSHandler(service *Service, callsService *calls.Service, hub *appwebsocket.Hub, issuer *appjwt.Issuer, allowAllOrigins bool, allowedOrigins []string) *WSHandler {
+	return &WSHandler{
+		service:      service,
+		callsService: callsService,
+		hub:          hub,
+		issuer:       issuer,
+		upgrader: gorillaws.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					// No Origin header — not a browser (native app, or a
+					// non-browser HTTP client), so there's no cross-site
+					// context to protect against here.
+					return true
+				}
+				if allowAllOrigins {
+					return true
+				}
+				for _, allowed := range allowedOrigins {
+					if strings.EqualFold(strings.TrimSpace(allowed), origin) {
+						return true
+					}
+				}
+				return false
+			},
+		},
+	}
 }
 
 // Serve upgrades the connection to a WebSocket after authenticating the
@@ -49,7 +79,7 @@ func (h *WSHandler) Serve(c *gin.Context) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}

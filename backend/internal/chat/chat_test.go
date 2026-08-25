@@ -68,7 +68,7 @@ func newTestDeps(t *testing.T) *testDeps {
 	publisher := queue.NewPublisher(kafka.NewProducer([]string{"127.0.0.1:1"}))
 
 	guard := chatguard.NewEngine(chatguard.Config{Enabled: true})
-	svc := NewService(repo, interestsRepo, blockedRepo, nil, publisher, nil, analyticsSvc, hub, guard, AbuseConfig{RestrictThreshold: 3, RestrictDuration: time.Hour, ReviewThreshold: 6})
+	svc := NewService(repo, interestsRepo, blockedRepo, nil, publisher, nil, analyticsSvc, hub, guard, AbuseConfig{RestrictThreshold: 3, RestrictDuration: time.Hour, ReviewThreshold: 6}, nil)
 	return &testDeps{svc: svc, pool: pool, interestsRepo: interestsRepo, blockedRepo: blockedRepo}
 }
 

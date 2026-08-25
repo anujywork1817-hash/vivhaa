@@ -29,6 +29,13 @@ func (r *Repository) Create(ctx context.Context, userID, name string, filters js
 	return s, err
 }
 
+func (r *Repository) CountForUser(ctx context.Context, userID string) (int, error) {
+	const q = `SELECT count(*) FROM saved_searches WHERE user_id = $1`
+	var count int
+	err := r.db.QueryRow(ctx, q, userID).Scan(&count)
+	return count, err
+}
+
 func (r *Repository) List(ctx context.Context, userID string) ([]SavedSearch, error) {
 	const q = `
 		SELECT id, user_id, name, filters, result_count, created_at

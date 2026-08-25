@@ -31,6 +31,10 @@ func (h *Handler) Create(c *gin.Context) {
 
 	userID := c.GetString("user_id")
 	resp, err := h.service.Create(c.Request.Context(), userID, req)
+	if errors.Is(err, ErrTooManySavedSearches) {
+		response.Fail(c, http.StatusConflict, "too_many_saved_searches", err.Error(), nil)
+		return
+	}
 	if err != nil {
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 		return

@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_subscriptions_one_pending_per_user;

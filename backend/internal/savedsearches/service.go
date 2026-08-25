@@ -2,8 +2,15 @@ package savedsearches
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// maxSavedSearchesPerUser bounds unbounded row growth per account — there
+// was previously no cap at all.
+const maxSavedSearchesPerUser = 25
+
+var ErrTooManySavedSearches = errors.New("you've reached the maximum number of saved searches")
 
 type Service struct {
 	repo *Repository
@@ -14,6 +21,14 @@ func NewService(repo *Repository) *Service {
 }
 
 func (s *Service) Create(ctx context.Context, userID string, req CreateRequest) (Response, error) {
+	count, err := s.repo.CountForUser(ctx, userID)
+	if err != nil {
+		return Response{}, err
+	}
+	if count >= maxSavedSearchesPerUser {
+		return Response{}, ErrTooManySavedSearches
+	}
+
 	saved, err := s.repo.Create(ctx, userID, req.Name, req.Filters, req.ResultCount)
 	if err != nil {
 		return Response{}, err

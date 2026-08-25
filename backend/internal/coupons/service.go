@@ -48,6 +48,14 @@ func (s *Service) Apply(ctx context.Context, code string, amountINR int64) (Coup
 	case "flat":
 		discount = c.DiscountValue
 	}
+	// Only DiscountValue's upper bound was ever clamped (below) — a
+	// negative value (bad seed data, a direct DB edit; there's no admin
+	// API for coupons today) would otherwise flow straight through as a
+	// negative discount, INCREASING the final charge instead of reducing
+	// it.
+	if discount < 0 {
+		discount = 0
+	}
 	if discount > amountINR {
 		discount = amountINR
 	}
@@ -55,6 +63,19 @@ func (s *Service) Apply(ctx context.Context, code string, amountINR int64) (Coup
 	return c, discount, nil
 }
 
-func (s *Service) MarkUsed(ctx context.Context, couponID string) error {
+// Reserve atomically claims one use of the coupon — called at checkout
+// time (not payment-verify time) so the max-uses limit is actually
+// enforced at the point where two concurrent requests could otherwise
+// both pass Apply()'s check. Returns ErrExhausted if the limit was hit
+// (by this call or a concurrent one) since Apply() ran.
+func (s *Service) Reserve(ctx context.Context, couponID string) error {
 	return s.repo.IncrementUsage(ctx, couponID)
+}
+
+// Release undoes a Reserve for a checkout that didn't end up completing
+// (gateway order creation failed, the payment row failed to write, ...) —
+// the same compensation pattern payments.Service uses for the pending
+// subscription row it creates alongside this reservation.
+func (s *Service) Release(ctx context.Context, couponID string) error {
+	return s.repo.DecrementUsage(ctx, couponID)
 }

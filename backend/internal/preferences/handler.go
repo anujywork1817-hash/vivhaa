@@ -28,6 +28,10 @@ func (h *Handler) Upsert(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "validation_error", "one or more fields are invalid", fieldErrors)
 		return
 	}
+	if err := req.Validate(); err != nil {
+		response.Fail(c, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return
+	}
 
 	userID := c.GetString("user_id")
 	resp, err := h.service.Upsert(c.Request.Context(), userID, req)
