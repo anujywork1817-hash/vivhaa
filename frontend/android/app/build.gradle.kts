@@ -16,11 +16,23 @@ plugins {
 }
 android {
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+        // Gradle configures this block eagerly for every build variant
+        // (debug included), not just when actually assembling a release —
+        // an unconditional `as String` cast on key.properties' values
+        // crashed even a debug build with "null cannot be cast to
+        // non-null type kotlin.String" on any machine that doesn't have
+        // that (deliberately un-committed, since it holds real signing
+        // credentials) file checked out locally. Only fill this in when
+        // the file is actually present; assembleRelease still fails
+        // clearly (a missing signingConfig) on a machine without it,
+        // which is correct — every other build type is simply unaffected.
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
         }
     }
     namespace = "com.shaadiclone.shaadi_clone"
@@ -46,7 +58,13 @@ android {
     }
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Same reasoning as the signingConfigs block above: this is
+            // configured eagerly regardless of build variant, so
+            // getByName("release") must not throw when that config was
+            // never created (no key.properties on this machine).
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

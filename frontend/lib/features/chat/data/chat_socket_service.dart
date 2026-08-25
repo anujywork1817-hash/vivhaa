@@ -51,19 +51,22 @@ class ChatSocketService {
         return;
       }
 
-      // The access token travels in a header, not a "?token=" query
-      // string, wherever the platform allows it — query strings are
-      // routinely captured in reverse-proxy/load-balancer access logs and
-      // can leak via a Referer header, letting the token persist in
-      // infrastructure logs long after the connection closes. Only the
-      // web platform can't do this (browsers give WebSocket-constructing
-      // code no way to set arbitrary handshake headers at all, so the
-      // query-string fallback there is an unavoidable browser API
-      // limitation, not a choice) — the backend (ws_handler.go) accepts
-      // both forms specifically to support this.
-      final uri = Uri.parse('${ApiEndpoints.wsBaseUrl}/ws/chat');
+      // The token travels in BOTH the query string and (off web) an
+      // Authorization header. Header-only used to be enough directly
+      // against the LAN dev server, but after moving behind a real
+      // AWS load balancer / EB-managed nginx, a header-only handshake
+      // stopped reliably reaching the backend on some connections —
+      // live chat messages never arrived in an open chat window (only
+      // the separate FCM push notification did), forcing a manual
+      // reload to see them, consistent with the WS upgrade itself
+      // never completing/authenticating rather than a bug in event
+      // handling once connected. Keeping the header for the platforms
+      // that can set one, but no longer relying on it exclusively —
+      // the query param is what's actually guaranteed to survive an
+      // arbitrary proxy hop between here and the backend.
+      final uri = Uri.parse('${ApiEndpoints.wsBaseUrl}/ws/chat?token=$token');
       final channel = kIsWeb
-          ? WebSocketChannel.connect(Uri.parse('$uri?token=$token'))
+          ? WebSocketChannel.connect(uri)
           : IOWebSocketChannel.connect(uri, headers: {'Authorization': 'Bearer $token'});
       _channel = channel;
       _subscription = channel.stream.listen(
