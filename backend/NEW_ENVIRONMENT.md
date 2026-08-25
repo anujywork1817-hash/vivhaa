@@ -67,21 +67,29 @@ the file is present in the deployed bundle if uploads start failing with
 
 ## 4. Environment variables
 
-`KAFKA_BROKERS` and `ES_ADDRESSES` are set via
+Every **non-secret** environment variable (`DB_HOST`, `REDIS_ADDR`,
+`KAFKA_BROKERS`, `ES_ADDRESSES`, `S3_*` endpoints/bucket names,
+`CORS_ALLOWED_ORIGINS`, feature flags, etc.) is set via
 [`backend/.ebextensions/01-environment-settings.config`](.ebextensions/01-environment-settings.config),
 so they're re-asserted from source control on every deploy rather than
 depending on a Beanstalk console setting a failed config-deploy could roll
-back (this happened on 2026-08-24 — both vars silently reverted to a
-stale `localhost` snapshot). **Update the IP/host in that file, not in the
-Beanstalk console, if the supporting-services box ever moves.**
+back (this happened on 2026-08-24 — `KAFKA_BROKERS`/`ES_ADDRESSES`
+silently reverted to a stale `localhost` snapshot). **Update values in
+that file, not in the Beanstalk console, if the supporting-services box
+or any endpoint ever moves.**
 
-All other environment variables (`DB_HOST`, `REDIS_ADDR`,
-`CORS_ALLOWED_ORIGINS`, `S3_*`, JWT secrets, etc.) currently remain
-Beanstalk console-only config — not yet migrated to source control. When
-setting them for a new environment, apply them in a single
-`aws elasticbeanstalk update-environment --option-settings ...` call
-covering everything at once, not one-at-a-time edits in the console —
-a partial update is exactly what caused the 2026-08-24 rollback to
+**Credentials are deliberately excluded** from that file and remain
+Beanstalk console / Parameter Store only: `DB_PASSWORD`,
+`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `RAZORPAY_KEY_ID`,
+`RAZORPAY_KEY_SECRET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `TURN_SECRET`.
+Committing secrets to source control is a worse risk than the config-drift
+problem `.ebextensions` solves here — if these ever need the same
+rollback protection, migrate them to AWS Systems Manager Parameter Store
+(SecureString) referenced from `option_settings`, never inline into the
+`.config` file. When setting these for a new environment, apply them all
+in a single `aws elasticbeanstalk update-environment --option-settings
+...` call covering every secret at once, not one-at-a-time console edits
+— a partial update is exactly what caused the 2026-08-24 rollback to
 silently drop only some variables.
 
 ## 5. Verifying the environment is healthy

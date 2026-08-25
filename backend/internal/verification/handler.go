@@ -9,11 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"matrimony-backend/internal/storage"
 	"matrimony-backend/pkg/response"
 	"matrimony-backend/pkg/s3"
 )
-
-const maxUploadBytes = 11 * 1024 * 1024
 
 type Handler struct {
 	service *Service
@@ -31,7 +30,7 @@ func (h *Handler) Submit(c *gin.Context) {
 		response.Fail(c, http.StatusBadRequest, "invalid_body", "form field 'document' is required", nil)
 		return
 	}
-	if fileHeader.Size > maxUploadBytes {
+	if fileHeader.Size > storage.MaxDocumentSizeBytes {
 		response.Fail(c, http.StatusBadRequest, "file_too_large", "document exceeds the maximum allowed size", nil)
 		return
 	}
