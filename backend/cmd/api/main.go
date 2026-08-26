@@ -257,6 +257,15 @@ func main() {
 		})
 	})
 
+	// The ALB health check probes "/" (not "/health"), so it needs its own
+	// dependency-free route — otherwise it hits Gin's default 404 and EB
+	// marks the environment Severe even though the app is running fine.
+	// Deliberately no DB/Redis/etc. here: always 200, so it can't itself
+	// cause health-check flapping.
+	router.GET("/", func(c *gin.Context) {
+		c.String(http.StatusOK, "OK")
+	})
+
 	accessIssuer := jwt.NewIssuer(cfg.JWT.AccessSecret, cfg.JWT.AccessTTL)
 	smsSender := sms.NewConsoleSender(log)
 	emailSender := email.NewConsoleSender(log)
