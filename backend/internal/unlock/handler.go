@@ -2,6 +2,7 @@ package unlock
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ func (h *Handler) Status(c *gin.Context) {
 	userID := c.GetString("user_id")
 	resp, err := h.service.Status(c.Request.Context(), userID)
 	if err != nil {
+		slog.Error("unlock: status check failed", "error", err)
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 		return
 	}
@@ -97,6 +99,10 @@ func writeServiceError(c *gin.Context, err error) {
 	case errors.Is(err, ErrNotFound):
 		response.Fail(c, http.StatusNotFound, "not_found", err.Error(), nil)
 	default:
+		// Previously logged nothing here — a gateway-side rejection (e.g.
+		// Razorpay's receipt-length limit) surfaced only as an opaque 500
+		// with no way to diagnose it short of SSH-ing in for container logs.
+		slog.Error("unlock: request failed", "error", err)
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}
 }

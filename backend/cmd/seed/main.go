@@ -42,13 +42,13 @@ const seedPassword = "Passw0rd!123"
 var seedAdminSecret = envOr("SEED_ADMIN_SECRET", "")
 
 // demoCountPerGender is how many of the FIRST accounts of each gender
-// created this run get flagged is_demo=true — the fixed 20 male + 20
+// created this run get flagged is_demo=true — the fixed 10 male + 10
 // female named pool (see demoMaleNames/demoFemaleNames) the free
 // swipe-deck hook (GET /demo/swipe-deck) shows every new user. Independent
 // of SEED_MALE_COUNT/SEED_FEMALE_COUNT: running with higher counts (a
-// bigger pool of ordinary seeded members) still only marks the first 20 of
+// bigger pool of ordinary seeded members) still only marks the first 10 of
 // each gender as demo.
-const demoCountPerGender = 20
+const demoCountPerGender = 10
 
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
@@ -83,21 +83,17 @@ var (
 		"Agarwal", "Bose", "Chatterjee", "Pillai", "Desai", "Shah", "Trivedi", "Bhat", "Naidu",
 	}
 
-	// demoMaleNames / demoFemaleNames are the fixed full names for the 20
+	// demoMaleNames / demoFemaleNames are the fixed full names for the 10
 	// is_demo profiles (indices 1..demoCountPerGender of each gender) shown
 	// in the free swipe-deck hook — chosen by hand rather than randomly
-	// generated, so the same 20 named people appear for every new user.
+	// generated, so the same 10 named people appear for every new user.
 	demoMaleNames = []string{
-		"Aarav Sharma", "Arjun Patel", "Rohan Mehta", "Aditya Nair", "Vihaan Kapoor",
-		"Kabir Malhotra", "Ishaan Verma", "Reyansh Joshi", "Karan Deshmukh", "Siddharth Iyer",
-		"Rahul Singh", "Dev Kulkarni", "Yash Agarwal", "Manav Choudhary", "Akash Rao",
-		"Varun Banerjee", "Dhruv Menon", "Rishabh Gupta", "Aniket Bhatia", "Nikhil Sinha",
+		"Aarav Sharma", "Arjun Mehta", "Rohan Kapoor", "Aditya Nair", "Vivaan Patel",
+		"Karan Malhotra", "Reyansh Desai", "Siddharth Joshi", "Dhruv Agarwal", "Yash Iyer",
 	}
 	demoFemaleNames = []string{
-		"Ananya Sharma", "Kavya Patel", "Ishita Mehta", "Meera Nair", "Riya Kapoor",
-		"Aadhya Iyer", "Nisha Verma", "Diya Malhotra", "Priya Joshi", "Saanvi Deshmukh",
-		"Aarohi Singh", "Tanvi Kulkarni", "Simran Kaur", "Neha Choudhary", "Pooja Agarwal",
-		"Shruti Rao", "Anushka Banerjee", "Radhika Menon", "Manya Gupta", "Kritika Bhatia",
+		"Ananya Sharma", "Aadhya Mehta", "Kavya Iyer", "Ishita Kapoor", "Meera Nair",
+		"Riya Malhotra", "Avni Desai", "Nandini Joshi", "Diya Patel", "Saanvi Agarwal",
 	}
 
 	cities = []struct{ city, state string }{

@@ -68,7 +68,11 @@ func (s *Service) Checkout(ctx context.Context, userID string) (CheckoutResponse
 		return CheckoutResponse{}, err
 	}
 
-	order, err := s.gateway.CreateOrder(ctx, unlockAmountINR*100, unlockCurrency, "unlock:"+userID)
+	// Razorpay caps `receipt` at 40 characters — "unlock:" (7) + a UUID (36)
+	// is 43, which Razorpay's API silently rejects with a 400, surfacing to
+	// the client as an opaque 500 with nothing to explain it. "u:" (2) + the
+	// UUID fits comfortably under the limit.
+	order, err := s.gateway.CreateOrder(ctx, unlockAmountINR*100, unlockCurrency, "u:"+userID)
 	if err != nil {
 		return CheckoutResponse{}, err
 	}
