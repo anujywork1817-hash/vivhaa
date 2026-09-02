@@ -31,6 +31,11 @@ class AppRoutes {
   static const String orderSummary = '/onboarding/order-summary';
   static const String reviewConfirm = '/onboarding/review';
   static const String welcomePending = '/onboarding/welcome';
+  // "Hook then pay ₹1" gate: every user lands here right after
+  // welcomePending, swipes the free 10+10 demo deck, then hits the ₹1
+  // paywall before reaching home.
+  static const String demoSwipeDeck = '/onboarding/demo-swipe-deck';
+  static const String unlockPaywall = '/onboarding/unlock';
 
   // Phase 2 — Core Navigation & Home
   static const String home = '/home';

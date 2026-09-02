@@ -31,6 +31,7 @@ AppFailure mapDioException(DioException e) {
     case 401:
       return AppFailure.unauthorized(message);
     case 402:
+      if (code == 'unlock_required') return AppFailure.unlockRequired(message);
       if (code == 'premium_required') return AppFailure.premiumRequired(message);
       return AppFailure(
         type: AppFailureType.premiumRequired,

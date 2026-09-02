@@ -11,6 +11,11 @@ enum AppFailureType {
   server,
   unknown,
   premiumRequired,
+  // The one-time ₹1 unlock gate (see internal/unlock on the backend) —
+  // distinct from premiumRequired (the plan-based subscription tiers):
+  // this fires on any real feature before the flat unlock payment, is
+  // unrelated to which plan the caller is on.
+  unlockRequired,
 }
 
 class AppFailure implements Exception {
@@ -62,6 +67,11 @@ class AppFailure implements Exception {
   factory AppFailure.premiumRequired([String? message]) => AppFailure(
         type: AppFailureType.premiumRequired,
         message: message ?? 'Upgrade to premium to send messages.',
+      );
+
+  factory AppFailure.unlockRequired([String? message]) => AppFailure(
+        type: AppFailureType.unlockRequired,
+        message: message ?? 'Pay the one-time unlock fee to continue.',
       );
 
   @override

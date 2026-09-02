@@ -138,6 +138,14 @@ class ApiEndpoints {
   static const String paymentsVerify = '/payments/verify';
   static const String paymentHistory = '/payments/history';
 
+  // "Hook then pay ₹1" onboarding gate — see internal/demo and
+  // internal/unlock on the backend. Separate from, and layered in front
+  // of, the plan-based subscription endpoints above.
+  static const String demoSwipeDeck = '/demo/swipe-deck';
+  static const String unlockStatus = '/unlock/status';
+  static const String unlockCheckout = '/unlock/checkout';
+  static const String unlockVerify = '/unlock/verify';
+
   static const String deviceToken = '/devices/token';
 
   static const String notifications = '/notifications';

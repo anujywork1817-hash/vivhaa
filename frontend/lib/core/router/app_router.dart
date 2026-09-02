@@ -40,6 +40,8 @@ import '../../features/onboarding/presentation/screens/qualification_screen.dart
 import '../../features/onboarding/presentation/screens/religion_community_screen.dart';
 import '../../features/onboarding/presentation/screens/review_confirm_screen.dart';
 import '../../features/onboarding/presentation/screens/welcome_pending_screen.dart';
+import '../../features/demo_swipe/presentation/screens/demo_swipe_deck_screen.dart';
+import '../../features/unlock_gate/presentation/screens/unlock_paywall_screen.dart';
 import '../../features/onboarding/presentation/screens/work_details_screen.dart';
 import '../../features/premium/presentation/screens/order_summary_screen.dart';
 import '../../features/premium/presentation/screens/premium_paywall_screen.dart';
@@ -155,6 +157,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: AppRoutes.reviewConfirm, builder: (_, __) => const ReviewConfirmScreen()),
       GoRoute(path: AppRoutes.welcomePending, builder: (_, __) => const WelcomePendingScreen()),
+      GoRoute(path: AppRoutes.demoSwipeDeck, builder: (_, __) => const DemoSwipeDeckScreen()),
+      GoRoute(path: AppRoutes.unlockPaywall, builder: (_, __) => const UnlockPaywallScreen()),
 
       GoRoute(path: AppRoutes.home, builder: (_, __) => const AppShell()),
       GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),

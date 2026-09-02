@@ -71,7 +71,11 @@ class WelcomePendingScreen extends ConsumerWidget {
               const Spacer(flex: 2),
               PrimaryButton(
                 label: 'Go to my dashboard',
-                onPressed: () => context.go(AppRoutes.home),
+                // "Hook then pay ₹1" gate: every new user sees the free
+                // 10+10 demo swipe deck first (DemoSwipeDeckScreen), which
+                // hands off to the ₹1 unlock paywall once exhausted —
+                // never straight to home from here.
+                onPressed: () => context.go(AppRoutes.demoSwipeDeck),
                 trailingIcon: Icons.arrow_forward_rounded,
               ),
             ],
