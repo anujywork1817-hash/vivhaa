@@ -34,7 +34,12 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
     for (final profile in suggested.where((p) => _selected!.contains(p.id))) {
       await actions.send(profile);
     }
-    if (mounted) context.go(AppRoutes.home);
+    // "Hook then pay ₹1" gate: this is the actual last step of onboarding
+    // (family_details -> partner_preferences -> here), so every new user
+    // must see the free 10+10 demo swipe deck first — never straight to
+    // home from here. (welcome_pending_screen.dart already does this
+    // correctly for its own button; this screen just never matched it.)
+    if (mounted) context.go(AppRoutes.demoSwipeDeck);
   }
 
   @override
@@ -55,7 +60,9 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => context.go(AppRoutes.home),
+            // Same "hook then pay" gate as _connect() above — skipping the
+            // real-match connect step still goes through the demo deck.
+            onPressed: () => context.go(AppRoutes.demoSwipeDeck),
             child: const Text('Skip'),
           ),
         ],
@@ -67,7 +74,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
           title: 'Could not load suggested matches',
           message: 'You can still continue — matches will show up on your dashboard.',
           actionLabel: 'Continue',
-          onAction: () => context.go(AppRoutes.home),
+          onAction: () => context.go(AppRoutes.demoSwipeDeck),
         ),
         data: (suggested) {
           if (suggested.isEmpty) {
@@ -76,7 +83,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
               title: 'No suggestions yet',
               message: "We'll have matches ready once ${profileFor.possessive} profile is live.",
               actionLabel: 'Continue',
-              onAction: () => context.go(AppRoutes.home),
+              onAction: () => context.go(AppRoutes.demoSwipeDeck),
             );
           }
 
