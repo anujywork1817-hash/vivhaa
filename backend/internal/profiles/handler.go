@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 
@@ -25,6 +26,13 @@ func (h *Handler) Create(c *gin.Context) {
 	var req ProfileInput
 	if !bindAndValidate(c, &req) {
 		return
+	}
+	// is_demo is only ever honored for cmd/seed marking the fixed 10+10
+	// demo pool — a normal caller's is_demo has it silently stripped here
+	// rather than rejected outright, so nothing about this endpoint's
+	// public contract needs to change for real users.
+	if req.IsDemo != nil && !seedSecretMatches(c) {
+		req.IsDemo = nil
 	}
 
 	userID := c.GetString("user_id")
@@ -173,6 +181,16 @@ func (h *Handler) DeletePhoto(c *gin.Context) {
 		return
 	}
 	response.OK(c, gin.H{"message": "photo deleted"})
+}
+
+// seedSecretMatches gates ProfileInput.IsDemo — only cmd/seed, which knows
+// SEED_ADMIN_SECRET, can flag the fixed 10 male + 10 female demo accounts
+// it creates. Unset/empty SEED_ADMIN_SECRET refuses (rather than accepts)
+// so this can never be silently left wide open in an environment that
+// simply never configured the secret.
+func seedSecretMatches(c *gin.Context) bool {
+	secret := os.Getenv("SEED_ADMIN_SECRET")
+	return secret != "" && c.GetHeader("X-Seed-Secret") == secret
 }
 
 func bindAndValidate(c *gin.Context, req interface{}) bool {

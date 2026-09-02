@@ -8,9 +8,9 @@ import (
 )
 
 // RegisterRoutes mounts the /favourites/* endpoints on the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	f := rg.Group("/favourites")
-	f.Use(middleware.RequireAuth(issuer))
+	f.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	f.GET("", h.List)
 	f.POST("/:profileId", h.Add)

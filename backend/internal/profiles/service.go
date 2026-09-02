@@ -104,6 +104,12 @@ func (s *Service) Create(ctx context.Context, userID string, in ProfileInput) (P
 	if err := applyInput(&p, in); err != nil {
 		return ProfileResponse{}, err
 	}
+	// IsDemo only ever reaches here already vetted by Handler.Create (the
+	// X-Seed-Secret check) — a normal signed-in user's in.IsDemo has
+	// already been stripped to nil before Create is called.
+	if in.IsDemo != nil && *in.IsDemo {
+		p.IsDemo = true
+	}
 
 	created, err := s.repo.Create(ctx, userID, p)
 	if err != nil {

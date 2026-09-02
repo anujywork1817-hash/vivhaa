@@ -242,6 +242,11 @@ services:
       # this machine — must be a LAN IP a real phone can actually reach.
       TURN_SERVER_URL: ${TURN_SERVER_URL:-turn:192.168.1.47:3478}
       TURN_SECRET: ${TURN_SECRET:-dev-turn-secret-change-me}
+      # Shared with the seed service below via X-Seed-Secret — lets
+      # cmd/seed flag the first 10 male + 10 female accounts it creates as
+      # is_demo=true (see internal/profiles' seedSecretMatches). Unset
+      # (the dev default) means is_demo can never be set through the API.
+      SEED_ADMIN_SECRET: ${SEED_ADMIN_SECRET:-}
     ports:
       - "${API_HOST_PORT:-58080}:8080"
 
@@ -341,6 +346,10 @@ services:
       SEED_API_BASE_URL: http://api:8080
       SEED_MALE_COUNT: ${SEED_MALE_COUNT:-25}
       SEED_FEMALE_COUNT: ${SEED_FEMALE_COUNT:-25}
+      # Must match the api service's own SEED_ADMIN_SECRET above for the
+      # first 10 male + 10 female seeded accounts to actually get flagged
+      # is_demo=true.
+      SEED_ADMIN_SECRET: ${SEED_ADMIN_SECRET:-}
     profiles:
       - tools
 

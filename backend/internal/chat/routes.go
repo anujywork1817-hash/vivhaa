@@ -9,9 +9,9 @@ import (
 
 // RegisterRoutes mounts the /chat/* REST endpoints and the /ws/chat
 // WebSocket endpoint on the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, ws *WSHandler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, ws *WSHandler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	chatGroup := rg.Group("/chat")
-	chatGroup.Use(middleware.RequireAuth(issuer))
+	chatGroup.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	chatGroup.GET("/conversations", h.ListConversations)
 	chatGroup.GET("/messages/:userId", h.GetHistory)

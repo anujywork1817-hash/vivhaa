@@ -31,6 +31,7 @@ func (r *Repository) CandidatePool(ctx context.Context, userID string, opposingG
 		WHERE p.visibility = 'public'
 		  AND p.user_id != $1
 		  AND NOT p.matchmaking_opt_out
+		  AND NOT p.is_demo
 		  AND ($2::text IS NULL OR p.gender = $2)
 		  AND NOT EXISTS (
 		      -- BUG-H02: missing "deleted_at IS NULL" meant a withdrawn or
@@ -110,6 +111,7 @@ func (r *Repository) NearbyCandidates(ctx context.Context, userID string, lat, l
 			WHERE p.visibility = 'public'
 			  AND p.user_id != $1
 			  AND NOT p.matchmaking_opt_out
+			  AND NOT p.is_demo
 			  AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL
 			  AND ($4::text IS NULL OR p.gender = $4)
 			  AND NOT EXISTS (

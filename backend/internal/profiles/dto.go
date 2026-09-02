@@ -54,6 +54,13 @@ type ProfileInput struct {
 	HasDisability     *bool    `json:"has_disability"`
 
 	Visibility *string `json:"visibility" validate:"omitempty,oneof=public private"`
+
+	// IsDemo is only ever honored on Create, and only when the request
+	// carries a valid X-Seed-Secret header matching SEED_ADMIN_SECRET (see
+	// Handler.Create) — cmd/seed sets this for the first 10 male + 10
+	// female accounts it creates. A normal signed-in user sending this
+	// field has it silently stripped before it reaches the service layer.
+	IsDemo *bool `json:"is_demo"`
 }
 
 type ProfileResponse struct {

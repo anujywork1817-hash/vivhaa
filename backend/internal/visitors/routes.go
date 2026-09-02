@@ -9,9 +9,9 @@ import (
 
 // RegisterRoutes mounts GET /visitors ("who viewed my profile") on the
 // given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	v := rg.Group("/visitors")
-	v.Use(middleware.RequireAuth(issuer))
+	v.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	v.GET("", h.List)
 }

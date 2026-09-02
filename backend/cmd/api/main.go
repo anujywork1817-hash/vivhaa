@@ -25,6 +25,7 @@ import (
 	"matrimony-backend/internal/chat"
 	"matrimony-backend/internal/chatguard"
 	"matrimony-backend/internal/coupons"
+	"matrimony-backend/internal/demo"
 	"matrimony-backend/internal/devices"
 	"matrimony-backend/internal/email"
 	"matrimony-backend/internal/favourites"
@@ -46,6 +47,7 @@ import (
 	"matrimony-backend/internal/sms"
 	"matrimony-backend/internal/storage"
 	"matrimony-backend/internal/subscriptions"
+	"matrimony-backend/internal/unlock"
 	"matrimony-backend/internal/users"
 	"matrimony-backend/internal/verification"
 	"matrimony-backend/internal/visitors"
@@ -422,6 +424,19 @@ func main() {
 	paymentsService := payments.NewService(paymentsRepo, subscriptionsRepo, couponsService, paymentGateway, cfg.Razorpay.WebhookSecret)
 	paymentsHandler := payments.NewHandler(paymentsService)
 
+	// demo (free swipe-deck hook) and unlock (₹1 one-time paywall gate) —
+	// see internal/demo and internal/unlock. unlock reuses the same
+	// paymentGateway internal/payments wired up above, and requireUnlocked
+	// is the middleware every real (non-demo) feature group below is
+	// gated behind.
+	demoService := demo.NewService(profilesRepo)
+	demoHandler := demo.NewHandler(demoService)
+
+	unlockRepo := unlock.NewRepository(dbPool)
+	unlockService := unlock.NewService(unlockRepo, usersRepo, paymentGateway)
+	unlockHandler := unlock.NewHandler(unlockService)
+	requireUnlocked := middleware.RequireUnlocked(usersRepo)
+
 	adminRepo := admin.NewRepository(dbPool)
 	adminService := admin.NewService(adminRepo, profilesRepo, subscriptionsRepo, verificationRepo, docUploader)
 	adminHandler := admin.NewHandler(adminService)
@@ -432,18 +447,18 @@ func main() {
 	profiles.RegisterRoutes(api, profilesHandler, accessIssuer)
 	preferences.RegisterRoutes(api, preferencesHandler, accessIssuer)
 	savedsearches.RegisterRoutes(api, savedSearchesHandler, accessIssuer)
-	interests.RegisterRoutes(api, interestsHandler, accessIssuer, rateLimiter)
-	favourites.RegisterRoutes(api, favouritesHandler, accessIssuer)
-	shortlisted.RegisterRoutes(api, shortlistedHandler, accessIssuer)
+	interests.RegisterRoutes(api, interestsHandler, accessIssuer, rateLimiter, requireUnlocked)
+	favourites.RegisterRoutes(api, favouritesHandler, accessIssuer, requireUnlocked)
+	shortlisted.RegisterRoutes(api, shortlistedHandler, accessIssuer, requireUnlocked)
 	blocked.RegisterRoutes(api, blockedHandler, accessIssuer)
 	devices.RegisterRoutes(api, devicesHandler, accessIssuer, rateLimiter)
 	ai.RegisterRoutes(api, aiHandler, accessIssuer)
-	search.RegisterRoutes(api, searchHandler, accessIssuer)
-	recommendation.RegisterRoutes(api, recommendationHandler, accessIssuer)
+	search.RegisterRoutes(api, searchHandler, accessIssuer, requireUnlocked)
+	recommendation.RegisterRoutes(api, recommendationHandler, accessIssuer, requireUnlocked)
 	notifications.RegisterRoutes(api, notificationsHandler, accessIssuer)
-	chat.RegisterRoutes(api, chatHandler, chatWSHandler, accessIssuer)
-	calls.RegisterRoutes(api, callsHandler, accessIssuer)
-	visitors.RegisterRoutes(api, visitorsHandler, accessIssuer)
+	chat.RegisterRoutes(api, chatHandler, chatWSHandler, accessIssuer, requireUnlocked)
+	calls.RegisterRoutes(api, callsHandler, accessIssuer, requireUnlocked)
+	visitors.RegisterRoutes(api, visitorsHandler, accessIssuer, requireUnlocked)
 	verification.RegisterRoutes(api, verificationHandler, accessIssuer)
 	reports.RegisterRoutes(api, reportsHandler, accessIssuer)
 	moderation.RegisterRoutes(api, moderationHandler, accessIssuer)
@@ -451,6 +466,8 @@ func main() {
 	payments.RegisterRoutes(api, paymentsHandler, accessIssuer, paymentGateway)
 	admin.RegisterRoutes(api, adminHandler, accessIssuer)
 	reference.RegisterRoutes(api, referenceHandler, accessIssuer)
+	demo.RegisterRoutes(api, demoHandler, accessIssuer)
+	unlock.RegisterRoutes(api, unlockHandler, accessIssuer, paymentGateway)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.HTTP.Port,

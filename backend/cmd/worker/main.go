@@ -69,6 +69,12 @@ func indexProfile(ctx context.Context, repo *profiles.Repository, es *elasticsea
 	if err != nil {
 		return err
 	}
+	// Demo profiles (see internal/demo) must never surface in real search
+	// results — only via the dedicated demo swipe-deck endpoint. Skip
+	// indexing entirely rather than filtering at query time.
+	if p.IsDemo {
+		return nil
+	}
 
 	photos, err := repo.ListPhotos(ctx, p.ID)
 	if err != nil {

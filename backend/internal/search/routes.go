@@ -8,9 +8,9 @@ import (
 )
 
 // RegisterRoutes mounts /search/profiles on the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	s := rg.Group("/search")
-	s.Use(middleware.RequireAuth(issuer))
+	s.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	s.GET("/profiles", h.Search)
 }

@@ -26,7 +26,7 @@ const profileColumns = `
 	profile_for, sub_community, caste_no_bar, college, work_with, company_name, matchmaking_opt_out,
 	family_values, lives_with_family, hobbies, selfie_verified, manglik, rashi, nakshatra,
 	birth_time, birth_place, weight_kg, body_type, complexion, has_disability,
-	visibility, profile_code, created_at, updated_at, latitude, longitude`
+	visibility, profile_code, created_at, updated_at, latitude, longitude, is_demo`
 
 func (r *Repository) scanProfile(row pgx.Row) (Profile, error) {
 	var p Profile
@@ -38,7 +38,7 @@ func (r *Repository) scanProfile(row pgx.Row) (Profile, error) {
 		&p.ProfileFor, &p.SubCommunity, &p.CasteNoBar, &p.College, &p.WorkWith, &p.CompanyName, &p.MatchmakingOptOut,
 		&p.FamilyValues, &p.LivesWithFamily, &p.Hobbies, &p.SelfieVerified, &p.Manglik, &p.Rashi, &p.Nakshatra,
 		&p.BirthTime, &p.BirthPlace, &p.WeightKG, &p.BodyType, &p.Complexion, &p.HasDisability,
-		&p.Visibility, &p.ProfileCode, &p.CreatedAt, &p.UpdatedAt, &p.Latitude, &p.Longitude,
+		&p.Visibility, &p.ProfileCode, &p.CreatedAt, &p.UpdatedAt, &p.Latitude, &p.Longitude, &p.IsDemo,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Profile{}, ErrNotFound
@@ -55,11 +55,11 @@ func (r *Repository) Create(ctx context.Context, userID string, p Profile) (Prof
 			siblings_count, diet, smoking, drinking, about_me,
 			profile_for, sub_community, caste_no_bar, college, work_with, company_name, matchmaking_opt_out,
 			family_values, lives_with_family, hobbies, selfie_verified, manglik, rashi, nakshatra,
-			birth_time, birth_place, weight_kg, body_type, complexion, has_disability
+			birth_time, birth_place, weight_kg, body_type, complexion, has_disability, is_demo
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
 			$21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38,
-			$39, $40, $41, $42, $43, $44
+			$39, $40, $41, $42, $43, $44, $45
 		)
 		RETURNING ` + profileColumns
 
@@ -70,9 +70,32 @@ func (r *Repository) Create(ctx context.Context, userID string, p Profile) (Prof
 		p.SiblingsCount, p.Diet, p.Smoking, p.Drinking, p.AboutMe,
 		p.ProfileFor, p.SubCommunity, p.CasteNoBar, p.College, p.WorkWith, p.CompanyName, p.MatchmakingOptOut,
 		p.FamilyValues, p.LivesWithFamily, p.Hobbies, p.SelfieVerified, p.Manglik, p.Rashi, p.Nakshatra,
-		p.BirthTime, p.BirthPlace, p.WeightKG, p.BodyType, p.Complexion, p.HasDisability,
+		p.BirthTime, p.BirthPlace, p.WeightKG, p.BodyType, p.Complexion, p.HasDisability, p.IsDemo,
 	)
 	return r.scanProfile(row)
+}
+
+// ListDemoProfiles returns up to limit is_demo=true profiles, optionally
+// filtered by gender — backs GET /demo/swipe-deck (see internal/demo).
+// Ordered by created_at so the same 20 demo profiles come back in a stable
+// order across calls.
+func (r *Repository) ListDemoProfiles(ctx context.Context, gender *string, limit int) ([]Profile, error) {
+	q := `SELECT ` + profileColumns + ` FROM profiles WHERE is_demo = true AND ($1::text IS NULL OR gender = $1) ORDER BY created_at ASC LIMIT $2`
+	rows, err := r.db.Query(ctx, q, gender, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Profile
+	for rows.Next() {
+		p, err := r.scanProfile(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 func (r *Repository) GetByUserID(ctx context.Context, userID string) (Profile, error) {

@@ -64,6 +64,12 @@ type Profile struct {
 	Visibility  string
 	ProfileCode string
 
+	// IsDemo marks one of the fixed 10 male + 10 female demo profiles used
+	// by the free swipe-deck onboarding hook (see internal/demo). Never
+	// settable through the normal create/update flow — see Handler.Create
+	// and the SEED_ADMIN_SECRET check around it.
+	IsDemo bool
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

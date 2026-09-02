@@ -33,6 +33,22 @@ var baseURL = envOr("SEED_API_BASE_URL", "http://api:8080")
 
 const seedPassword = "Passw0rd!123"
 
+// seedAdminSecret, when set, must match the api service's own
+// SEED_ADMIN_SECRET env var — sent as X-Seed-Secret on profile creation so
+// the first demoCountPerGender accounts of each gender can be flagged
+// is_demo=true (see internal/profiles' Handler.Create /
+// seedSecretMatches). Left unset, every seeded account is just a normal
+// (non-demo) profile.
+var seedAdminSecret = envOr("SEED_ADMIN_SECRET", "")
+
+// demoCountPerGender is how many of the FIRST accounts of each gender
+// created this run get flagged is_demo=true — the fixed 10 male + 10
+// female pool the free swipe-deck hook (GET /demo/swipe-deck) shows every
+// new user. Independent of SEED_MALE_COUNT/SEED_FEMALE_COUNT: running
+// with higher counts (a bigger pool of ordinary seeded members) still only
+// marks the first 10 of each gender as demo.
+const demoCountPerGender = 10
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -109,7 +125,7 @@ type apiEnvelope[T any] struct {
 	Message string `json:"message"`
 }
 
-func postJSON[T any](path string, body any, out *T, bearer string) error {
+func postJSON[T any](path string, body any, out *T, bearer string, extraHeaders map[string]string) error {
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -121,6 +137,9 @@ func postJSON[T any](path string, body any, out *T, bearer string) error {
 	req.Header.Set("Content-Type", "application/json")
 	if bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	for k, v := range extraHeaders {
+		req.Header.Set(k, v)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -271,7 +290,7 @@ func randomDOB(minAge, maxAge int) string {
 	return dob.Format("2006-01-02")
 }
 
-func createAccount(index int, gender string) error {
+func createAccount(index int, gender string, isDemo bool) error {
 	first := pick(maleFirstNames)
 	if gender == "female" {
 		first = pick(femaleFirstNames)
@@ -289,7 +308,7 @@ func createAccount(index int, gender string) error {
 	if err := postJSON("/auth/signup", map[string]string{
 		"phone":    phone,
 		"password": seedPassword,
-	}, &signup, ""); err != nil {
+	}, &signup, "", nil); err != nil {
 		return fmt.Errorf("signup: %w", err)
 	}
 
@@ -298,7 +317,7 @@ func createAccount(index int, gender string) error {
 		"identifier": phone,
 		"purpose":    "signup",
 		"code":       signup.DevOTP,
-	}, &auth, ""); err != nil {
+	}, &auth, "", nil); err != nil {
 		return fmt.Errorf("verify-otp: %w", err)
 	}
 
@@ -328,8 +347,20 @@ func createAccount(index int, gender string) error {
 		"about_me":          pick(aboutTemplates),
 		"visibility":        "public",
 	}
+	var demoHeaders map[string]string
+	if isDemo {
+		// is_demo is only ever honored by the API when this header matches
+		// the api service's own SEED_ADMIN_SECRET — see
+		// internal/profiles' seedSecretMatches. Without SEED_ADMIN_SECRET
+		// set for this seed run, the field is silently ignored and the
+		// account is created as a normal (non-demo) profile.
+		profileBody["is_demo"] = true
+		if seedAdminSecret != "" {
+			demoHeaders = map[string]string{"X-Seed-Secret": seedAdminSecret}
+		}
+	}
 	var profile map[string]any
-	if err := postJSON("/profiles", profileBody, &profile, auth.AccessToken); err != nil {
+	if err := postJSON("/profiles", profileBody, &profile, auth.AccessToken, demoHeaders); err != nil {
 		return fmt.Errorf("create profile: %w", err)
 	}
 
@@ -337,7 +368,11 @@ func createAccount(index int, gender string) error {
 		return fmt.Errorf("upload photo: %w", err)
 	}
 
-	log.Printf("seeded %-6s %-22s %s", gender, fullName, phone)
+	demoTag := ""
+	if isDemo {
+		demoTag = " [DEMO]"
+	}
+	log.Printf("seeded %-6s %-22s %s%s", gender, fullName, phone, demoTag)
 	return nil
 }
 
@@ -373,16 +408,19 @@ func main() {
 	}
 
 	log.Printf("seeding against %s (%d male, %d female)", baseURL, maleCount, femaleCount)
+	if seedAdminSecret == "" {
+		log.Printf("warning: SEED_ADMIN_SECRET not set — the first %d male + %d female accounts will NOT be flagged is_demo (the API silently ignores is_demo without a matching secret)", demoCountPerGender, demoCountPerGender)
+	}
 
 	var failures int
 	for i := 1; i <= maleCount; i++ {
-		if err := createAccount(i, "male"); err != nil {
+		if err := createAccount(i, "male", i <= demoCountPerGender); err != nil {
 			log.Printf("male #%d failed: %v", i, err)
 			failures++
 		}
 	}
 	for i := 1; i <= femaleCount; i++ {
-		if err := createAccount(i, "female"); err != nil {
+		if err := createAccount(i, "female", i <= demoCountPerGender); err != nil {
 			log.Printf("female #%d failed: %v", i, err)
 			failures++
 		}

@@ -8,9 +8,9 @@ import (
 )
 
 // RegisterRoutes mounts the /matches/* endpoints on the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	m := rg.Group("/matches")
-	m.Use(middleware.RequireAuth(issuer))
+	m.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	m.GET("/recommended", h.Recommended)
 	m.GET("/daily", h.Daily)

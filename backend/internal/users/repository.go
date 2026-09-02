@@ -80,3 +80,32 @@ func (r *Repository) DeleteAccount(ctx context.Context, userID string) error {
 
 	return tx.Commit(ctx)
 }
+
+// IsUnlocked reports whether userID has completed the one-time ₹1 unlock
+// payment (see internal/unlock) — separate from and unrelated to the
+// subscription/premium tier system.
+func (r *Repository) IsUnlocked(ctx context.Context, userID string) (bool, error) {
+	const q = `SELECT unlocked_at IS NOT NULL FROM users WHERE id = $1 AND deleted_at IS NULL`
+	var unlocked bool
+	err := r.db.QueryRow(ctx, q, userID).Scan(&unlocked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	return unlocked, err
+}
+
+// MarkUnlocked permanently unlocks userID — idempotent: a second call
+// after the first is a harmless no-op, which is what makes it safe for
+// internal/unlock's Verify to call unconditionally once a payment is
+// confirmed captured, even under a retried webhook delivery.
+func (r *Repository) MarkUnlocked(ctx context.Context, userID string) error {
+	const q = `UPDATE users SET unlocked_at = COALESCE(unlocked_at, now()) WHERE id = $1 AND deleted_at IS NULL`
+	tag, err := r.db.Exec(ctx, q, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

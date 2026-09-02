@@ -11,9 +11,9 @@ import (
 )
 
 // RegisterRoutes mounts the /interests/* endpoints on the given router group.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter *ratelimit.Limiter) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, limiter *ratelimit.Limiter, requireUnlocked gin.HandlerFunc) {
 	i := rg.Group("/interests")
-	i.Use(middleware.RequireAuth(issuer))
+	i.Use(middleware.RequireAuth(issuer), requireUnlocked)
 
 	i.POST("/:profileId", h.Express)
 	i.PUT("/:id/accept", h.Accept)

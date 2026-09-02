@@ -13,13 +13,13 @@ import (
 // The actual call signaling (offer/answer/ICE/etc.) doesn't ride a REST
 // route at all — it's multiplexed over the same /ws/chat connection
 // chat already owns; see chat.WSHandler's dispatch.
-func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
+func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, requireUnlocked gin.HandlerFunc) {
 	videoCall := rg.Group("/video-call")
-	videoCall.Use(middleware.RequireAuth(issuer))
+	videoCall.Use(middleware.RequireAuth(issuer), requireUnlocked)
 	videoCall.GET("/ice-servers", h.ICEServers)
 
 	calls := rg.Group("/calls")
-	calls.Use(middleware.RequireAuth(issuer))
+	calls.Use(middleware.RequireAuth(issuer), requireUnlocked)
 	calls.GET("/history", h.ListMyCallHistory)
 
 	adminGroup := rg.Group("/admin")
