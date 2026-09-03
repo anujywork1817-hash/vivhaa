@@ -50,9 +50,15 @@ export function DashboardPage() {
         <Col xs={24} sm={12} lg={8} xl={6}>
           <MetricCard
             title="Total revenue"
-            value={`₹${data.revenue_inr.toLocaleString('en-IN')}`}
+            value={`₹${data.total_revenue_inr.toLocaleString('en-IN')}`}
             prefix={<DollarOutlined />}
           />
+        </Col>
+        <Col xs={24} sm={12} lg={8} xl={6}>
+          <MetricCard title="Subscription revenue" value={`₹${data.revenue_inr.toLocaleString('en-IN')}`} />
+        </Col>
+        <Col xs={24} sm={12} lg={8} xl={6}>
+          <MetricCard title="₹1 unlock revenue" value={`₹${data.unlock_revenue_inr.toLocaleString('en-IN')}`} />
         </Col>
       </Row>
 

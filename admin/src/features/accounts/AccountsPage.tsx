@@ -54,12 +54,22 @@ export function AccountsPage() {
       </Typography.Title>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={8}>
+        <Col span={6}>
           <Card>
-            <Statistic title="Paid accounts" value={summary?.total_paid_accounts ?? 0} />
+            <Statistic title="Paid accounts" value={summary?.total_paid_accounts ?? 0} valueStyle={{ color: '#389e0d' }} />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col span={6}>
+          <Card>
+            <Statistic title="Checkout started" value={summary?.total_created_accounts ?? 0} valueStyle={{ color: '#d4b106' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic title="Failed" value={summary?.total_failed_accounts ?? 0} valueStyle={{ color: '#cf1322' }} />
+          </Card>
+        </Col>
+        <Col span={6}>
           <Card>
             <Statistic title="Total revenue" prefix="₹" value={summary?.total_revenue_inr ?? 0} />
           </Card>

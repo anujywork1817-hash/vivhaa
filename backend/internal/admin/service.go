@@ -226,6 +226,8 @@ func (s *Service) GetDashboard(ctx context.Context) (DashboardResponse, error) {
 		PendingReports:       d.PendingReports,
 		ActiveSubscriptions:  d.ActiveSubscriptions,
 		RevenueINR:           d.RevenueINR,
+		UnlockRevenueINR:     d.UnlockRevenueINR,
+		TotalRevenueINR:      d.RevenueINR + d.UnlockRevenueINR,
 	}, nil
 }
 
@@ -298,28 +300,74 @@ func (s *Service) ListUnlockAccounts(ctx context.Context, f ListUnlockAccountsFi
 
 	out := make([]UnlockAccountRowResponse, 0, len(rows))
 	for _, r := range rows {
-		var paidAt *string
-		if r.PaidAt != nil {
-			v := r.PaidAt.Format(time.RFC3339)
-			paidAt = &v
-		}
-		out = append(out, UnlockAccountRowResponse{
-			ID: r.ID, UserID: r.UserID, Phone: r.Phone, Email: r.Email, FullName: r.FullName,
-			AmountINR: r.AmountINR, Currency: r.Currency, Status: r.Status,
-			CreatedAt: r.CreatedAt.Format(time.RFC3339), PaidAt: paidAt,
-		})
+		out = append(out, toUnlockAccountRowResponse(r))
 	}
 	return out, ListUsersMeta{Page: f.Page, Limit: f.Limit, Total: total}, nil
 }
 
+func toUnlockAccountRowResponse(r UnlockAccountRow) UnlockAccountRowResponse {
+	var paidAt *string
+	if r.PaidAt != nil {
+		v := r.PaidAt.Format(time.RFC3339)
+		paidAt = &v
+	}
+	return UnlockAccountRowResponse{
+		ID: r.ID, UserID: r.UserID, Phone: r.Phone, Email: r.Email, FullName: r.FullName,
+		AmountINR: r.AmountINR, Currency: r.Currency, Status: r.Status,
+		CreatedAt: r.CreatedAt.Format(time.RFC3339), PaidAt: paidAt,
+	}
+}
+
 // GetUnlockRevenueSummary reports the ₹1 unlock gate's own headline
-// numbers, kept separate from GetRevenue/GetDashboard's plan-based figures.
+// numbers, kept separate from GetRevenue/GetDashboard's plan-based
+// figures — paid/created/failed counts make this a conversion funnel,
+// not just a revenue total.
 func (s *Service) GetUnlockRevenueSummary(ctx context.Context) (UnlockRevenueSummaryResponse, error) {
-	count, total, err := s.repo.GetUnlockRevenueSummary(ctx)
+	paid, created, failed, revenue, err := s.repo.GetUnlockRevenueSummary(ctx)
 	if err != nil {
 		return UnlockRevenueSummaryResponse{}, err
 	}
-	return UnlockRevenueSummaryResponse{TotalPaidAccounts: count, TotalRevenueINR: total}, nil
+	return UnlockRevenueSummaryResponse{
+		TotalPaidAccounts:    paid,
+		TotalCreatedAccounts: created,
+		TotalFailedAccounts:  failed,
+		TotalRevenueINR:      revenue,
+	}, nil
+}
+
+// GetUserFinance is one user's full money history across both payment
+// systems — used by the User Detail page's Finance card so a support
+// agent doesn't have to cross-reference the separate Subscriptions and
+// Accounts list pages to answer "did this person actually pay?".
+func (s *Service) GetUserFinance(ctx context.Context, userID string) (UserFinanceResponse, error) {
+	unlockRows, err := s.repo.GetUnlockPaymentsForUser(ctx, userID)
+	if err != nil {
+		return UserFinanceResponse{}, err
+	}
+	paymentRows, err := s.repo.GetPaymentsForUser(ctx, userID)
+	if err != nil {
+		return UserFinanceResponse{}, err
+	}
+
+	unlockOut := make([]UnlockAccountRowResponse, 0, len(unlockRows))
+	for _, r := range unlockRows {
+		unlockOut = append(unlockOut, toUnlockAccountRowResponse(r))
+	}
+
+	paymentsOut := make([]PaymentRowResponse, 0, len(paymentRows))
+	for _, p := range paymentRows {
+		var paidAt *string
+		if p.PaidAt != nil {
+			v := p.PaidAt.Format(time.RFC3339)
+			paidAt = &v
+		}
+		paymentsOut = append(paymentsOut, PaymentRowResponse{
+			ID: p.ID, PlanName: p.PlanName, AmountINR: p.AmountINR, DiscountINR: p.DiscountINR,
+			Currency: p.Currency, Status: p.Status, CreatedAt: p.CreatedAt.Format(time.RFC3339), PaidAt: paidAt,
+		})
+	}
+
+	return UserFinanceResponse{UnlockPayments: unlockOut, Payments: paymentsOut}, nil
 }
 
 // GetRevenue combines the by-plan and by-month breakdowns into one

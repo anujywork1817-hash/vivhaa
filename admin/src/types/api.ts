@@ -99,6 +99,8 @@ export interface DashboardResponse {
   pending_reports: number;
   active_subscriptions: number;
   revenue_inr: number;
+  unlock_revenue_inr: number;
+  total_revenue_inr: number;
 }
 
 // --- Admin: subscriptions & revenue ---
@@ -152,7 +154,27 @@ export interface UnlockAccountRowResponse {
 
 export interface UnlockRevenueSummaryResponse {
   total_paid_accounts: number;
+  total_created_accounts: number;
+  total_failed_accounts: number;
   total_revenue_inr: number;
+}
+
+export interface PaymentRowResponse {
+  id: string;
+  plan_name: string;
+  amount_inr: number;
+  discount_inr: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+}
+
+// One user's full money history across both payment systems — GET
+// /admin/users/:id/finance.
+export interface UserFinanceResponse {
+  unlock_payments: UnlockAccountRowResponse[];
+  payments: PaymentRowResponse[];
 }
 
 // --- Verification queue (internal/verification/dto.go) ---

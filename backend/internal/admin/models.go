@@ -43,6 +43,19 @@ type UnlockAccountRow struct {
 	PaidAt    *time.Time
 }
 
+// PaymentRow is one row of a user's subscription-payment history —
+// distinct from UnlockAccountRow, which covers the separate ₹1 gate.
+type PaymentRow struct {
+	ID          string
+	PlanName    string
+	AmountINR   int64
+	DiscountINR int64
+	Currency    string
+	Status      string
+	CreatedAt   time.Time
+	PaidAt      *time.Time
+}
+
 type RevenueByPlan struct {
 	PlanCode      string
 	PlanName      string
@@ -66,4 +79,9 @@ type Dashboard struct {
 	PendingReports       int
 	ActiveSubscriptions  int
 	RevenueINR           int64
+	// UnlockRevenueINR is the separate ₹1 unlock-gate's own revenue —
+	// summed alongside RevenueINR into DashboardResponse.TotalRevenueINR
+	// so the dashboard shows one true total instead of the plan-based
+	// figure alone.
+	UnlockRevenueINR int64
 }

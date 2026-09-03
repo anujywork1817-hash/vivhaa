@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { activateUser, getUser, listUsers, suspendUser, type ListUsersParams } from '../api/users';
+import { activateUser, getUser, getUserFinance, listUsers, suspendUser, type ListUsersParams } from '../api/users';
 
 export function useUsersList(params: ListUsersParams) {
   return useQuery({
@@ -13,6 +13,14 @@ export function useUser(id: string | undefined) {
   return useQuery({
     queryKey: ['user', id],
     queryFn: () => getUser(id as string),
+    enabled: !!id,
+  });
+}
+
+export function useUserFinance(id: string | undefined) {
+  return useQuery({
+    queryKey: ['user-finance', id],
+    queryFn: () => getUserFinance(id as string),
     enabled: !!id,
   });
 }

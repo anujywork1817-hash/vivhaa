@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Envelope, ListMeta, UserDetailResponse, UserResponse } from '../types/api';
+import type { Envelope, ListMeta, UserDetailResponse, UserFinanceResponse, UserResponse } from '../types/api';
 
 export interface ListUsersParams {
   status?: string;
@@ -21,6 +21,11 @@ export async function listUsers(params: ListUsersParams): Promise<ListUsersResul
 
 export async function getUser(id: string): Promise<UserDetailResponse> {
   const { data } = await apiClient.get<Envelope<UserDetailResponse>>(`/admin/users/${id}`);
+  return data.data;
+}
+
+export async function getUserFinance(id: string): Promise<UserFinanceResponse> {
+  const { data } = await apiClient.get<Envelope<UserFinanceResponse>>(`/admin/users/${id}/finance`);
   return data.data;
 }
 

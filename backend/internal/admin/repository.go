@@ -191,17 +191,75 @@ func (r *Repository) ListUnlockAccounts(ctx context.Context, status *string, lim
 }
 
 // GetUnlockRevenueSummary reports the headline numbers for the ₹1 unlock
-// gate — how many accounts have actually paid, and the total revenue that
-// represents. Only 'paid' rows count toward both; a 'created' (checkout
-// started, never completed) or 'failed' row is not revenue.
-func (r *Repository) GetUnlockRevenueSummary(ctx context.Context) (int, int64, error) {
-	var count int
-	var total int64
-	err := r.db.QueryRow(ctx, `
-		SELECT COUNT(*), COALESCE(SUM(amount_inr), 0)
-		FROM unlock_payments
-		WHERE status = 'paid'`).Scan(&count, &total)
-	return count, total, err
+// gate — how many accounts have actually paid (and the revenue that
+// represents), plus how many started checkout ('created') or failed it,
+// turning this into a conversion funnel rather than just a revenue total.
+// Only 'paid' rows count toward revenue; a 'created' (checkout started,
+// never completed) or 'failed' row is not revenue.
+func (r *Repository) GetUnlockRevenueSummary(ctx context.Context) (paid int, created int, failed int, revenueINR int64, err error) {
+	err = r.db.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE status = 'paid'),
+			COUNT(*) FILTER (WHERE status = 'created'),
+			COUNT(*) FILTER (WHERE status = 'failed'),
+			COALESCE(SUM(amount_inr) FILTER (WHERE status = 'paid'), 0)
+		FROM unlock_payments`).Scan(&paid, &created, &failed, &revenueINR)
+	return paid, created, failed, revenueINR, err
+}
+
+// GetUnlockPaymentsForUser is ListUnlockAccounts narrowed to one user, for
+// the per-user finance view — a user with no unlock attempt at all gets
+// an empty slice, not an error.
+func (r *Repository) GetUnlockPaymentsForUser(ctx context.Context, userID string) ([]UnlockAccountRow, error) {
+	q := `
+		SELECT up.id, up.user_id, u.phone, u.email, p.full_name, up.amount_inr, up.currency, up.status, up.created_at, up.paid_at
+		FROM unlock_payments up
+		JOIN users u ON u.id = up.user_id
+		LEFT JOIN profiles p ON p.user_id = up.user_id
+		WHERE up.user_id = $1
+		ORDER BY up.created_at DESC`
+	rows, err := r.db.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []UnlockAccountRow
+	for rows.Next() {
+		var a UnlockAccountRow
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Phone, &a.Email, &a.FullName, &a.AmountINR, &a.Currency, &a.Status, &a.CreatedAt, &a.PaidAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// GetPaymentsForUser lists one user's subscription-payment history
+// (payments table), newest first — the plan-based counterpart to
+// GetUnlockPaymentsForUser.
+func (r *Repository) GetPaymentsForUser(ctx context.Context, userID string) ([]PaymentRow, error) {
+	q := `
+		SELECT pay.id, sp.name, pay.amount_inr, pay.discount_inr, pay.currency, pay.status, pay.created_at, pay.paid_at
+		FROM payments pay
+		JOIN subscription_plans sp ON sp.id = pay.plan_id
+		WHERE pay.user_id = $1
+		ORDER BY pay.created_at DESC`
+	rows, err := r.db.Query(ctx, q, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PaymentRow
+	for rows.Next() {
+		var p PaymentRow
+		if err := rows.Scan(&p.ID, &p.PlanName, &p.AmountINR, &p.DiscountINR, &p.Currency, &p.Status, &p.CreatedAt, &p.PaidAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 // GetRevenueByPlan and GetRevenueByMonth both count only 'paid' payments,
@@ -292,6 +350,9 @@ func (r *Repository) GetDashboard(ctx context.Context) (Dashboard, error) {
 		return Dashboard{}, err
 	}
 	if err := r.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount_inr - discount_inr), 0) FROM payments WHERE status = 'paid'`).Scan(&d.RevenueINR); err != nil {
+		return Dashboard{}, err
+	}
+	if err := r.db.QueryRow(ctx, `SELECT COALESCE(SUM(amount_inr), 0) FROM unlock_payments WHERE status = 'paid'`).Scan(&d.UnlockRevenueINR); err != nil {
 		return Dashboard{}, err
 	}
 

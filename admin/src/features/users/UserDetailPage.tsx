@@ -3,13 +3,15 @@ import { Avatar, Button, Card, Descriptions, Image, List, Modal, Space, Tag, Typ
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { useActivateUser, useSuspendUser, useUser } from '../../hooks/useUsers';
+import { useActivateUser, useSuspendUser, useUser, useUserFinance } from '../../hooks/useUsers';
 import { useUserDocuments } from '../../hooks/useVerifications';
 import type { VerificationResponse } from '../../types/api';
 
 const STATUS_COLORS: Record<string, string> = { active: 'green', pending: 'gold', suspended: 'red' };
 
 const DOC_STATUS_COLORS: Record<string, string> = { approved: 'green', rejected: 'red', pending: 'gold' };
+
+const PAYMENT_STATUS_COLORS: Record<string, string> = { paid: 'green', created: 'gold', failed: 'red', refunded: 'blue' };
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   aadhaar: 'Aadhaar',
@@ -45,6 +47,7 @@ export function UserDetailPage() {
   const navigate = useNavigate();
   const { data: user, isPending, isError, error, refetch } = useUser(id);
   const { data: documents, isPending: documentsPending } = useUserDocuments(id);
+  const { data: finance, isPending: financePending } = useUserFinance(id);
   const suspend = useSuspendUser();
   const activate = useActivateUser();
 
@@ -160,6 +163,65 @@ export function UserDetailPage() {
           </Descriptions>
         ) : (
           <Typography.Text type="secondary">Free tier — no active subscription.</Typography.Text>
+        )}
+      </Card>
+
+      <Card title="Finance" style={{ marginBottom: 16 }}>
+        {financePending ? (
+          <LoadingState label="Loading payment history…" />
+        ) : (
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <div>
+              <Typography.Text strong>₹1 unlock</Typography.Text>
+              {finance && finance.unlock_payments.length > 0 ? (
+                <List
+                  size="small"
+                  dataSource={finance.unlock_payments}
+                  renderItem={(p) => (
+                    <List.Item>
+                      <Space>
+                        <Tag color={PAYMENT_STATUS_COLORS[p.status] ?? 'default'}>{p.status}</Tag>
+                        <span>
+                          ₹{p.amount_inr} {p.currency}
+                        </span>
+                        <span style={{ color: '#8c8c8c' }}>{new Date(p.created_at).toLocaleString()}</span>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              ) : (
+                <div>
+                  <Typography.Text type="secondary">Never attempted the ₹1 unlock.</Typography.Text>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Typography.Text strong>Subscription payments</Typography.Text>
+              {finance && finance.payments.length > 0 ? (
+                <List
+                  size="small"
+                  dataSource={finance.payments}
+                  renderItem={(p) => (
+                    <List.Item>
+                      <Space>
+                        <Tag color={PAYMENT_STATUS_COLORS[p.status] ?? 'default'}>{p.status}</Tag>
+                        <span>{p.plan_name}</span>
+                        <span>
+                          ₹{p.amount_inr - p.discount_inr} {p.currency}
+                        </span>
+                        <span style={{ color: '#8c8c8c' }}>{new Date(p.created_at).toLocaleString()}</span>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              ) : (
+                <div>
+                  <Typography.Text type="secondary">No subscription payments.</Typography.Text>
+                </div>
+              )}
+            </div>
+          </Space>
         )}
       </Card>
 

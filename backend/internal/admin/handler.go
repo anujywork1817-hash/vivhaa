@@ -137,3 +137,12 @@ func (h *Handler) UnlockRevenueSummary(c *gin.Context) {
 	}
 	response.OK(c, resp)
 }
+
+func (h *Handler) UserFinance(c *gin.Context) {
+	resp, err := h.service.GetUserFinance(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}

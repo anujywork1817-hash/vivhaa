@@ -17,6 +17,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 
 	admin.GET("/users", h.ListUsers)
 	admin.GET("/users/:id", h.GetUser)
+	admin.GET("/users/:id/finance", h.UserFinance)
 	admin.PUT("/users/:id/suspend", h.Suspend)
 	admin.PUT("/users/:id/activate", h.Activate)
 	admin.GET("/dashboard", h.Dashboard)

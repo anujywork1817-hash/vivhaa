@@ -93,24 +93,53 @@ type SubscriptionRowResponse struct {
 // that have actually attempted or completed the unlock payment — a user
 // who's never seen the paywall has no row here.
 type UnlockAccountRowResponse struct {
-	ID         string  `json:"id"`
-	UserID     string  `json:"user_id"`
-	Phone      *string `json:"phone"`
-	Email      *string `json:"email"`
-	FullName   *string `json:"full_name"`
-	AmountINR  int64   `json:"amount_inr"`
-	Currency   string  `json:"currency"`
-	Status     string  `json:"status"` // created, paid, failed
-	CreatedAt  string  `json:"created_at"`
-	PaidAt     *string `json:"paid_at"`
+	ID        string  `json:"id"`
+	UserID    string  `json:"user_id"`
+	Phone     *string `json:"phone"`
+	Email     *string `json:"email"`
+	FullName  *string `json:"full_name"`
+	AmountINR int64   `json:"amount_inr"`
+	Currency  string  `json:"currency"`
+	Status    string  `json:"status"` // created, paid, failed
+	CreatedAt string  `json:"created_at"`
+	PaidAt    *string `json:"paid_at"`
 }
 
 // UnlockRevenueSummaryResponse is GET /admin/unlock-accounts/summary — the
 // headline numbers for the ₹1 unlock gate, the same way GetRevenue covers
 // the plan-based subscription system.
+// TotalCreatedAccounts/TotalFailedAccounts turn this summary into a
+// conversion funnel alongside TotalPaidAccounts — "43 people started the
+// ₹1 checkout, only 31 paid" is the kind of drop-off number this exposes
+// that the paid-only total alone can't.
 type UnlockRevenueSummaryResponse struct {
-	TotalPaidAccounts int   `json:"total_paid_accounts"`
-	TotalRevenueINR   int64 `json:"total_revenue_inr"`
+	TotalPaidAccounts    int   `json:"total_paid_accounts"`
+	TotalCreatedAccounts int   `json:"total_created_accounts"`
+	TotalFailedAccounts  int   `json:"total_failed_accounts"`
+	TotalRevenueINR      int64 `json:"total_revenue_inr"`
+}
+
+// PaymentRowResponse is one row of a user's subscription-payment history,
+// part of UserFinanceResponse.
+type PaymentRowResponse struct {
+	ID          string  `json:"id"`
+	PlanName    string  `json:"plan_name"`
+	AmountINR   int64   `json:"amount_inr"`
+	DiscountINR int64   `json:"discount_inr"`
+	Currency    string  `json:"currency"`
+	Status      string  `json:"status"`
+	CreatedAt   string  `json:"created_at"`
+	PaidAt      *string `json:"paid_at"`
+}
+
+// UserFinanceResponse is GET /admin/users/:id/finance — a single user's
+// full money history across both payment systems (the plan-based
+// subscriptions/payments table and the separate ₹1 unlock gate), so a
+// support agent doesn't have to cross-reference two different list pages
+// to answer "did this person actually pay?".
+type UserFinanceResponse struct {
+	UnlockPayments []UnlockAccountRowResponse `json:"unlock_payments"`
+	Payments       []PaymentRowResponse       `json:"payments"`
 }
 
 // RevenueResponse breaks the same "paid, non-refunded payments" figure
@@ -147,4 +176,10 @@ type DashboardResponse struct {
 	PendingReports       int   `json:"pending_reports"`
 	ActiveSubscriptions  int   `json:"active_subscriptions"`
 	RevenueINR           int64 `json:"revenue_inr"`
+	// UnlockRevenueINR/TotalRevenueINR: see Dashboard.UnlockRevenueINR's
+	// doc comment — RevenueINR stays the plan-based figure alone (so
+	// nothing that already reads it changes meaning), TotalRevenueINR is
+	// the new combined-across-both-systems number.
+	UnlockRevenueINR int64 `json:"unlock_revenue_inr"`
+	TotalRevenueINR  int64 `json:"total_revenue_inr"`
 }
