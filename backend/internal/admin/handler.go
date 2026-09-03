@@ -112,3 +112,28 @@ func (h *Handler) Revenue(c *gin.Context) {
 	}
 	response.OK(c, resp)
 }
+
+func (h *Handler) ListUnlockAccounts(c *gin.Context) {
+	var f ListUnlockAccountsFilter
+	if v := c.Query("status"); v != "" {
+		f.Status = &v
+	}
+	f.Page, _ = strconv.Atoi(c.Query("page"))
+	f.Limit, _ = strconv.Atoi(c.Query("limit"))
+
+	rows, meta, err := h.service.ListUnlockAccounts(c.Request.Context(), f)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.Success(c, http.StatusOK, rows, meta)
+}
+
+func (h *Handler) UnlockRevenueSummary(c *gin.Context) {
+	resp, err := h.service.GetUnlockRevenueSummary(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}

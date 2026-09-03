@@ -271,6 +271,57 @@ func (s *Service) ListSubscriptions(ctx context.Context, f ListSubscriptionsFilt
 	return out, ListUsersMeta{Page: f.Page, Limit: f.Limit, Total: total}, nil
 }
 
+type ListUnlockAccountsFilter struct {
+	Status *string
+	Page   int
+	Limit  int
+}
+
+// ListUnlockAccounts is ListSubscriptions' counterpart for the ₹1 unlock
+// gate — every account that has attempted or completed that one-time
+// payment, not the plan-based subscription system.
+func (s *Service) ListUnlockAccounts(ctx context.Context, f ListUnlockAccountsFilter) ([]UnlockAccountRowResponse, ListUsersMeta, error) {
+	if f.Page < 1 {
+		f.Page = 1
+	}
+	if f.Limit < 1 {
+		f.Limit = defaultLimit
+	}
+	if f.Limit > maxLimit {
+		f.Limit = maxLimit
+	}
+
+	rows, total, err := s.repo.ListUnlockAccounts(ctx, f.Status, f.Limit, (f.Page-1)*f.Limit)
+	if err != nil {
+		return nil, ListUsersMeta{}, err
+	}
+
+	out := make([]UnlockAccountRowResponse, 0, len(rows))
+	for _, r := range rows {
+		var paidAt *string
+		if r.PaidAt != nil {
+			v := r.PaidAt.Format(time.RFC3339)
+			paidAt = &v
+		}
+		out = append(out, UnlockAccountRowResponse{
+			ID: r.ID, UserID: r.UserID, Phone: r.Phone, Email: r.Email, FullName: r.FullName,
+			AmountINR: r.AmountINR, Currency: r.Currency, Status: r.Status,
+			CreatedAt: r.CreatedAt.Format(time.RFC3339), PaidAt: paidAt,
+		})
+	}
+	return out, ListUsersMeta{Page: f.Page, Limit: f.Limit, Total: total}, nil
+}
+
+// GetUnlockRevenueSummary reports the ₹1 unlock gate's own headline
+// numbers, kept separate from GetRevenue/GetDashboard's plan-based figures.
+func (s *Service) GetUnlockRevenueSummary(ctx context.Context) (UnlockRevenueSummaryResponse, error) {
+	count, total, err := s.repo.GetUnlockRevenueSummary(ctx)
+	if err != nil {
+		return UnlockRevenueSummaryResponse{}, err
+	}
+	return UnlockRevenueSummaryResponse{TotalPaidAccounts: count, TotalRevenueINR: total}, nil
+}
+
 // GetRevenue combines the by-plan and by-month breakdowns into one
 // response — the same "paid, net of discount" figure as GetDashboard's
 // RevenueINR, just sliced two ways for the revenue chart.

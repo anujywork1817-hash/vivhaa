@@ -27,6 +27,22 @@ type SubscriptionRow struct {
 	EndsAt   *time.Time
 }
 
+// UnlockAccountRow mirrors unlock_payments joined against its user/profile
+// for display — see UnlockAccountRowResponse's doc comment for why this is
+// separate from SubscriptionRow.
+type UnlockAccountRow struct {
+	ID        string
+	UserID    string
+	Phone     *string
+	Email     *string
+	FullName  *string
+	AmountINR int64
+	Currency  string
+	Status    string
+	CreatedAt time.Time
+	PaidAt    *time.Time
+}
+
 type RevenueByPlan struct {
 	PlanCode      string
 	PlanName      string

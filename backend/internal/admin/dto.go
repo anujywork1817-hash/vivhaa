@@ -86,6 +86,33 @@ type SubscriptionRowResponse struct {
 	EndsAt   *string `json:"ends_at"`
 }
 
+// UnlockAccountRowResponse is one row of GET /admin/unlock-accounts — the
+// ₹1 one-time unlock gate's own accounts/revenue view, kept separate from
+// SubscriptionRowResponse since the unlock is a front gate, not a plan
+// (see internal/unlock and migration 000032). Only ever lists accounts
+// that have actually attempted or completed the unlock payment — a user
+// who's never seen the paywall has no row here.
+type UnlockAccountRowResponse struct {
+	ID         string  `json:"id"`
+	UserID     string  `json:"user_id"`
+	Phone      *string `json:"phone"`
+	Email      *string `json:"email"`
+	FullName   *string `json:"full_name"`
+	AmountINR  int64   `json:"amount_inr"`
+	Currency   string  `json:"currency"`
+	Status     string  `json:"status"` // created, paid, failed
+	CreatedAt  string  `json:"created_at"`
+	PaidAt     *string `json:"paid_at"`
+}
+
+// UnlockRevenueSummaryResponse is GET /admin/unlock-accounts/summary — the
+// headline numbers for the ₹1 unlock gate, the same way GetRevenue covers
+// the plan-based subscription system.
+type UnlockRevenueSummaryResponse struct {
+	TotalPaidAccounts int   `json:"total_paid_accounts"`
+	TotalRevenueINR   int64 `json:"total_revenue_inr"`
+}
+
 // RevenueResponse breaks the same "paid, non-refunded payments" figure
 // DashboardResponse.RevenueINR already totals down into a per-plan split
 // and a monthly time series, for the admin panel's revenue chart —

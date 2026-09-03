@@ -30,13 +30,24 @@ func NewHandler(service *Service, isProd bool) *Handler {
 // cookies and keeps working exactly as before via the body; a browser
 // client (the admin panel) can opt into reading its session from these
 // instead of holding the raw JWTs in JS-accessible storage, which is what
-// makes them stealable by an XSS bug in that panel. SameSite=Lax rather
-// than None: this only needs to work same-site (the admin panel and API
-// share a host, differing only by port, which cookies treat as the same
-// site), and Lax avoids the Secure-cookie-required-for-None restriction
-// that would otherwise break plain-HTTP LAN deployments entirely.
+// makes them stealable by an XSS bug in that panel.
+//
+// SameSite mode depends on isProd: this used to be hardcoded to Lax on
+// the (wrong, in hindsight) assumption that the admin panel and API
+// always share a host, differing only by port — true for the original
+// home-network deployment, but false once admin and API each got their
+// own CloudFront domain (genuinely cross-site from the browser's
+// perspective). Lax cookies are simply never sent on cross-site
+// XHR/fetch calls (only same-site requests, or a cross-site top-level
+// navigation) — so login would set the cookie, then the very next
+// authenticated request silently went out with no cookie at all,
+// bouncing straight back to the login screen. None (which browsers
+// require pairing with Secure — satisfied here since isProd already
+// implies Secure) is what a cross-origin cookie actually needs; Lax is
+// kept for local/LAN dev, where Secure+None would break plain-HTTP
+// entirely.
 func (h *Handler) setAuthCookies(c *gin.Context, accessToken, refreshToken string) {
-	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", accessToken, 15*60, "/", "", h.isProd, true)
 	c.SetCookie("refresh_token", refreshToken, 30*24*60*60, "/", "", h.isProd, true)
 }
@@ -45,9 +56,16 @@ func (h *Handler) setAuthCookies(c *gin.Context, accessToken, refreshToken strin
 // invalidates the refresh token server-side, but without this the
 // now-dead tokens would still sit in the browser's cookie jar.
 func (h *Handler) clearAuthCookies(c *gin.Context) {
-	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", "", -1, "/", "", h.isProd, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", h.isProd, true)
+}
+
+func (h *Handler) cookieSameSite() http.SameSite {
+	if h.isProd {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
 }
 
 func (h *Handler) Signup(c *gin.Context) {

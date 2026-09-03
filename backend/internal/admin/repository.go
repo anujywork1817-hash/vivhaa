@@ -146,6 +146,64 @@ func (r *Repository) ListSubscriptions(ctx context.Context, status *string, limi
 	return out, total, rows.Err()
 }
 
+// ListUnlockAccounts joins unlock_payments against its user (for a display
+// identifier) and profile (for a name), optionally filtered by status —
+// mirrors ListSubscriptions' filter+paginate shape, for the separate
+// ₹1-unlock-gate accounts/revenue view.
+func (r *Repository) ListUnlockAccounts(ctx context.Context, status *string, limit, offset int) ([]UnlockAccountRow, int, error) {
+	where := "1=1"
+	args := []interface{}{}
+	if status != nil {
+		args = append(args, *status)
+		where = fmt.Sprintf("up.status = $%d", len(args))
+	}
+
+	var total int
+	if err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM unlock_payments up WHERE `+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	args = append(args, limit, offset)
+	q := fmt.Sprintf(`
+		SELECT up.id, up.user_id, u.phone, u.email, p.full_name, up.amount_inr, up.currency, up.status, up.created_at, up.paid_at
+		FROM unlock_payments up
+		JOIN users u ON u.id = up.user_id
+		LEFT JOIN profiles p ON p.user_id = up.user_id
+		WHERE %s
+		ORDER BY up.created_at DESC
+		LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
+
+	rows, err := r.db.Query(ctx, q, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var out []UnlockAccountRow
+	for rows.Next() {
+		var a UnlockAccountRow
+		if err := rows.Scan(&a.ID, &a.UserID, &a.Phone, &a.Email, &a.FullName, &a.AmountINR, &a.Currency, &a.Status, &a.CreatedAt, &a.PaidAt); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}
+
+// GetUnlockRevenueSummary reports the headline numbers for the ₹1 unlock
+// gate — how many accounts have actually paid, and the total revenue that
+// represents. Only 'paid' rows count toward both; a 'created' (checkout
+// started, never completed) or 'failed' row is not revenue.
+func (r *Repository) GetUnlockRevenueSummary(ctx context.Context) (int, int64, error) {
+	var count int
+	var total int64
+	err := r.db.QueryRow(ctx, `
+		SELECT COUNT(*), COALESCE(SUM(amount_inr), 0)
+		FROM unlock_payments
+		WHERE status = 'paid'`).Scan(&count, &total)
+	return count, total, err
+}
+
 // GetRevenueByPlan and GetRevenueByMonth both count only 'paid' payments,
 // net of any discount — the same definition GetDashboard's single
 // RevenueINR total already uses, just grouped two different ways.

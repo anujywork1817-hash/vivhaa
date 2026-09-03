@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AccountsPage } from './features/accounts/AccountsPage';
 import { LoginPage } from './features/auth/LoginPage';
 import { CallHistoryPage } from './features/calls/CallHistoryPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -28,6 +29,7 @@ export function App() {
         <Route path="/verifications" element={<VerificationQueuePage />} />
         <Route path="/reports" element={<ReportQueuePage />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
+        <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/call-history" element={<CallHistoryPage />} />
       </Route>
 

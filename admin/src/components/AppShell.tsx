@@ -5,6 +5,7 @@ import {
   LogoutOutlined,
   PhoneOutlined,
   SafetyCertificateOutlined,
+  UnlockOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Dropdown, Layout, Menu, Space, Typography } from 'antd';
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { key: '/verifications', icon: <SafetyCertificateOutlined />, label: 'Verifications' },
   { key: '/reports', icon: <FlagOutlined />, label: 'Reports' },
   { key: '/subscriptions', icon: <DollarOutlined />, label: 'Subscriptions & Revenue' },
+  { key: '/accounts', icon: <UnlockOutlined />, label: 'Accounts' },
   { key: '/call-history', icon: <PhoneOutlined />, label: 'Call History' },
 ];
 

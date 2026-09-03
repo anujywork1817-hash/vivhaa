@@ -134,6 +134,27 @@ export interface RevenueResponse {
   by_month: RevenueByMonthRow[];
 }
 
+// --- Admin: ₹1 unlock-gate accounts & revenue (separate from the
+// plan-based subscriptions above — see internal/unlock) ---
+
+export interface UnlockAccountRowResponse {
+  id: string;
+  user_id: string;
+  phone: string | null;
+  email: string | null;
+  full_name: string | null;
+  amount_inr: number;
+  currency: string;
+  status: string; // created, paid, failed
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface UnlockRevenueSummaryResponse {
+  total_paid_accounts: number;
+  total_revenue_inr: number;
+}
+
 // --- Verification queue (internal/verification/dto.go) ---
 
 export interface VerificationResponse {
