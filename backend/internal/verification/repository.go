@@ -91,7 +91,7 @@ func (r *Repository) ListByStatus(ctx context.Context, status string, limit, off
 		FROM verifications v
 		LEFT JOIN profiles p ON p.user_id = v.user_id
 		WHERE v.status = $1
-		ORDER BY v.created_at ASC
+		ORDER BY v.created_at DESC
 		LIMIT $2 OFFSET $3`
 	rows, err := r.db.Query(ctx, q, status, limit, offset)
 	if err != nil {
