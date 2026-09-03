@@ -113,6 +113,51 @@ func (g *RazorpayGateway) FetchPayment(ctx context.Context, paymentID string) (F
 	}, nil
 }
 
+// FetchOrderPayments calls Razorpay's "Fetch Payments for an Order" API —
+// used for reconciliation, where our own DB never saw a payment_id at
+// all (the row is stuck at "created"), so FetchPayment (which needs a
+// payment_id) can't help; this looks the order up the other way round.
+func (g *RazorpayGateway) FetchOrderPayments(ctx context.Context, orderID string) ([]FetchedPayment, error) {
+	url := razorpayOrdersURL + "/" + orderID + "/payments"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.SetBasicAuth(g.keyID, g.keySecret)
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("razorpay fetch order payments failed: status %d", resp.StatusCode)
+	}
+
+	var parsed struct {
+		Items []struct {
+			ID       string `json:"id"`
+			OrderID  string `json:"order_id"`
+			Amount   int64  `json:"amount"`
+			Currency string `json:"currency"`
+			Status   string `json:"status"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, err
+	}
+
+	out := make([]FetchedPayment, 0, len(parsed.Items))
+	for _, item := range parsed.Items {
+		out = append(out, FetchedPayment{
+			ID: item.ID, OrderID: item.OrderID, AmountPaise: item.Amount,
+			Currency: item.Currency, Status: item.Status,
+		})
+	}
+	return out, nil
+}
+
 func computeHMAC(orderID, paymentID, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(orderID + "|" + paymentID))

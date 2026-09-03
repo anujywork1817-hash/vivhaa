@@ -76,6 +76,22 @@ func (g *MockGateway) FetchPayment(_ context.Context, paymentID string) (Fetched
 	return p, nil
 }
 
+// FetchOrderPayments returns every recorded payment against orderID —
+// the mock has no separate "order -> payments" index, so this is a
+// linear scan of the same map FetchPayment reads, which is fine at
+// mock/test scale.
+func (g *MockGateway) FetchOrderPayments(_ context.Context, orderID string) ([]FetchedPayment, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var out []FetchedPayment
+	for _, p := range g.payments {
+		if p.OrderID == orderID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
 // KeySecret exposes the mock secret so test tooling can compute a valid
 // signature the same way Razorpay's real checkout widget would. Real
 // gateways never expose this.

@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"encoding/csv"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -145,4 +148,86 @@ func (h *Handler) UserFinance(c *gin.Context) {
 		return
 	}
 	response.OK(c, resp)
+}
+
+// ReconcileUnlockAccounts is a POST-triggered admin action (not a passive
+// list endpoint), since it makes outbound Razorpay calls and can mutate
+// unlock_payments rows — see Service.ReconcileUnlockPayments.
+func (h *Handler) ReconcileUnlockAccounts(c *gin.Context) {
+	resp, err := h.service.ReconcileUnlockPayments(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}
+
+// ExportSubscriptionsCSV streams every subscription row (optionally
+// filtered by status) as a CSV attachment — a direct browser navigation
+// (e.g. window.open) triggers a download the same way any other file
+// download would, no JS-side blob handling required.
+func (h *Handler) ExportSubscriptionsCSV(c *gin.Context) {
+	var status *string
+	if v := c.Query("status"); v != "" {
+		status = &v
+	}
+	rows, err := h.service.ExportSubscriptionsRows(c.Request.Context(), status)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", `attachment; filename="subscriptions.csv"`)
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"id", "user_id", "phone", "email", "full_name", "plan_code", "plan_name", "status", "starts_at", "ends_at"})
+	for _, r := range rows {
+		_ = w.Write([]string{
+			r.ID, r.UserID, derefOr(r.Phone, ""), derefOr(r.Email, ""), derefOr(r.FullName, ""),
+			r.PlanCode, r.PlanName, r.Status, formatTimeOr(r.StartsAt, ""), formatTimeOr(r.EndsAt, ""),
+		})
+	}
+	w.Flush()
+}
+
+// ExportUnlockAccountsCSV is ExportSubscriptionsCSV's counterpart for the
+// ₹1 unlock gate.
+func (h *Handler) ExportUnlockAccountsCSV(c *gin.Context) {
+	var status *string
+	if v := c.Query("status"); v != "" {
+		status = &v
+	}
+	rows, err := h.service.ExportUnlockAccountsRows(c.Request.Context(), status)
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", `attachment; filename="unlock-accounts.csv"`)
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{"id", "user_id", "phone", "email", "full_name", "amount_inr", "currency", "status", "created_at", "paid_at"})
+	for _, r := range rows {
+		_ = w.Write([]string{
+			r.ID, r.UserID, derefOr(r.Phone, ""), derefOr(r.Email, ""), derefOr(r.FullName, ""),
+			fmt.Sprintf("%d", r.AmountINR), r.Currency, r.Status, r.CreatedAt.Format(csvTimeLayout), formatTimeOr(r.PaidAt, ""),
+		})
+	}
+	w.Flush()
+}
+
+const csvTimeLayout = "2006-01-02 15:04:05"
+
+func derefOr(s *string, fallback string) string {
+	if s == nil {
+		return fallback
+	}
+	return *s
+}
+
+func formatTimeOr(t *time.Time, fallback string) string {
+	if t == nil {
+		return fallback
+	}
+	return t.Format(csvTimeLayout)
 }

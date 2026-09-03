@@ -9,12 +9,17 @@ import (
 	"matrimony-backend/internal/profiles"
 	"matrimony-backend/internal/storage"
 	"matrimony-backend/internal/subscriptions"
+	"matrimony-backend/internal/unlock"
 	"matrimony-backend/internal/verification"
 )
 
 const (
 	defaultLimit = 20
 	maxLimit     = 100
+	// exportLimit is the row cap for a CSV export — a de facto ceiling on
+	// how large a single export can get, not a real pagination limit;
+	// nothing in this codebase currently approaches it.
+	exportLimit = 50000
 )
 
 type Service struct {
@@ -23,10 +28,11 @@ type Service struct {
 	subsRepo         *subscriptions.Repository
 	verificationRepo *verification.Repository
 	docUploader      *storage.DocumentUploader
+	unlockService    *unlock.Service
 }
 
-func NewService(repo *Repository, profilesRepo *profiles.Repository, subsRepo *subscriptions.Repository, verificationRepo *verification.Repository, docUploader *storage.DocumentUploader) *Service {
-	return &Service{repo: repo, profilesRepo: profilesRepo, subsRepo: subsRepo, verificationRepo: verificationRepo, docUploader: docUploader}
+func NewService(repo *Repository, profilesRepo *profiles.Repository, subsRepo *subscriptions.Repository, verificationRepo *verification.Repository, docUploader *storage.DocumentUploader, unlockService *unlock.Service) *Service {
+	return &Service{repo: repo, profilesRepo: profilesRepo, subsRepo: subsRepo, verificationRepo: verificationRepo, docUploader: docUploader, unlockService: unlockService}
 }
 
 func (s *Service) ListUsers(ctx context.Context, f ListUsersFilter) ([]UserResponse, ListUsersMeta, error) {
@@ -368,6 +374,29 @@ func (s *Service) GetUserFinance(ctx context.Context, userID string) (UserFinanc
 	}
 
 	return UserFinanceResponse{UnlockPayments: unlockOut, Payments: paymentsOut}, nil
+}
+
+// ReconcileUnlockPayments delegates to the unlock package's own
+// reconciliation sweep — kept there (rather than duplicated here) since
+// it's the package that owns the Razorpay gateway and the finalize/
+// mark-unlocked transaction logic; admin is just the trigger.
+func (s *Service) ReconcileUnlockPayments(ctx context.Context) (unlock.ReconcileResponse, error) {
+	return s.unlockService.Reconcile(ctx)
+}
+
+// ExportSubscriptionsRows fetches every subscription row (up to
+// exportLimit), optionally filtered by status, for CSV export — same
+// query ListSubscriptions uses, just without pagination.
+func (s *Service) ExportSubscriptionsRows(ctx context.Context, status *string) ([]SubscriptionRow, error) {
+	rows, _, err := s.repo.ListSubscriptions(ctx, status, exportLimit, 0)
+	return rows, err
+}
+
+// ExportUnlockAccountsRows is ExportSubscriptionsRows' counterpart for
+// the ₹1 unlock gate.
+func (s *Service) ExportUnlockAccountsRows(ctx context.Context, status *string) ([]UnlockAccountRow, error) {
+	rows, _, err := s.repo.ListUnlockAccounts(ctx, status, exportLimit, 0)
+	return rows, err
 }
 
 // GetRevenue combines the by-plan and by-month breakdowns into one

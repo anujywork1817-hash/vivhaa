@@ -22,3 +22,12 @@ type VerifyRequest struct {
 type VerifyResponse struct {
 	Unlocked bool `json:"unlocked"`
 }
+
+// ReconcileResponse summarizes an admin-triggered sweep of orders stuck
+// at "created" — see Service.Reconcile.
+type ReconcileResponse struct {
+	Checked      int `json:"checked"`
+	Reconciled   int `json:"reconciled"` // found captured on Razorpay's side, now marked paid
+	MarkedFailed int `json:"marked_failed"`
+	StillPending int `json:"still_pending"` // checked, but Razorpay has no captured payment yet either
+}

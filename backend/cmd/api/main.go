@@ -438,7 +438,7 @@ func main() {
 	requireUnlocked := middleware.RequireUnlocked(usersRepo)
 
 	adminRepo := admin.NewRepository(dbPool)
-	adminService := admin.NewService(adminRepo, profilesRepo, subscriptionsRepo, verificationRepo, docUploader)
+	adminService := admin.NewService(adminRepo, profilesRepo, subscriptionsRepo, verificationRepo, docUploader, unlockService)
 	adminHandler := admin.NewHandler(adminService)
 
 	api := router.Group("/")

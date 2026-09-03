@@ -1,8 +1,10 @@
-import { Card, Col, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { DownloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Row, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useState } from 'react';
 import { ErrorState } from '../../components/ErrorState';
-import { useUnlockAccountsList, useUnlockRevenueSummary } from '../../hooks/useUnlockAccounts';
+import { unlockAccountsExportUrl } from '../../api/unlockAccounts';
+import { useReconcileUnlockAccounts, useUnlockAccountsList, useUnlockRevenueSummary } from '../../hooks/useUnlockAccounts';
 import type { UnlockAccountRowResponse } from '../../types/api';
 
 const STATUS_COLORS: Record<string, string> = { paid: 'green', created: 'gold', failed: 'red' };
@@ -18,6 +20,18 @@ export function AccountsPage() {
 
   const { data, isPending, isError, error, refetch, isFetching } = useUnlockAccountsList({ status, page, limit });
   const { data: summary } = useUnlockRevenueSummary();
+  const reconcile = useReconcileUnlockAccounts();
+
+  async function handleReconcile() {
+    try {
+      const result = await reconcile.mutateAsync();
+      message.success(
+        `Checked ${result.checked} · reconciled ${result.reconciled} · marked failed ${result.marked_failed} · still pending ${result.still_pending}`,
+      );
+    } catch {
+      message.error('Could not reconcile with Razorpay. Please try again.');
+    }
+  }
 
   const columns: ColumnsType<UnlockAccountRowResponse> = [
     {
@@ -49,9 +63,24 @@ export function AccountsPage() {
 
   return (
     <div>
-      <Typography.Title level={3} style={{ marginTop: 0 }}>
-        Accounts (₹1 Unlock)
-      </Typography.Title>
+      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          Accounts (₹1 Unlock)
+        </Typography.Title>
+        <Space>
+          <Button
+            icon={<SyncOutlined />}
+            loading={reconcile.isPending}
+            onClick={handleReconcile}
+            title="Cross-check orders stuck at 'created' against Razorpay's own records — catches a payment that captured but whose /verify callback never fired."
+          >
+            Reconcile with Razorpay
+          </Button>
+          <Button icon={<DownloadOutlined />} href={unlockAccountsExportUrl(status)} target="_blank" rel="noreferrer">
+            Export CSV
+          </Button>
+        </Space>
+      </Space>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>

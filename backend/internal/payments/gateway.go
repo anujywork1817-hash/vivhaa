@@ -36,6 +36,13 @@ type Gateway interface {
 	// FetchPayment independently confirms with the gateway what a payment
 	// actually settled as, rather than trusting the signature alone.
 	FetchPayment(ctx context.Context, paymentID string) (FetchedPayment, error)
+	// FetchOrderPayments lists every payment attempt the gateway has on
+	// file against orderID — the reconciliation path for an order stuck
+	// at "created" in our own DB: the client may have completed checkout
+	// but never called back to our /verify endpoint (closed tab, network
+	// drop, missed webhook), in which case the gateway's own records are
+	// the only place that capture is still visible.
+	FetchOrderPayments(ctx context.Context, orderID string) ([]FetchedPayment, error)
 	// KeyID is the public key the frontend checkout widget needs.
 	KeyID() string
 }

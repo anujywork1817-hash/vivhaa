@@ -3,6 +3,7 @@ package unlock
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,4 +85,29 @@ func (r *Repository) MarkFailed(ctx context.Context, id string) error {
 	const q = `UPDATE unlock_payments SET status = 'failed' WHERE id = $1`
 	_, err := r.db.Exec(ctx, q, id)
 	return err
+}
+
+// ListStalePending returns every order still stuck at "created" and older
+// than minAge — young "created" rows are excluded because a user may
+// simply be mid-checkout right now, and reconciling those would race a
+// real in-flight /verify call. This is the admin-triggered reconciliation
+// path's starting point: rows here either completed on Razorpay's side
+// without our /verify callback ever firing, or genuinely never completed.
+func (r *Repository) ListStalePending(ctx context.Context, minAge time.Duration) ([]Payment, error) {
+	q := `SELECT ` + columns + ` FROM unlock_payments WHERE status = 'created' AND created_at < now() - ($1 * interval '1 second') ORDER BY created_at ASC`
+	rows, err := r.db.Query(ctx, q, minAge.Seconds())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Payment
+	for rows.Next() {
+		p, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }

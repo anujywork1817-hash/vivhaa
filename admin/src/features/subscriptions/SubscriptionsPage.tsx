@@ -1,6 +1,8 @@
-import { Select, Space, Table, Tag, Typography } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
+import { Button, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useState } from 'react';
+import { subscriptionsExportUrl } from '../../api/subscriptions';
 import { ErrorState } from '../../components/ErrorState';
 import { useSubscriptionsList } from '../../hooks/useSubscriptions';
 import type { SubscriptionRowResponse } from '../../types/api';
@@ -55,7 +57,7 @@ export function SubscriptionsPage() {
         <ErrorState error={error} onRetry={refetch} />
       ) : (
         <>
-          <Space style={{ marginBottom: 16 }}>
+          <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
             <Select
               placeholder="Status"
               allowClear
@@ -72,6 +74,9 @@ export function SubscriptionsPage() {
                 { value: 'cancelled', label: 'Cancelled' },
               ]}
             />
+            <Button icon={<DownloadOutlined />} href={subscriptionsExportUrl(status)} target="_blank" rel="noreferrer">
+              Export CSV
+            </Button>
           </Space>
 
           <Table<SubscriptionRowResponse>

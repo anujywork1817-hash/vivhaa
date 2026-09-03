@@ -14,9 +14,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"time"
 
 	"matrimony-backend/internal/payments"
 	"matrimony-backend/internal/users"
+)
+
+const (
+	// reconcileMinAge excludes orders too young to check — a user may
+	// simply be mid-checkout right now, and reconciling those would race
+	// their own in-flight /verify call.
+	reconcileMinAge = 15 * time.Minute
+	// reconcileAbandonAfter is how long an order can sit at "created"
+	// with no captured payment on Razorpay's side before Reconcile gives
+	// up and marks it failed, rather than checking it forever.
+	reconcileAbandonAfter = 24 * time.Hour
 )
 
 const (
@@ -205,6 +217,65 @@ func computeHMAC(orderID, paymentID, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(orderID + "|" + paymentID))
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// Reconcile sweeps every order stuck at "created" for long enough that
+// it's not just a user mid-checkout, and cross-checks each one against
+// Razorpay's own records — catching the case where a payment actually
+// captured but our /verify callback never fired (closed tab, network
+// drop, or a missed webhook), which would otherwise leave real money
+// collected with no record of it here. Orders abandoned long enough with
+// no captured payment on Razorpay's side either are marked failed so
+// they stop showing up as "checkout started" forever.
+func (s *Service) Reconcile(ctx context.Context) (ReconcileResponse, error) {
+	stale, err := s.repo.ListStalePending(ctx, reconcileMinAge)
+	if err != nil {
+		return ReconcileResponse{}, err
+	}
+
+	var resp ReconcileResponse
+	for _, payment := range stale {
+		resp.Checked++
+
+		attempts, err := s.gateway.FetchOrderPayments(ctx, payment.RazorpayOrderID)
+		if err != nil {
+			slog.Error("unlock: reconcile could not fetch order payments", "order_id", payment.RazorpayOrderID, "error", err)
+			resp.StillPending++
+			continue
+		}
+
+		var captured *payments.FetchedPayment
+		for i := range attempts {
+			if attempts[i].Status == "captured" {
+				captured = &attempts[i]
+				break
+			}
+		}
+
+		if captured != nil {
+			if _, err := s.finalizeCapturedPayment(ctx, payment.RazorpayOrderID, captured.ID, "admin-reconciled", captured.AmountPaise, captured.Currency); err != nil {
+				slog.Error("unlock: reconcile found a captured payment but could not finalize it", "order_id", payment.RazorpayOrderID, "payment_id", captured.ID, "error", err)
+				resp.StillPending++
+				continue
+			}
+			resp.Reconciled++
+			continue
+		}
+
+		if time.Since(payment.CreatedAt) > reconcileAbandonAfter {
+			if err := s.repo.MarkFailed(ctx, payment.ID); err != nil {
+				slog.Error("unlock: reconcile could not mark abandoned order failed", "order_id", payment.RazorpayOrderID, "error", err)
+				resp.StillPending++
+				continue
+			}
+			resp.MarkedFailed++
+			continue
+		}
+
+		resp.StillPending++
+	}
+
+	return resp, nil
 }
 
 // Status reports whether userID has already completed the unlock payment.

@@ -22,7 +22,10 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 	admin.PUT("/users/:id/activate", h.Activate)
 	admin.GET("/dashboard", h.Dashboard)
 	admin.GET("/subscriptions", h.ListSubscriptions)
+	admin.GET("/subscriptions/export", h.ExportSubscriptionsCSV)
 	admin.GET("/revenue", h.Revenue)
 	admin.GET("/unlock-accounts", h.ListUnlockAccounts)
+	admin.GET("/unlock-accounts/export", h.ExportUnlockAccountsCSV)
 	admin.GET("/unlock-accounts/summary", h.UnlockRevenueSummary)
+	admin.POST("/unlock-accounts/reconcile", h.ReconcileUnlockAccounts)
 }

@@ -177,6 +177,15 @@ export interface UserFinanceResponse {
   payments: PaymentRowResponse[];
 }
 
+// Result of POST /admin/unlock-accounts/reconcile — a sweep of orders
+// stuck at "created" cross-checked against Razorpay's own records.
+export interface ReconcileResponse {
+  checked: number;
+  reconciled: number;
+  marked_failed: number;
+  still_pending: number;
+}
+
 // --- Verification queue (internal/verification/dto.go) ---
 
 export interface VerificationResponse {

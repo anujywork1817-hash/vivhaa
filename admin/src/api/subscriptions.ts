@@ -18,3 +18,9 @@ export async function getRevenue(): Promise<RevenueResponse> {
   const { data } = await apiClient.get<Envelope<RevenueResponse>>('/admin/revenue');
   return data.data;
 }
+
+// See unlockAccountsExportUrl's comment — same direct-download approach.
+export function subscriptionsExportUrl(status?: string): string {
+  const base = `${apiClient.defaults.baseURL}/admin/subscriptions/export`;
+  return status ? `${base}?status=${encodeURIComponent(status)}` : base;
+}
