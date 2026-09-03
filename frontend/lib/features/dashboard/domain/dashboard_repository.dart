@@ -5,7 +5,9 @@ import '../../../shared/models/match_profile.dart';
 abstract class DashboardRepository {
   Future<ApiResult<List<MatchProfile>>> getTodayMatches();
   Future<ApiResult<List<MatchProfile>>> getNewMembers();
-  Future<ApiResult<List<MatchProfile>>> getRecommendedMatches();
+  Future<ApiResult<List<MatchProfile>>> getRecommendedMatches({
+    bool suppressUnlockRedirect = false,
+  });
   Future<ApiResult<List<MatchProfile>>> getAllMatches();
   Future<ApiResult<List<MatchProfile>>> getNearbyMatches({double? radiusKm});
   Future<ApiResult<void>> updateLocation({required double latitude, required double longitude});

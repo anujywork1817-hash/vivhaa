@@ -32,7 +32,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
     setState(() => _connecting = true);
     final actions = ref.read(interestsActionsProvider);
     for (final profile in suggested.where((p) => _selected!.contains(p.id))) {
-      await actions.send(profile);
+      await actions.send(profile, suppressUnlockRedirect: true);
     }
     // "Hook then pay ₹1" gate: this is the actual last step of onboarding
     // (family_details -> partner_preferences -> here), so every new user
@@ -46,7 +46,7 @@ class _ConnectMatchesScreenState extends ConsumerState<ConnectMatchesScreen> {
   Widget build(BuildContext context) {
     final profileFor =
         ref.watch(profileCreationControllerProvider).draft.profileFor ?? ProfileFor.myself;
-    final matchesAsync = ref.watch(recommendedMatchesProvider);
+    final matchesAsync = ref.watch(onboardingSuggestedMatchesProvider);
 
     return Scaffold(
       appBar: AppBar(

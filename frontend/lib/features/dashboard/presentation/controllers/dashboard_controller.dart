@@ -19,6 +19,21 @@ final recommendedMatchesProvider = FutureProvider.autoDispose<List<MatchProfile>
   return result.when(success: (data) => data, failure: (f) => throw f);
 });
 
+/// Same call as [recommendedMatchesProvider], for the one place (onboarding's
+/// ConnectMatchesScreen, reached before the free demo swipe deck) that
+/// expects this to fail pre-unlock and already handles it locally —
+/// suppresses ApiClient's global 402-unlock redirect so hitting this
+/// endpoint here doesn't yank the user to the paywall before they've even
+/// seen the demo deck. See ApiDashboardRepository.getRecommendedMatches's
+/// doc comment for the full "why".
+final onboardingSuggestedMatchesProvider =
+    FutureProvider.autoDispose<List<MatchProfile>>((ref) async {
+  final result = await ref
+      .watch(dashboardRepositoryProvider)
+      .getRecommendedMatches(suppressUnlockRedirect: true);
+  return result.when(success: (data) => data, failure: (f) => throw f);
+});
+
 /// Holds the notification list as mutable state (rather than a plain
 /// FutureProvider) so the Notifications screen can flip read/unread flags
 /// optimistically — on tap or "mark all as read" — without waiting on a

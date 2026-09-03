@@ -63,7 +63,10 @@ class ApiClient {
           // one place (UnlockPaywallScreen) that can fix it. Handled here,
           // once, for every request this client makes, rather than
           // re-litigating it in each screen's error branch.
-          if (error.response?.statusCode == 402 &&
+          final suppressRedirect =
+              error.requestOptions.extra['suppressUnlockRedirect'] == true;
+          if (!suppressRedirect &&
+              error.response?.statusCode == 402 &&
               _extractErrorCode(error.response?.data) == 'unlock_required') {
             _ref.read(appRouterProvider).go(AppRoutes.unlockPaywall);
           }

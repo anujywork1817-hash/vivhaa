@@ -78,8 +78,13 @@ class InterestsActions {
   // unconditionally right after awaiting this. Returning the failure (or
   // null on success), same as withdraw() below, lets callers actually
   // branch on the outcome.
-  Future<AppFailure?> send(MatchProfile profile) async {
-    final result = await ref.read(interestRepositoryProvider).sendInterest(profile);
+  Future<AppFailure?> send(
+    MatchProfile profile, {
+    bool suppressUnlockRedirect = false,
+  }) async {
+    final result = await ref
+        .read(interestRepositoryProvider)
+        .sendInterest(profile, suppressUnlockRedirect: suppressUnlockRedirect);
     ref.invalidate(sentInterestsProvider);
     return result.when(success: (_) => null, failure: (f) => f);
   }

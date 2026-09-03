@@ -8,7 +8,10 @@ abstract class InterestRepository {
 
   /// Interests the caller soft-deleted, in either direction.
   Future<ApiResult<List<InterestRecord>>> getDeleted();
-  Future<ApiResult<InterestRecord>> sendInterest(MatchProfile profile);
+  Future<ApiResult<InterestRecord>> sendInterest(
+    MatchProfile profile, {
+    bool suppressUnlockRedirect = false,
+  });
   Future<ApiResult<InterestRecord>> respond(String interestId, bool accept);
   Future<ApiResult<void>> withdraw(String interestId);
 

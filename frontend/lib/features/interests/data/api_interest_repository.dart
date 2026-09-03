@@ -53,9 +53,21 @@ class ApiInterestRepository implements InterestRepository {
   }
 
   @override
-  Future<ApiResult<InterestRecord>> sendInterest(MatchProfile profile) async {
+  Future<ApiResult<InterestRecord>> sendInterest(
+    MatchProfile profile, {
+    bool suppressUnlockRedirect = false,
+  }) async {
     try {
-      final response = await _client.dio.post(ApiEndpoints.expressInterest(profile.id));
+      final response = await _client.dio.post(
+        ApiEndpoints.expressInterest(profile.id),
+        // See ApiDashboardRepository.getRecommendedMatches's doc comment —
+        // same reasoning: onboarding's ConnectMatchesScreen sends real
+        // interests before unlock is even possible, and already handles
+        // that failure locally by continuing to the demo deck regardless.
+        options: suppressUnlockRedirect
+            ? Options(extra: {'suppressUnlockRedirect': true})
+            : null,
+      );
       final data = response.data['data'] as Map<String, dynamic>;
       return ApiResult.success(InterestRecord(
         id: data['id'] as String,

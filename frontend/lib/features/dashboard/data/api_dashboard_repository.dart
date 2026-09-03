@@ -30,9 +30,27 @@ class ApiDashboardRepository implements DashboardRepository {
   }
 
   @override
-  Future<ApiResult<List<MatchProfile>>> getRecommendedMatches() async {
+  Future<ApiResult<List<MatchProfile>>> getRecommendedMatches({
+    bool suppressUnlockRedirect = false,
+  }) async {
     try {
-      final response = await _client.dio.get(ApiEndpoints.recommendedMatches);
+      final response = await _client.dio.get(
+        ApiEndpoints.recommendedMatches,
+        // connect_matches_screen (onboarding, before the free demo deck)
+        // calls this same endpoint to suggest real matches to connect
+        // with — already locked pre-unlock, by design, and that screen
+        // already handles the failure locally (empty state, Skip/
+        // Continue routing to the demo deck itself). Without this flag,
+        // ApiClient's global 402-unlock interceptor fires on this very
+        // first call and yanks the user straight to the paywall before
+        // they ever see the demo deck — the same endpoint is also used
+        // by the real Home/Matches-tab screens post-unlock, where the
+        // global redirect firing is exactly the intended behavior, so
+        // this can't be suppressed endpoint-wide.
+        options: suppressUnlockRedirect
+            ? Options(extra: {'suppressUnlockRedirect': true})
+            : null,
+      );
       final rows = (response.data['data'] as List).cast<Map<String, dynamic>>();
       return ApiResult.success(rows.map(_fromMatchJson).toList());
     } on DioException catch (e) {
