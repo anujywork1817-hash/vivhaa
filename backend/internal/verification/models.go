@@ -5,6 +5,12 @@ import "time"
 type Verification struct {
 	ID           string
 	UserID       string
+	// FullName is only populated by ListByStatus (the admin review queue),
+	// via a LEFT JOIN against profiles — nil for every other query path
+	// (Create/GetLatestByUserID/GetByID/ListByUserID), which don't need it
+	// and use the plain `columns` scan. Nullable because a submitter may
+	// not have finished onboarding a profile yet.
+	FullName     *string
 	DocumentType string
 	DocumentKey  string
 	// DocumentURL is legacy/unused going forward — old rows may still

@@ -1,8 +1,11 @@
 package verification
 
 type Response struct {
-	ID           string  `json:"id"`
-	UserID       string  `json:"user_id"`
+	ID     string `json:"id"`
+	UserID string `json:"user_id"`
+	// FullName is only ever set on the admin review queue (ListPending) —
+	// see Verification.FullName's doc comment.
+	FullName     *string `json:"full_name"`
 	DocumentType string  `json:"document_type"`
 	DocumentURL  string  `json:"document_url"`
 	Status       string  `json:"status"`

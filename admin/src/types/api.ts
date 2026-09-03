@@ -139,6 +139,7 @@ export interface RevenueResponse {
 export interface VerificationResponse {
   id: string;
   user_id: string;
+  full_name: string | null;
   document_type: string;
   document_url: string;
   status: string; // pending | approved | rejected

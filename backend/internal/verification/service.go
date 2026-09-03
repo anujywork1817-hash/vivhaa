@@ -197,6 +197,7 @@ func (s *Service) toResponse(ctx context.Context, v Verification) (Response, err
 	return Response{
 		ID:           v.ID,
 		UserID:       v.UserID,
+		FullName:     v.FullName,
 		DocumentType: v.DocumentType,
 		DocumentURL:  docURL,
 		Status:       v.Status,

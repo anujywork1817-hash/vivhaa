@@ -80,8 +80,19 @@ func (r *Repository) GetByID(ctx context.Context, id string) (Verification, erro
 	return r.scan(r.db.QueryRow(ctx, q, id))
 }
 
+// ListByStatus is the admin review queue's own query — a LEFT JOIN
+// against profiles for full_name (nullable: a submitter may not have
+// finished onboarding a profile yet), so the queue can show who a
+// document belongs to without a separate lookup per row.
 func (r *Repository) ListByStatus(ctx context.Context, status string, limit, offset int) ([]Verification, error) {
-	q := `SELECT ` + columns + ` FROM verifications WHERE status = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3`
+	q := `
+		SELECT v.id, v.user_id, p.full_name, v.document_type, v.document_key, v.document_url,
+		       v.status, v.reviewed_by, v.review_notes, v.created_at, v.reviewed_at
+		FROM verifications v
+		LEFT JOIN profiles p ON p.user_id = v.user_id
+		WHERE v.status = $1
+		ORDER BY v.created_at ASC
+		LIMIT $2 OFFSET $3`
 	rows, err := r.db.Query(ctx, q, status, limit, offset)
 	if err != nil {
 		return nil, err
@@ -90,8 +101,9 @@ func (r *Repository) ListByStatus(ctx context.Context, status string, limit, off
 
 	var results []Verification
 	for rows.Next() {
-		v, err := r.scan(rows)
-		if err != nil {
+		var v Verification
+		if err := rows.Scan(&v.ID, &v.UserID, &v.FullName, &v.DocumentType, &v.DocumentKey, &v.DocumentURL,
+			&v.Status, &v.ReviewedBy, &v.ReviewNotes, &v.CreatedAt, &v.ReviewedAt); err != nil {
 			return nil, err
 		}
 		results = append(results, v)

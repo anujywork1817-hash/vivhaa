@@ -15,6 +15,11 @@ export function VerificationQueuePage() {
   const { data, isPending, isError, error, refetch, isFetching } = useVerificationsList({ page, limit });
 
   const columns: ColumnsType<VerificationResponse> = [
+    {
+      title: 'Name',
+      dataIndex: 'full_name',
+      render: (value: string | null) => value ?? <Typography.Text type="secondary">—</Typography.Text>,
+    },
     { title: 'Document type', dataIndex: 'document_type', render: (value: string) => documentLabel(value) },
     {
       title: 'Status',
