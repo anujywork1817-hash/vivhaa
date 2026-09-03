@@ -7,6 +7,7 @@ import { CallHistoryPage } from './features/calls/CallHistoryPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ReportQueuePage } from './features/reports/ReportQueuePage';
 import { SubscriptionsPage } from './features/subscriptions/SubscriptionsPage';
+import { TrustSafetyPage } from './features/trust-safety/TrustSafetyPage';
 import { UserDetailPage } from './features/users/UserDetailPage';
 import { UserListPage } from './features/users/UserListPage';
 import { VerificationQueuePage } from './features/verifications/VerificationQueuePage';
@@ -28,6 +29,7 @@ export function App() {
         <Route path="/users/:id" element={<UserDetailPage />} />
         <Route path="/verifications" element={<VerificationQueuePage />} />
         <Route path="/reports" element={<ReportQueuePage />} />
+        <Route path="/trust-safety" element={<TrustSafetyPage />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/call-history" element={<CallHistoryPage />} />

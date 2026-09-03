@@ -142,6 +142,53 @@ type UserFinanceResponse struct {
 	Payments       []PaymentRowResponse       `json:"payments"`
 }
 
+// ReportedUserRowResponse is one row of GET /admin/trust-safety's
+// most-reported list.
+type ReportedUserRowResponse struct {
+	UserID         string  `json:"user_id"`
+	Phone          *string `json:"phone"`
+	Email          *string `json:"email"`
+	FullName       *string `json:"full_name"`
+	ReportCount    int     `json:"report_count"`
+	LastReportedAt string  `json:"last_reported_at"`
+}
+
+// BlockedUserRowResponse is the most-blocked counterpart.
+type BlockedUserRowResponse struct {
+	UserID     string  `json:"user_id"`
+	Phone      *string `json:"phone"`
+	Email      *string `json:"email"`
+	FullName   *string `json:"full_name"`
+	BlockCount int     `json:"block_count"`
+}
+
+// AccountBriefResponse is a minimal account identifier — just enough to
+// show "who is this" in a list without paying for a full user/profile
+// join, used inside SharedDeviceGroupResponse.
+type AccountBriefResponse struct {
+	UserID   string  `json:"user_id"`
+	Phone    *string `json:"phone"`
+	Email    *string `json:"email"`
+	FullName *string `json:"full_name"`
+}
+
+// SharedDeviceGroupResponse is one device token shared by 2+ accounts —
+// see SharedDeviceGroup's doc comment for what this does and doesn't prove.
+type SharedDeviceGroupResponse struct {
+	Token    string                 `json:"token"`
+	Accounts []AccountBriefResponse `json:"accounts"`
+}
+
+// TrustSafetyResponse is GET /admin/trust-safety — every signal this
+// admin panel surfaces that isn't captured by an individual pending
+// report or verification, just aggregate patterns across the whole user
+// base (most reported, most blocked, accounts sharing a device).
+type TrustSafetyResponse struct {
+	MostReported  []ReportedUserRowResponse   `json:"most_reported"`
+	MostBlocked   []BlockedUserRowResponse    `json:"most_blocked"`
+	SharedDevices []SharedDeviceGroupResponse `json:"shared_devices"`
+}
+
 // RevenueResponse breaks the same "paid, non-refunded payments" figure
 // DashboardResponse.RevenueINR already totals down into a per-plan split
 // and a monthly time series, for the admin panel's revenue chart —

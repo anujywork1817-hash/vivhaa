@@ -5,6 +5,7 @@ import {
   LogoutOutlined,
   PhoneOutlined,
   SafetyCertificateOutlined,
+  SecurityScanOutlined,
   UnlockOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { key: '/users', icon: <UserOutlined />, label: 'Users' },
   { key: '/verifications', icon: <SafetyCertificateOutlined />, label: 'Verifications' },
   { key: '/reports', icon: <FlagOutlined />, label: 'Reports' },
+  { key: '/trust-safety', icon: <SecurityScanOutlined />, label: 'Trust & Safety' },
   { key: '/subscriptions', icon: <DollarOutlined />, label: 'Subscriptions & Revenue' },
   { key: '/accounts', icon: <UnlockOutlined />, label: 'Accounts' },
   { key: '/call-history', icon: <PhoneOutlined />, label: 'Call History' },

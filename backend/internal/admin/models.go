@@ -14,6 +14,49 @@ type User struct {
 	CreatedAt     time.Time
 }
 
+// ReportedUserRow is one row of the trust & safety "most reported"
+// list — a user aggregated across every report filed against them,
+// regardless of that report's individual status (a dismissed report
+// still counts toward "how many people have flagged this account").
+type ReportedUserRow struct {
+	UserID         string
+	Phone          *string
+	Email          *string
+	FullName       *string
+	ReportCount    int
+	LastReportedAt time.Time
+}
+
+// BlockedUserRow is the "most blocked" counterpart — an account many
+// distinct other users have chosen to block is a real-world reputation
+// signal reports alone can miss (nobody has to explain why they blocked
+// someone).
+type BlockedUserRow struct {
+	UserID     string
+	Phone      *string
+	Email      *string
+	FullName   *string
+	BlockCount int
+}
+
+// SharedDeviceAccount is one account sharing a push-notification device
+// token with at least one other account — see SharedDeviceGroup.
+type SharedDeviceAccount struct {
+	UserID   string
+	Phone    *string
+	Email    *string
+	FullName *string
+}
+
+// SharedDeviceGroup is every account registered against the same device
+// token — a device legitimately reused for multiple real family members'
+// accounts looks identical to one operator running several fake profiles
+// from a single phone, so this is a signal to investigate, not a verdict.
+type SharedDeviceGroup struct {
+	Token    string
+	Accounts []SharedDeviceAccount
+}
+
 type SubscriptionRow struct {
 	ID       string
 	UserID   string

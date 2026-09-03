@@ -28,4 +28,5 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer) {
 	admin.GET("/unlock-accounts/export", h.ExportUnlockAccountsCSV)
 	admin.GET("/unlock-accounts/summary", h.UnlockRevenueSummary)
 	admin.POST("/unlock-accounts/reconcile", h.ReconcileUnlockAccounts)
+	admin.GET("/trust-safety", h.TrustSafety)
 }

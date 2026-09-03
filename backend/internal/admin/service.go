@@ -399,6 +399,68 @@ func (s *Service) ExportUnlockAccountsRows(ctx context.Context, status *string) 
 	return rows, err
 }
 
+// trustSafetyListLimit caps each of the three lists in GetTrustSafety —
+// this is a "worst offenders at a glance" view, not a paginated browse.
+const trustSafetyListLimit = 25
+
+// GetTrustSafety assembles every aggregate abuse signal this admin panel
+// surfaces — see TrustSafetyResponse's doc comment.
+func (s *Service) GetTrustSafety(ctx context.Context) (TrustSafetyResponse, error) {
+	reported, err := s.repo.GetMostReportedUsers(ctx, trustSafetyListLimit)
+	if err != nil {
+		return TrustSafetyResponse{}, err
+	}
+	blocked, err := s.repo.GetMostBlockedUsers(ctx, trustSafetyListLimit)
+	if err != nil {
+		return TrustSafetyResponse{}, err
+	}
+	// Capped generously above the list limit: this counts raw
+	// (token, account) rows, not groups, and a handful of large groups
+	// could otherwise starve out smaller ones before they're even seen.
+	deviceRows, err := s.repo.GetSharedDeviceGroups(ctx, trustSafetyListLimit*10)
+	if err != nil {
+		return TrustSafetyResponse{}, err
+	}
+
+	reportedOut := make([]ReportedUserRowResponse, 0, len(reported))
+	for _, r := range reported {
+		reportedOut = append(reportedOut, ReportedUserRowResponse{
+			UserID: r.UserID, Phone: r.Phone, Email: r.Email, FullName: r.FullName,
+			ReportCount: r.ReportCount, LastReportedAt: r.LastReportedAt.Format(time.RFC3339),
+		})
+	}
+
+	blockedOut := make([]BlockedUserRowResponse, 0, len(blocked))
+	for _, b := range blocked {
+		blockedOut = append(blockedOut, BlockedUserRowResponse{
+			UserID: b.UserID, Phone: b.Phone, Email: b.Email, FullName: b.FullName, BlockCount: b.BlockCount,
+		})
+	}
+
+	// Group the flat (token, account) rows back into one entry per
+	// token, preserving the query's per-token ordering.
+	order := make([]string, 0, trustSafetyListLimit)
+	groups := make(map[string][]AccountBriefResponse)
+	for _, row := range deviceRows {
+		if _, seen := groups[row.Token]; !seen {
+			order = append(order, row.Token)
+		}
+		a := row.Account
+		groups[row.Token] = append(groups[row.Token], AccountBriefResponse{
+			UserID: a.UserID, Phone: a.Phone, Email: a.Email, FullName: a.FullName,
+		})
+	}
+	deviceOut := make([]SharedDeviceGroupResponse, 0, len(order))
+	for _, token := range order {
+		if len(deviceOut) >= trustSafetyListLimit {
+			break
+		}
+		deviceOut = append(deviceOut, SharedDeviceGroupResponse{Token: token, Accounts: groups[token]})
+	}
+
+	return TrustSafetyResponse{MostReported: reportedOut, MostBlocked: blockedOut, SharedDevices: deviceOut}, nil
+}
+
 // GetRevenue combines the by-plan and by-month breakdowns into one
 // response — the same "paid, net of discount" figure as GetDashboard's
 // RevenueINR, just sliced two ways for the revenue chart.

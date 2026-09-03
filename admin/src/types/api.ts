@@ -186,6 +186,43 @@ export interface ReconcileResponse {
   still_pending: number;
 }
 
+// --- Trust & Safety (internal/admin's aggregate abuse signals) ---
+
+export interface ReportedUserRowResponse {
+  user_id: string;
+  phone: string | null;
+  email: string | null;
+  full_name: string | null;
+  report_count: number;
+  last_reported_at: string;
+}
+
+export interface BlockedUserRowResponse {
+  user_id: string;
+  phone: string | null;
+  email: string | null;
+  full_name: string | null;
+  block_count: number;
+}
+
+export interface AccountBriefResponse {
+  user_id: string;
+  phone: string | null;
+  email: string | null;
+  full_name: string | null;
+}
+
+export interface SharedDeviceGroupResponse {
+  token: string;
+  accounts: AccountBriefResponse[];
+}
+
+export interface TrustSafetyResponse {
+  most_reported: ReportedUserRowResponse[];
+  most_blocked: BlockedUserRowResponse[];
+  shared_devices: SharedDeviceGroupResponse[];
+}
+
 // --- Verification queue (internal/verification/dto.go) ---
 
 export interface VerificationResponse {

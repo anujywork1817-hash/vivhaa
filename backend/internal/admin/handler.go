@@ -216,6 +216,15 @@ func (h *Handler) ExportUnlockAccountsCSV(c *gin.Context) {
 	w.Flush()
 }
 
+func (h *Handler) TrustSafety(c *gin.Context) {
+	resp, err := h.service.GetTrustSafety(c.Request.Context())
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
+}
+
 const csvTimeLayout = "2006-01-02 15:04:05"
 
 func derefOr(s *string, fallback string) string {

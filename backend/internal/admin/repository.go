@@ -316,6 +316,107 @@ func (r *Repository) GetRevenueByMonth(ctx context.Context) ([]RevenueByMonth, e
 	return out, rows.Err()
 }
 
+// GetMostReportedUsers aggregates every report ever filed (any status —
+// a dismissed report still counts toward "how many people flagged this
+// account"), grouped by the reported user, worst offenders first.
+func (r *Repository) GetMostReportedUsers(ctx context.Context, limit int) ([]ReportedUserRow, error) {
+	q := `
+		SELECT r.reported_user_id, u.phone, u.email, p.full_name, COUNT(*), MAX(r.created_at)
+		FROM reports r
+		JOIN users u ON u.id = r.reported_user_id
+		LEFT JOIN profiles p ON p.user_id = r.reported_user_id
+		GROUP BY r.reported_user_id, u.phone, u.email, p.full_name
+		ORDER BY COUNT(*) DESC, MAX(r.created_at) DESC
+		LIMIT $1`
+	rows, err := r.db.Query(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ReportedUserRow
+	for rows.Next() {
+		var row ReportedUserRow
+		if err := rows.Scan(&row.UserID, &row.Phone, &row.Email, &row.FullName, &row.ReportCount, &row.LastReportedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+// GetMostBlockedUsers is GetMostReportedUsers' counterpart for
+// blocked_users — a reputation signal that needs no explanation from the
+// blocker, unlike a report.
+func (r *Repository) GetMostBlockedUsers(ctx context.Context, limit int) ([]BlockedUserRow, error) {
+	q := `
+		SELECT b.blocked_user_id, u.phone, u.email, p.full_name, COUNT(*)
+		FROM blocked_users b
+		JOIN users u ON u.id = b.blocked_user_id
+		LEFT JOIN profiles p ON p.user_id = b.blocked_user_id
+		GROUP BY b.blocked_user_id, u.phone, u.email, p.full_name
+		ORDER BY COUNT(*) DESC
+		LIMIT $1`
+	rows, err := r.db.Query(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []BlockedUserRow
+	for rows.Next() {
+		var row BlockedUserRow
+		if err := rows.Scan(&row.UserID, &row.Phone, &row.Email, &row.FullName, &row.BlockCount); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
+// GetSharedDeviceGroups returns, for every push-notification device
+// token registered against 2+ distinct accounts, the full list of
+// accounts sharing it — the raw (token, account) pairs; grouping into
+// SharedDeviceGroup happens in the service layer since SQL has no clean
+// way to nest a variable-length join result per group here without a
+// JSON aggregate this codebase doesn't otherwise use.
+func (r *Repository) GetSharedDeviceGroups(ctx context.Context, limit int) ([]struct {
+	Token   string
+	Account SharedDeviceAccount
+}, error) {
+	q := `
+		SELECT dt.token, u.id, u.phone, u.email, p.full_name
+		FROM device_tokens dt
+		JOIN users u ON u.id = dt.user_id
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE dt.token IN (
+			SELECT token FROM device_tokens GROUP BY token HAVING COUNT(DISTINCT user_id) > 1
+		)
+		ORDER BY dt.token
+		LIMIT $1`
+	rows, err := r.db.Query(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []struct {
+		Token   string
+		Account SharedDeviceAccount
+	}
+	for rows.Next() {
+		var row struct {
+			Token   string
+			Account SharedDeviceAccount
+		}
+		if err := rows.Scan(&row.Token, &row.Account.UserID, &row.Account.Phone, &row.Account.Email, &row.Account.FullName); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 func (r *Repository) GetDashboard(ctx context.Context) (Dashboard, error) {
 	var d Dashboard
 
