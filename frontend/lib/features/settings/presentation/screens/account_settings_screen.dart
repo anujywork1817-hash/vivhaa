@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/phone_utils.dart';
 import '../../../authentication/data/api_auth_repository.dart';
 import '../../../authentication/domain/auth_repository.dart';
 import '../../../authentication/presentation/controllers/auth_controller.dart';
@@ -46,7 +47,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           controller: phoneController,
           autofocus: true,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(hintText: '+919876543210'),
+          inputFormatters: indianMobileInputFormatters,
+          decoration: const InputDecoration(hintText: '9876543210'),
         ),
         actions: [
           TextButton(
@@ -62,9 +64,17 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     );
     phoneController.dispose();
     if (phone == null || phone.isEmpty || !mounted) return;
+    if (phone.length != indianMobileNumberLength) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(
+              'Enter a valid $indianMobileNumberLength-digit mobile number.')));
+      return;
+    }
+    final e164Phone = toIndianE164(phone);
 
     final requestResult =
-        await ref.read(authRepositoryProvider).requestLinkPhoneOtp(phone);
+        await ref.read(authRepositoryProvider).requestLinkPhoneOtp(e164Phone);
     if (!mounted) return;
     final requestFailure =
         requestResult.when(success: (_) => null, failure: (f) => f);
@@ -85,7 +95,8 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           autofocus: true,
           keyboardType: TextInputType.number,
           maxLength: 6,
-          decoration: InputDecoration(hintText: '6-digit code sent to $phone'),
+          decoration:
+              InputDecoration(hintText: '6-digit code sent to $e164Phone'),
         ),
         actions: [
           TextButton(
@@ -102,8 +113,9 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
     codeController.dispose();
     if (code == null || code.isEmpty || !mounted) return;
 
-    final confirmResult =
-        await ref.read(authRepositoryProvider).confirmLinkPhone(phone, code);
+    final confirmResult = await ref
+        .read(authRepositoryProvider)
+        .confirmLinkPhone(e164Phone, code);
     if (!mounted) return;
     confirmResult.when(
       success: (_) {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/phone_utils.dart';
 import '../../../../shared/models/enums.dart';
 import '../../../../shared/widgets/inputs/app_date_picker_field.dart';
 import '../../../../shared/widgets/inputs/app_text_field.dart';
@@ -56,18 +57,41 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
   /// the number's already attached to a different account) is shown but
   /// doesn't block onboarding from continuing, same as skipping the field
   /// entirely — a phone number was never a hard requirement here.
-  Future<void> _savePhoneIfNeeded() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) return;
+  ///
+  /// A *partially* filled field (1-9 digits — the input formatter already
+  /// blocks anything past 10) is the one case that DOES block continuing:
+  /// the backend requires a full e164 number, so 1-9 digits can only ever
+  /// fail server-side, and silently swallowing that would leave the user
+  /// thinking a garbage number was saved when it wasn't.
+  ///
+  /// Returns false only for that blocking case, so onContinue can stay on
+  /// this screen instead of moving on with the phone field wrong.
+  Future<bool> _savePhoneIfNeeded() async {
+    final digits = _phoneController.text.trim();
+    if (digits.isEmpty) return true;
+    if (digits.length != indianMobileNumberLength) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(
+              'Enter a valid $indianMobileNumberLength-digit mobile number, or leave it blank.')));
+      return false;
+    }
 
     setState(() => _savingPhone = true);
-    final result = await ref.read(authRepositoryProvider).setPhone(phone);
-    if (!mounted) return;
+    final result =
+        await ref.read(authRepositoryProvider).setPhone(toIndianE164(digits));
+    if (!mounted) return false;
     setState(() => _savingPhone = false);
-    result.when(
-      success: (_) {},
-      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          duration: const Duration(seconds: 3), content: Text(f.message))),
+    return result.when(
+      success: (_) => true,
+      failure: (f) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: const Duration(seconds: 3), content: Text(f.message)));
+        // Matches the doc comment above: a rejected phone number (e.g.
+        // already attached elsewhere) still doesn't block onboarding —
+        // only a malformed one (the length check above) does.
+        return true;
+      },
     );
   }
 
@@ -98,8 +122,8 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
       loading: _savingPhone,
       onContinue: canContinue
           ? () async {
-              await _savePhoneIfNeeded();
-              if (mounted) context.push(AppRoutes.religionCommunity);
+              final phoneOk = await _savePhoneIfNeeded();
+              if (mounted && phoneOk) context.push(AppRoutes.religionCommunity);
             }
           : null,
       child: Column(
@@ -129,9 +153,10 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
           const SizedBox(height: AppSpacing.md),
           AppTextField(
             label: 'Phone number',
-            hint: '+919876543210',
+            hint: '9876543210',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
+            inputFormatters: indianMobileInputFormatters,
           ),
           const SizedBox(height: AppSpacing.xxl),
           Text('Date of birth', style: context.textStyles.headlineSmall),
