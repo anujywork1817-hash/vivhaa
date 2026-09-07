@@ -25,6 +25,20 @@ class ApiBlockedUsersRepository implements BlockedUsersRepository {
   }
 
   @override
+  Future<ApiResult<BlockStatus>> status(String profileId) async {
+    try {
+      final response = await _client.dio.get(ApiEndpoints.blockStatus(profileId));
+      final data = response.data['data'] as Map<String, dynamic>;
+      return ApiResult.success(BlockStatus(
+        isBlockedByMe: data['is_blocked_by_me'] as bool? ?? false,
+        hasBlockedMe: data['has_blocked_me'] as bool? ?? false,
+      ));
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
   Future<ApiResult<void>> block(String profileId) async {
     try {
       await _client.dio.post(ApiEndpoints.blockUser(profileId));

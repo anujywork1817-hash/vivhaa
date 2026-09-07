@@ -120,6 +120,7 @@ class ApiEndpoints {
   static const String shortlisted = '/shortlisted';
   static const String visitors = '/visitors';
   static String blockUser(String profileId) => '/blocked/$profileId';
+  static String blockStatus(String profileId) => '/blocked/$profileId/status';
   static const String blocked = '/blocked';
 
   static const String conversations = '/chat/conversations';

@@ -5,10 +5,27 @@ import '../../../chat/presentation/controllers/chat_controller.dart';
 import '../../../interests/presentation/controllers/interests_controller.dart';
 import '../../../profile_detail/presentation/controllers/profile_detail_controller.dart';
 import '../../data/api_blocked_users_repository.dart';
+import '../../domain/blocked_users_repository.dart';
 
 final blockedUsersListProvider = FutureProvider.autoDispose<List<MatchProfile>>((ref) async {
   final result = await ref.watch(blockedUsersRepositoryProvider).getBlocked();
   return result.when(success: (data) => data, failure: (f) => throw f);
+});
+
+/// Whether the caller has blocked (or been blocked by) profileId — the
+/// profile-detail screen's "More" menu needs this to show Unblock instead
+/// of Block, since it can't reliably infer that from an existing chat
+/// conversation (a block with no prior chat has none to check).
+final blockStatusProvider =
+    FutureProvider.autoDispose.family<BlockStatus, String>((ref, profileId) async {
+  final result = await ref.watch(blockedUsersRepositoryProvider).status(profileId);
+  return result.when(
+    success: (data) => data,
+    // A failed status check shouldn't block the rest of the profile from
+    // rendering — default to "not blocked" (the More menu offers Block,
+    // the safe/reversible direction) rather than surfacing an error here.
+    failure: (_) => const BlockStatus(isBlockedByMe: false, hasBlockedMe: false),
+  );
 });
 
 class BlockedUsersActions {
@@ -23,6 +40,7 @@ class BlockedUsersActions {
   /// interest should disappear immediately, in either direction).
   void _refreshAffected(String profileId) {
     ref.invalidate(blockedUsersListProvider);
+    ref.invalidate(blockStatusProvider(profileId));
     ref.invalidate(profileDetailProvider(profileId));
     ref.invalidate(conversationsProvider);
     ref.invalidate(sentInterestsProvider);

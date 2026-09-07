@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/match_profile.dart';
@@ -116,42 +118,58 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
           itemBuilder: (context, index) {
             final profile = profiles[index];
             return Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 border: Border.all(color: context.colors.line),
               ),
-              child: Row(
-                children: [
-                  ProfileAvatar(
-                    name: profile.name,
-                    photoUrl: profile.photoSeed,
-                    size: 48,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              clipBehavior: Clip.antiAlias,
+              child: Material(
+                color: context.colors.surface,
+                child: InkWell(
+                  // Opens the full profile — previously this row was just
+                  // a name/city summary with no way to see the rest of a
+                  // blocked member's profile (photos, bio, etc.) or
+                  // unblock from there; the actions sheet on that screen
+                  // already supports Unblock once it knows the block
+                  // status (see blockStatusProvider), it just needed a
+                  // way in.
+                  onTap: () =>
+                      context.push(AppRoutes.profileDetailPath(profile.id)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Row(
                       children: [
-                        Text(profile.name,
-                            style: context.textStyles.titleSmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        if (profile.city.isNotEmpty)
-                          Text(profile.city,
-                              style: context.textStyles.bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
+                        ProfileAvatar(
+                          name: profile.name,
+                          photoUrl: profile.photoSeed,
+                          size: 48,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(profile.name,
+                                  style: context.textStyles.titleSmall,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              if (profile.city.isNotEmpty)
+                                Text(profile.city,
+                                    style: context.textStyles.bodySmall,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => _unblock(profile.id, profile.name),
+                          child: const Text('Unblock'),
+                        ),
                       ],
                     ),
                   ),
-                  OutlinedButton(
-                    onPressed: () => _unblock(profile.id, profile.name),
-                    child: const Text('Unblock'),
-                  ),
-                ],
+                ),
               ),
             );
           },

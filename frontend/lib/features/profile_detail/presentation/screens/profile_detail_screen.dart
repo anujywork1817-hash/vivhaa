@@ -14,6 +14,7 @@ import '../../../../shared/widgets/feedback/error_state.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/locked_profile_photo.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
+import '../../../blocked_users/presentation/controllers/blocked_users_controller.dart';
 import '../../../calls/presentation/controllers/call_controller.dart';
 import '../../../calls/presentation/screens/active_call_screen.dart';
 import '../../../chat/presentation/controllers/chat_controller.dart';
@@ -604,6 +605,13 @@ class _ActionBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversation = ref.watch(conversationForProfileProvider(profileId));
+    // conversation?.isBlocked alone used to decide this, which is wrong
+    // whenever there's no chat conversation to check (the common case for
+    // a block with no prior messages) — it always fell back to false, so
+    // the More menu offered "Block" again for a profile already blocked.
+    final blockStatus = ref.watch(blockStatusProvider(profileId));
+    final isBlocked = blockStatus.valueOrNull?.isBlockedByMe ??
+        (conversation?.isBlocked ?? false);
     // An accepted interest unlocks chat even before the conversation list has
     // caught up, so prefer it and fall back to the existing lookup.
     final chatTarget =
@@ -731,7 +739,7 @@ class _ActionBar extends ConsumerWidget {
                 builder: (_) => ProfileActionsSheet(
                   profileId: profileId,
                   name: name,
-                  isBlocked: conversation?.isBlocked ?? false,
+                  isBlocked: isBlocked,
                   onBlocked: () => Navigator.of(context).pop(),
                 ),
               ),

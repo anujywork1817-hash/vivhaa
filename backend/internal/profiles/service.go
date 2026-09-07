@@ -53,7 +53,11 @@ func ageOn(dob, on time.Time) int {
 // interface structurally (same method signature), so main.go can wire it
 // in without either package knowing about the other's types.
 type BlockChecker interface {
-	IsBlocked(ctx context.Context, userA, userB string) (bool, error)
+	// Directions reports the block relationship independently in each
+	// direction — checkNotBlocked below needs to tell "they blocked me"
+	// (hide the profile) apart from "I blocked them" (still show it, so
+	// the blocker can view + unblock from their own Blocked Members list).
+	Directions(ctx context.Context, userA, userB string) (aBlockedB bool, bBlockedA bool, err error)
 }
 
 type Service struct {
@@ -70,20 +74,27 @@ func NewService(repo *Repository, uploader *storage.PhotoUploader, visitorsSvc *
 	return &Service{repo: repo, uploader: uploader, visitorsSvc: visitorsSvc, usersRepo: usersRepo, subsSvc: subsSvc, publisher: publisher, blockChecker: blockChecker}
 }
 
-// checkNotBlocked returns ErrNotFound (not a "forbidden" error) when
-// requestingUserID and targetUserID have blocked each other in either
-// direction — a blocked profile should look like it doesn't exist rather
-// than leaking that a block relationship exists to the person who's
-// blocked.
+// checkNotBlocked returns ErrNotFound (not a "forbidden" error) specifically
+// when targetUserID has blocked requestingUserID — a blocked profile should
+// look like it doesn't exist rather than leaking that a block relationship
+// exists to the person who's been blocked.
+//
+// This is deliberately one-directional, not "either direction blocked": the
+// opposite case — requestingUserID is the one who blocked targetUserID —
+// must still resolve normally, or the blocker could never open the very
+// profile they blocked to view it (or unblock it) from their own Blocked
+// Members list. That used to 404 unconditionally in either direction,
+// making every blocked profile look "no longer available" even to the
+// person who blocked them.
 func (s *Service) checkNotBlocked(ctx context.Context, requestingUserID, targetUserID string) error {
 	if requestingUserID == targetUserID {
 		return nil
 	}
-	blocked, err := s.blockChecker.IsBlocked(ctx, requestingUserID, targetUserID)
+	_, blockedMe, err := s.blockChecker.Directions(ctx, requestingUserID, targetUserID)
 	if err != nil {
 		return err
 	}
-	if blocked {
+	if blockedMe {
 		return ErrNotFound
 	}
 	return nil
