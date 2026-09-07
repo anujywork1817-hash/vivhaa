@@ -34,7 +34,12 @@ type Client struct {
 // making a doomed request.
 func NewClient(apiKey, model string) *Client {
 	if model == "" {
-		model = "llama-3.3-70b-versatile"
+		// llama-3.3-70b-versatile (the original default) has since been
+		// retired from Groq's catalog entirely — GROQ_MODEL unset now
+		// falls back to this instead, confirmed live against the current
+		// model list (openai/gpt-oss-120b), rather than a stale name that
+		// would make every request 400 with "model_not_found".
+		model = "openai/gpt-oss-120b"
 	}
 	return &Client{
 		apiKey:     apiKey,
