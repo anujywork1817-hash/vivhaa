@@ -258,9 +258,6 @@ class _PartnerPreferencesScreenState
       return;
     }
 
-    // Onboarding still continues on failure — Connect Matches degrades to
-    // its "you can still continue" state — but say so rather than letting
-    // the next screen look inexplicably broken.
     if (!profileSaved) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         duration: const Duration(seconds: 3),
@@ -268,7 +265,19 @@ class _PartnerPreferencesScreenState
             "Couldn't save your profile just yet — we'll retry as you continue."),
       ));
     }
-    context.push(AppRoutes.connectMatches);
+
+    // Used to go to ConnectMatchesScreen first, which asks
+    // /matches/recommended — an endpoint requireUnlocked gates behind the
+    // ₹1 unlock for every account, with no exception for "still in
+    // onboarding, hasn't hit the paywall yet". So that screen 402'd for
+    // literally every single new member, every time, showing "Could not
+    // load suggested matches" right after signup — not a rare failure, a
+    // guaranteed one (the earlier profile_required/400 fix above addressed
+    // a different failure mode of the same screen, not this one). Skipping
+    // straight to the demo deck is exactly what that screen's own Skip
+    // button and error-state Continue button already did — this just
+    // stops making everyone see the dead-end screen first.
+    context.go(AppRoutes.demoSwipeDeck);
   }
 
   @override
