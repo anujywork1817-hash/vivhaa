@@ -69,14 +69,14 @@ class ShaadiApp extends ConsumerWidget {
 /// settings, …), the first back press always collapses the stack straight
 /// back to the bottom-nav Home tab in one step, rather than popping one
 /// screen at a time. Only once the user is already sitting on the Home
-/// tab does back arm a "press again to exit" window (a visible snackbar);
-/// a second press inside that window is what actually closes the app —
-/// one press alone, from anywhere, must never exit.
+/// tab does back raise an "Are you sure you want to exit?" confirmation
+/// dialog — one press alone, from anywhere, must never exit outright.
 ///
 /// This has flip-flopped a few times in this repo's history (most
-/// recently to a one-screen-at-a-time version). Collapse-to-Home is the
-/// latest explicit instruction — if you're about to change it again,
-/// confirm with whoever's asking first.
+/// recently a one-screen-at-a-time version, then a double-press-within-
+/// a-window snackbar). An explicit confirmation dialog is the latest
+/// instruction — if you're about to change it again, confirm with
+/// whoever's asking first.
 ///
 /// go_router 14.x runs every declared [GoRoute] on a single root
 /// [Navigator] (nested navigators only appear with ShellRoute/
@@ -96,9 +96,7 @@ class _BackButtonGate extends ConsumerStatefulWidget {
 }
 
 class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
-  static const _exitWindow = Duration(seconds: 2);
-  DateTime? _lastBackPressAt;
-  Timer? _exitWindowTimer;
+  bool _exitDialogShowing = false;
 
   // Handles an incoming shared-profile App Link (see
   // core/config/deep_link_config.dart — not reachable from outside the
@@ -128,7 +126,6 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
 
   @override
   void dispose() {
-    _exitWindowTimer?.cancel();
     _linkSubscription?.cancel();
     super.dispose();
   }
@@ -141,7 +138,8 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
 
     // Not on the Home tab of the bottom nav yet (either a pushed screen
     // on top of the shell, or a different tab selected) — one press
-    // always collapses straight there, never exits on this press.
+    // always collapses straight there, never exits (or prompts to exit)
+    // on this press.
     if (!onHomeRoute || !onHomeTab) {
       if (!onHomeTab) {
         ref.read(appShellTabProvider.notifier).state = AppTab.home;
@@ -152,28 +150,40 @@ class _BackButtonGateState extends ConsumerState<_BackButtonGate> {
       return;
     }
 
-    final now = DateTime.now();
-    if (_lastBackPressAt != null &&
-        now.difference(_lastBackPressAt!) <= _exitWindow) {
-      _exitWindowTimer?.cancel();
-      SystemNavigator.pop();
-      return;
-    }
+    _confirmExit();
+  }
 
-    _lastBackPressAt = now;
-    _exitWindowTimer?.cancel();
-    _exitWindowTimer = Timer(_exitWindow, () => _lastBackPressAt = null);
+  /// A real confirmation dialog rather than the earlier "press back again"
+  /// snackbar — asks once, explicitly, rather than relying on a second
+  /// press landing inside a timing window.
+  Future<void> _confirmExit() async {
+    // A rapid double back-press can fire this twice before the first
+    // dialog even paints; the guard flag (not just checking Navigator's
+    // route stack, which a dialog barrier itself changes) keeps the
+    // second press a no-op instead of stacking two dialogs.
+    if (_exitDialogShowing) return;
+    _exitDialogShowing = true;
 
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Press back again to exit'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
-        ),
-      );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit Vivah?'),
+        content: const Text('Are you sure you want to exit the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    _exitDialogShowing = false;
+    if (confirmed == true) SystemNavigator.pop();
   }
 
   @override
