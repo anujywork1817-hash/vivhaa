@@ -25,7 +25,12 @@ class DemoSwipeDeckScreen extends ConsumerWidget {
 
     if (!state.loading && state.isExhausted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.go(AppRoutes.unlockPaywall);
+        // extra: true tells UnlockPaywallScreen this is the onboarding
+        // entry point (right after name+gender, before the rest of the
+        // profile form) rather than an already-onboarded account hitting
+        // a 402 mid-app-usage — it needs to know which one to send the
+        // user to next after a successful payment.
+        if (context.mounted) context.go(AppRoutes.unlockPaywall, extra: true);
       });
     }
 

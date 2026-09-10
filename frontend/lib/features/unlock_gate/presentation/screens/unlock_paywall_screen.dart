@@ -19,7 +19,15 @@ import '../../data/api_unlock_repository.dart';
 /// just pointed at /unlock/* instead of /payments/*. Completely separate
 /// from — and does not touch — the plan-based Premium subscription flow.
 class UnlockPaywallScreen extends ConsumerStatefulWidget {
-  const UnlockPaywallScreen({super.key});
+  /// True when reached from the onboarding demo swipe deck (right after
+  /// name+gender, before the rest of the profile form) — a successful
+  /// payment then continues onboarding instead of going to the home
+  /// dashboard, which would be wrong for a profile that doesn't exist
+  /// yet. False for the other entry point: an already-onboarded account
+  /// hitting a 402 unlock_required on a real feature call mid-app-usage.
+  final bool fromOnboarding;
+
+  const UnlockPaywallScreen({super.key, this.fromOnboarding = false});
 
   @override
   ConsumerState<UnlockPaywallScreen> createState() => _UnlockPaywallScreenState();
@@ -42,6 +50,10 @@ class _UnlockPaywallScreenState extends ConsumerState<UnlockPaywallScreen>
     super.dispose();
   }
 
+  void _continueAfterUnlock() {
+    context.go(widget.fromOnboarding ? AppRoutes.religionCommunity : AppRoutes.home);
+  }
+
   Future<void> _pay() async {
     setState(() => _processing = true);
 
@@ -58,7 +70,7 @@ class _UnlockPaywallScreenState extends ConsumerState<UnlockPaywallScreen>
     }
 
     if (checkout.unlocked) {
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) _continueAfterUnlock();
       return;
     }
 
@@ -93,7 +105,7 @@ class _UnlockPaywallScreenState extends ConsumerState<UnlockPaywallScreen>
         return;
       }
 
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) _continueAfterUnlock();
     } on PaymentFailure catch (f) {
       if (mounted) {
         setState(() => _processing = false);

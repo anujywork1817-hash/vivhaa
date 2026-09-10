@@ -123,7 +123,13 @@ class _NameDobScreenState extends ConsumerState<NameDobScreen> {
       onContinue: canContinue
           ? () async {
               final phoneOk = await _savePhoneIfNeeded();
-              if (mounted && phoneOk) context.push(AppRoutes.religionCommunity);
+              // Name + gender (gender was chosen on the prior profile-for
+              // screen) is all the free demo swipe deck + ₹1 unlock gate
+              // needs — shown here, before the rest of the profile
+              // questions, rather than at the very end of onboarding.
+              // PartnerPreferencesScreen (the real end of this flow) no
+              // longer redirects here since this already happened.
+              if (mounted && phoneOk) context.push(AppRoutes.demoSwipeDeck);
             }
           : null,
       child: Column(

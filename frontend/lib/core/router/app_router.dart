@@ -158,7 +158,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.reviewConfirm, builder: (_, __) => const ReviewConfirmScreen()),
       GoRoute(path: AppRoutes.welcomePending, builder: (_, __) => const WelcomePendingScreen()),
       GoRoute(path: AppRoutes.demoSwipeDeck, builder: (_, __) => const DemoSwipeDeckScreen()),
-      GoRoute(path: AppRoutes.unlockPaywall, builder: (_, __) => const UnlockPaywallScreen()),
+      GoRoute(
+        path: AppRoutes.unlockPaywall,
+        builder: (_, state) =>
+            UnlockPaywallScreen(fromOnboarding: state.extra as bool? ?? false),
+      ),
 
       GoRoute(path: AppRoutes.home, builder: (_, __) => const AppShell()),
       GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),

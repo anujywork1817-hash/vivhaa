@@ -266,18 +266,13 @@ class _PartnerPreferencesScreenState
       ));
     }
 
-    // Used to go to ConnectMatchesScreen first, which asks
-    // /matches/recommended — an endpoint requireUnlocked gates behind the
-    // ₹1 unlock for every account, with no exception for "still in
-    // onboarding, hasn't hit the paywall yet". So that screen 402'd for
-    // literally every single new member, every time, showing "Could not
-    // load suggested matches" right after signup — not a rare failure, a
-    // guaranteed one (the earlier profile_required/400 fix above addressed
-    // a different failure mode of the same screen, not this one). Skipping
-    // straight to the demo deck is exactly what that screen's own Skip
-    // button and error-state Continue button already did — this just
-    // stops making everyone see the dead-end screen first.
-    context.go(AppRoutes.demoSwipeDeck);
+    // The free demo swipe deck + ₹1 unlock gate now runs right after
+    // name+gender, at the *start* of onboarding (see name_dob_screen.dart)
+    // — by the time someone reaches this, the last step, they've already
+    // been through it and paid. Redirecting back to the demo deck here
+    // (the old behavior, from when this gate lived at the end of
+    // onboarding instead) would make them do it a second time.
+    context.go(AppRoutes.home);
   }
 
   @override
