@@ -547,6 +547,22 @@ class _ActionBar extends ConsumerWidget {
     context.go(AppRoutes.home);
   }
 
+  /// "Express Interest" makes no sense on a profile the caller has
+  /// blocked — this replaces the whole interaction cluster (chat/call
+  /// icons, Express Interest) with a single Unblock button instead, the
+  /// same action the "More" menu's already-correct Unblock row offers.
+  Future<void> _unblock(BuildContext context, WidgetRef ref) async {
+    final result = await ref.read(blockedUsersActionsProvider).unblock(profileId);
+    if (!context.mounted) return;
+    result.when(
+      success: (_) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text('$name has been unblocked.'))),
+      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(duration: const Duration(seconds: 3), content: Text(f.message))),
+    );
+  }
+
   /// Lets someone change their mind on an already-sent interest — confirm,
   /// withdraw, and offer an UNDO that just re-sends it, so a mis-tap or a
   /// change of heart isn't a one-way door.
@@ -628,109 +644,124 @@ class _ActionBar extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            IconButton(
-              icon: Icon(Icons.chat_bubble_outline_rounded,
-                  color: chatTarget != null
-                      ? context.colors.accent
-                      : context.colors.muted),
-              tooltip: chatTarget != null
-                  ? 'Chat'
-                  : 'Chat unlocks once interest is accepted',
-              onPressed: () {
-                if (chatTarget != null) {
-                  context.push(AppRoutes.chatWindowPath(chatTarget));
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      duration: const Duration(seconds: 3),
-                      content: const Text(
-                          'Chat opens once you both express interest and it\'s accepted.'),
-                      action: SnackBarAction(
-                        label: 'MY INTERESTS',
-                        onPressed: () => _goToInbox(context, ref),
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-            // Calling requires the same mutual-connection gate as chat —
-            // only shown enabled once a conversation exists.
-            if (conversation != null && !conversation.isBlocked) ...[
+            // A blocked profile has nothing left to chat with, call, or
+            // express interest to — those all previously stayed visible
+            // (Express Interest included) even once blocked, which made
+            // no sense and gave no way back to Unblock except burying it
+            // in the "More" menu.
+            if (isBlocked) ...[
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Unblock',
+                  onPressed: () => _unblock(context, ref),
+                  trailingIcon: Icons.lock_open_rounded,
+                ),
+              ),
+            ] else ...[
               IconButton(
-                icon: Icon(Icons.call_rounded, color: context.colors.accent),
-                tooltip: 'Voice call',
-                onPressed: () async {
-                  if (ref.read(callControllerProvider).isActive) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                icon: Icon(Icons.chat_bubble_outline_rounded,
+                    color: chatTarget != null
+                        ? context.colors.accent
+                        : context.colors.muted),
+                tooltip: chatTarget != null
+                    ? 'Chat'
+                    : 'Chat unlocks once interest is accepted',
+                onPressed: () {
+                  if (chatTarget != null) {
+                    context.push(AppRoutes.chatWindowPath(chatTarget));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
                         duration: const Duration(seconds: 3),
-                        content: Text("You're already on a call.")));
-                    return;
+                        content: const Text(
+                            'Chat opens once you both express interest and it\'s accepted.'),
+                        action: SnackBarAction(
+                          label: 'MY INTERESTS',
+                          onPressed: () => _goToInbox(context, ref),
+                        ),
+                      ),
+                    );
                   }
-                  unawaited(ref.read(callControllerProvider.notifier).startCall(
-                        peerUserId: conversation.id,
-                        peerName: name,
-                        peerPhotoUrl: profile.photoSeed,
-                        isVideo: false,
-                      ));
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
-                  );
                 },
               ),
-              IconButton(
-                icon:
-                    Icon(Icons.videocam_rounded, color: context.colors.accent),
-                tooltip: 'Video call',
-                onPressed: () async {
-                  if (ref.read(callControllerProvider).isActive) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        duration: const Duration(seconds: 3),
-                        content: Text("You're already on a call.")));
-                    return;
-                  }
-                  unawaited(ref.read(callControllerProvider.notifier).startCall(
-                        peerUserId: conversation.id,
-                        peerName: name,
-                        peerPhotoUrl: profile.photoSeed,
-                      ));
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
-                  );
-                },
+              // Calling requires the same mutual-connection gate as chat —
+              // only shown enabled once a conversation exists.
+              if (conversation != null && !conversation.isBlocked) ...[
+                IconButton(
+                  icon: Icon(Icons.call_rounded, color: context.colors.accent),
+                  tooltip: 'Voice call',
+                  onPressed: () async {
+                    if (ref.read(callControllerProvider).isActive) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          duration: const Duration(seconds: 3),
+                          content: Text("You're already on a call.")));
+                      return;
+                    }
+                    unawaited(ref.read(callControllerProvider.notifier).startCall(
+                          peerUserId: conversation.id,
+                          peerName: name,
+                          peerPhotoUrl: profile.photoSeed,
+                          isVideo: false,
+                        ));
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon:
+                      Icon(Icons.videocam_rounded, color: context.colors.accent),
+                  tooltip: 'Video call',
+                  onPressed: () async {
+                    if (ref.read(callControllerProvider).isActive) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          duration: const Duration(seconds: 3),
+                          content: Text("You're already on a call.")));
+                      return;
+                    }
+                    unawaited(ref.read(callControllerProvider.notifier).startCall(
+                          peerUserId: conversation.id,
+                          peerName: name,
+                          peerPhotoUrl: profile.photoSeed,
+                        ));
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ActiveCallScreen()),
+                    );
+                  },
+                ),
+              ],
+              Expanded(
+                child: PrimaryButton(
+                  label: isInterested ? 'Interest Sent' : 'Express Interest',
+                  onPressed: isInterested
+                      ? () => _withdraw(context, ref)
+                      : () async {
+                          final failure = await ref
+                              .read(interestsActionsProvider)
+                              .send(profile);
+                          if (!context.mounted) return;
+                          if (failure != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                duration: const Duration(seconds: 3),
+                                content: Text(failure.message)));
+                            return;
+                          }
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              duration: const Duration(seconds: 3),
+                              content: Text('Interest sent to $name.'),
+                              action: SnackBarAction(
+                                label: 'VIEW',
+                                onPressed: () => _goToInbox(context, ref),
+                              ),
+                            ),
+                          );
+                        },
+                  trailingIcon:
+                      isInterested ? Icons.check_rounded : Icons.favorite_rounded,
+                ),
               ),
             ],
-            Expanded(
-              child: PrimaryButton(
-                label: isInterested ? 'Interest Sent' : 'Express Interest',
-                onPressed: isInterested
-                    ? () => _withdraw(context, ref)
-                    : () async {
-                        final failure = await ref
-                            .read(interestsActionsProvider)
-                            .send(profile);
-                        if (!context.mounted) return;
-                        if (failure != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              duration: const Duration(seconds: 3),
-                              content: Text(failure.message)));
-                          return;
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            duration: const Duration(seconds: 3),
-                            content: Text('Interest sent to $name.'),
-                            action: SnackBarAction(
-                              label: 'VIEW',
-                              onPressed: () => _goToInbox(context, ref),
-                            ),
-                          ),
-                        );
-                      },
-                trailingIcon:
-                    isInterested ? Icons.check_rounded : Icons.favorite_rounded,
-              ),
-            ),
             IconButton(
               icon: const Icon(Icons.more_vert_rounded),
               tooltip: 'More',
