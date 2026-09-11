@@ -33,16 +33,28 @@ func NewService(profilesRepo *profiles.Repository) *Service {
 // or the full demo pool (both genders) if the caller's own gender isn't
 // known yet, which keeps this endpoint usable immediately after
 // onboarding regardless of exactly when the profile row lands.
+//
+// The gender-unknown case is the normal one now, not an edge case: the
+// demo deck moved to right after the name/gender step (before the rest
+// of onboarding), so there is no profiles row yet at all when this is
+// first called — GetByUserID always 404s here. This used to hard-fail
+// with ErrProfileRequired on that 404, which sent every new signup
+// straight to the ₹1 unlock paywall with an empty deck instead of ever
+// showing the free hook swipe deck the whole feature exists for.
 func (s *Service) SwipeDeck(ctx context.Context, userID string) ([]SwipeDeckCard, error) {
+	var ownGender *string
 	own, err := s.profilesRepo.GetByUserID(ctx, userID)
-	if errors.Is(err, profiles.ErrNotFound) {
-		return nil, ErrProfileRequired
-	}
-	if err != nil {
+	switch {
+	case errors.Is(err, profiles.ErrNotFound):
+		// ownGender stays nil — opposite(nil) below falls back to the
+		// full demo pool, exactly as this func's doc comment promises.
+	case err != nil:
 		return nil, err
+	default:
+		ownGender = own.Gender
 	}
 
-	opposing := opposite(own.Gender)
+	opposing := opposite(ownGender)
 
 	demoProfiles, err := s.profilesRepo.ListDemoProfiles(ctx, opposing, deckSize)
 	if err != nil {
