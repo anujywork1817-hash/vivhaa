@@ -27,12 +27,15 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 // soft-deleted interests (BUG-H09) — an "unmatch" (Delete) must actually
 // revoke chat/call access immediately, not just hide the interest from
 // Inbox while the underlying accepted row keeps gating access open.
+// Deliberately stays symmetric (deleted by *either* side counts) even
+// though list visibility below is now per-party — this is the "did an
+// unmatch happen" check, not "is it in my inbox".
 func (r *Repository) IsAccepted(ctx context.Context, userA, userB string) (bool, error) {
 	const q = `
 		SELECT EXISTS (
 			SELECT 1 FROM interests
 			WHERE status = 'accepted'
-			  AND deleted_at IS NULL
+			  AND sender_deleted_at IS NULL AND receiver_deleted_at IS NULL
 			  AND ((sender_user_id = $1 AND receiver_user_id = $2) OR (sender_user_id = $2 AND receiver_user_id = $1))
 		)`
 	var exists bool
@@ -55,12 +58,13 @@ func (r *Repository) Create(ctx context.Context, senderID, receiverID string) (I
 }
 
 // GetByID excludes soft-deleted interests (BUG-H09) — once an interest is
-// deleted (unmatched), it must look gone to Accept/Decline/Remind too, not
-// just to the list views that already filtered deleted_at.
+// deleted (unmatched) by *either* side, it must look gone to
+// Accept/Decline/Remind too, not just to the list views (which are
+// per-party — see ListSent/ListReceived/ListDeleted below).
 func (r *Repository) GetByID(ctx context.Context, id string) (Interest, error) {
 	const q = `
 		SELECT id, sender_user_id, receiver_user_id, status, created_at, responded_at, viewed_at
-		FROM interests WHERE id = $1 AND deleted_at IS NULL`
+		FROM interests WHERE id = $1 AND sender_deleted_at IS NULL AND receiver_deleted_at IS NULL`
 	var i Interest
 	err := r.db.QueryRow(ctx, q, id).Scan(
 		&i.ID, &i.SenderUserID, &i.ReceiverUserID, &i.Status, &i.CreatedAt, &i.RespondedAt, &i.ViewedAt)
@@ -96,7 +100,7 @@ func (r *Repository) ListSent(ctx context.Context, userID string) ([]InterestWit
 		       p.date_of_birth, p.height_cm, p.marital_status, p.religion, p.education, p.occupation, p.diet, p.manglik
 		FROM interests i
 		JOIN profiles p ON p.user_id = i.receiver_user_id
-		WHERE i.sender_user_id = $1 AND i.deleted_at IS NULL
+		WHERE i.sender_user_id = $1 AND i.sender_deleted_at IS NULL
 		  AND NOT EXISTS (
 		      SELECT 1 FROM blocked_users b
 		      WHERE (b.user_id = $1 AND b.blocked_user_id = i.receiver_user_id)
@@ -116,7 +120,7 @@ func (r *Repository) ListReceived(ctx context.Context, userID string) ([]Interes
 		       p.date_of_birth, p.height_cm, p.marital_status, p.religion, p.education, p.occupation, p.diet, p.manglik
 		FROM interests i
 		JOIN profiles p ON p.user_id = i.sender_user_id
-		WHERE i.receiver_user_id = $1 AND i.deleted_at IS NULL
+		WHERE i.receiver_user_id = $1 AND i.receiver_deleted_at IS NULL
 		  AND NOT EXISTS (
 		      SELECT 1 FROM blocked_users b
 		      WHERE (b.user_id = $1 AND b.blocked_user_id = i.sender_user_id)
@@ -126,10 +130,12 @@ func (r *Repository) ListReceived(ctx context.Context, userID string) ([]Interes
 	return r.listWithProfile(ctx, q, userID)
 }
 
-// ListDeleted returns interests the user removed in either direction,
-// joined with the other party's profile — the Inbox > More > Deleted list.
-// The join picks whichever side of the interest isn't the caller, so one
-// query covers both sent and received.
+// ListDeleted returns interests userID personally removed, from either
+// side, joined with the other party's profile — the Inbox > More >
+// Deleted list. Per-party: userID's own deleted_at column is what's
+// checked on each side, so a request the *other* party deleted (but
+// userID never touched) correctly stays out of this list instead of
+// showing up as if userID had deleted it themselves.
 func (r *Repository) ListDeleted(ctx context.Context, userID string) ([]InterestWithProfile, error) {
 	const q = `
 		SELECT i.id, i.sender_user_id, i.receiver_user_id, i.status, i.created_at, i.responded_at, i.viewed_at,
@@ -141,9 +147,10 @@ func (r *Repository) ListDeleted(ctx context.Context, userID string) ([]Interest
 		         WHEN i.sender_user_id = $1 THEN i.receiver_user_id
 		         ELSE i.sender_user_id
 		     END
-		WHERE (i.sender_user_id = $1 OR i.receiver_user_id = $1)
-		  AND i.deleted_at IS NOT NULL
-		ORDER BY i.deleted_at DESC`
+		WHERE (i.sender_user_id = $1 AND i.sender_deleted_at IS NOT NULL)
+		   OR (i.receiver_user_id = $1 AND i.receiver_deleted_at IS NOT NULL)
+		ORDER BY GREATEST(COALESCE(i.sender_deleted_at, i.receiver_deleted_at),
+		                   COALESCE(i.receiver_deleted_at, i.sender_deleted_at)) DESC`
 	return r.listWithProfile(ctx, q, userID)
 }
 
@@ -152,17 +159,25 @@ func (r *Repository) ListDeleted(ctx context.Context, userID string) ([]Interest
 // is the point the sender's "Viewed / Not viewed yet" indicator should
 // flip. Only touches NULL rows so the original timestamp is preserved.
 func (r *Repository) MarkReceivedViewed(ctx context.Context, userID string) error {
-	const q = `UPDATE interests SET viewed_at = now() WHERE receiver_user_id = $1 AND viewed_at IS NULL AND deleted_at IS NULL`
+	const q = `UPDATE interests SET viewed_at = now() WHERE receiver_user_id = $1 AND viewed_at IS NULL AND receiver_deleted_at IS NULL`
 	_, err := r.db.Exec(ctx, q, userID)
 	return err
 }
 
-// Delete soft-deletes an interest, but only if userID is a party to it —
-// otherwise anyone could delete anyone else's requests by guessing an id.
-// The row is kept so it can still be listed under Inbox > More > Deleted.
+// Delete soft-deletes an interest for userID's own side only — otherwise
+// anyone could delete anyone else's requests by guessing an id, and (the
+// actual bug this fixed) a delete from one side must not make the
+// request vanish from the OTHER party's inbox too. The row itself is
+// kept either way so it can still be listed under Inbox > More >
+// Deleted for whichever side actually deleted it.
 func (r *Repository) Delete(ctx context.Context, id, userID string) error {
-	const q = `UPDATE interests SET deleted_at = now()
-	           WHERE id = $1 AND (sender_user_id = $2 OR receiver_user_id = $2) AND deleted_at IS NULL`
+	const q = `
+		UPDATE interests SET
+			sender_deleted_at = CASE WHEN sender_user_id = $2 THEN now() ELSE sender_deleted_at END,
+			receiver_deleted_at = CASE WHEN receiver_user_id = $2 THEN now() ELSE receiver_deleted_at END
+		WHERE id = $1
+		  AND ((sender_user_id = $2 AND sender_deleted_at IS NULL)
+		    OR (receiver_user_id = $2 AND receiver_deleted_at IS NULL))`
 	tag, err := r.db.Exec(ctx, q, id, userID)
 	if err != nil {
 		return err

@@ -46,7 +46,7 @@ func (r *Repository) CandidatePool(ctx context.Context, userID string, opposingG
 		      -- decline, not recommended again as a fresh candidate to
 		      -- express interest to.
 		      SELECT 1 FROM interests i
-		      WHERE i.deleted_at IS NULL
+		      WHERE i.sender_deleted_at IS NULL AND i.receiver_deleted_at IS NULL
 		        AND ((i.sender_user_id = $1 AND i.receiver_user_id = p.user_id)
 		          OR (i.sender_user_id = p.user_id AND i.receiver_user_id = $1))
 		  )
