@@ -15,9 +15,19 @@ class ApiDemoRepository {
   final ApiClient _client;
   ApiDemoRepository(this._client);
 
-  Future<ApiResult<List<MatchProfile>>> getSwipeDeck() async {
+  /// [gender] is the caller's own gender ('male'/'female'), passed
+  /// whenever the client already knows it — the demo deck now runs right
+  /// after the name/gender step, before the rest of onboarding creates a
+  /// real profiles row, so the backend has no gender of its own to look
+  /// up yet and would otherwise fall back to showing both genders mixed
+  /// together instead of just the opposite one. See internal/demo's
+  /// SwipeDeck doc comment on the backend for the full "why".
+  Future<ApiResult<List<MatchProfile>>> getSwipeDeck({String? gender}) async {
     try {
-      final response = await _client.dio.get(ApiEndpoints.demoSwipeDeck);
+      final response = await _client.dio.get(
+        ApiEndpoints.demoSwipeDeck,
+        queryParameters: gender != null ? {'gender': gender} : null,
+      );
       final rows = (response.data['data'] as List? ?? []).cast<Map<String, dynamic>>();
       final profiles = rows.map((j) {
         return MatchProfile(

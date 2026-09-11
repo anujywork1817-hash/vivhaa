@@ -19,7 +19,11 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) SwipeDeck(c *gin.Context) {
 	userID := c.GetString("user_id")
-	resp, err := h.service.SwipeDeck(c.Request.Context(), userID)
+	var requestedGender *string
+	if v := c.Query("gender"); v != "" {
+		requestedGender = &v
+	}
+	resp, err := h.service.SwipeDeck(c.Request.Context(), userID, requestedGender)
 	if errors.Is(err, ErrProfileRequired) {
 		response.Fail(c, http.StatusBadRequest, "profile_required", err.Error(), nil)
 		return

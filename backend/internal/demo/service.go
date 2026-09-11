@@ -29,25 +29,28 @@ func NewService(profilesRepo *profiles.Repository) *Service {
 	return &Service{profilesRepo: profilesRepo}
 }
 
-// SwipeDeck returns every demo profile of the caller's opposite gender —
-// or the full demo pool (both genders) if the caller's own gender isn't
-// known yet, which keeps this endpoint usable immediately after
-// onboarding regardless of exactly when the profile row lands.
+// SwipeDeck returns every demo profile of the caller's opposite gender.
+// requestedGender is the fallback source of truth for that when there's
+// no profiles row yet at all — the demo deck sits right after the
+// name/gender step (before the rest of onboarding creates the profile),
+// so GetByUserID 404s on literally every first call; the client already
+// knows the gender the user just picked one screen ago, so it passes it
+// along here rather than this endpoint guessing "both genders" and
+// showing a male member cards to a male caller. Once a real profiles row
+// exists (post-onboarding), that row's own gender always wins over
+// whatever the client sends, so a stale/forged query param can't matter.
 //
-// The gender-unknown case is the normal one now, not an edge case: the
-// demo deck moved to right after the name/gender step (before the rest
-// of onboarding), so there is no profiles row yet at all when this is
-// first called — GetByUserID always 404s here. This used to hard-fail
-// with ErrProfileRequired on that 404, which sent every new signup
-// straight to the ₹1 unlock paywall with an empty deck instead of ever
-// showing the free hook swipe deck the whole feature exists for.
-func (s *Service) SwipeDeck(ctx context.Context, userID string) ([]SwipeDeckCard, error) {
+// Only if NEITHER the profile row NOR requestedGender is available does
+// this fall back to the full demo pool (both genders) — better than
+// erroring outright (that used to hard-fail with ErrProfileRequired,
+// sending every new signup straight to the ₹1 unlock paywall with an
+// empty deck instead of ever showing the free hook swipe deck).
+func (s *Service) SwipeDeck(ctx context.Context, userID string, requestedGender *string) ([]SwipeDeckCard, error) {
 	var ownGender *string
 	own, err := s.profilesRepo.GetByUserID(ctx, userID)
 	switch {
 	case errors.Is(err, profiles.ErrNotFound):
-		// ownGender stays nil — opposite(nil) below falls back to the
-		// full demo pool, exactly as this func's doc comment promises.
+		ownGender = normalizeGender(requestedGender)
 	case err != nil:
 		return nil, err
 	default:
@@ -99,6 +102,22 @@ func ageFromDOB(dob *time.Time) *int {
 	}
 	years := int(time.Since(*dob).Hours() / 24 / 365.25)
 	return &years
+}
+
+// normalizeGender rejects anything but the two values profiles.gender
+// actually stores — an unrecognized or garbage query param (rather than
+// silently misinterpreting it) falls back to nil, the same as not
+// sending one at all.
+func normalizeGender(gender *string) *string {
+	if gender == nil {
+		return nil
+	}
+	switch *gender {
+	case "male", "female":
+		return gender
+	default:
+		return nil
+	}
 }
 
 func opposite(gender *string) *string {

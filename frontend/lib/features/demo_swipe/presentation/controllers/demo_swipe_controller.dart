@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/match_profile.dart';
+import '../../../onboarding/presentation/controllers/profile_creation_controller.dart';
 import '../../data/api_demo_repository.dart';
 
 class DemoSwipeState {
@@ -29,14 +30,15 @@ class DemoSwipeState {
 /// has no real other side to receive an interest.
 class DemoSwipeController extends StateNotifier<DemoSwipeState> {
   final ApiDemoRepository _repository;
+  final String? _ownGender;
 
-  DemoSwipeController(this._repository) : super(const DemoSwipeState()) {
+  DemoSwipeController(this._repository, this._ownGender) : super(const DemoSwipeState()) {
     _load();
   }
 
   Future<void> _load() async {
     state = state.copyWith(loading: true);
-    final result = await _repository.getSwipeDeck();
+    final result = await _repository.getSwipeDeck(gender: _ownGender);
     result.when(
       success: (profiles) => state = DemoSwipeState(queue: profiles, index: 0, loading: false),
       failure: (_) => state = const DemoSwipeState(loading: false),
@@ -52,5 +54,10 @@ class DemoSwipeController extends StateNotifier<DemoSwipeState> {
 
 final demoSwipeControllerProvider =
     StateNotifierProvider.autoDispose<DemoSwipeController, DemoSwipeState>((ref) {
-  return DemoSwipeController(ref.watch(demoRepositoryProvider));
+  // The user's own gender was already chosen one screen before the demo
+  // deck (see NameDobScreen's doc comment) but isn't persisted to a real
+  // profiles row until later in onboarding — read it straight from the
+  // in-progress draft rather than waiting for that.
+  final ownGender = ref.read(profileCreationControllerProvider).draft.gender?.name;
+  return DemoSwipeController(ref.watch(demoRepositoryProvider), ownGender);
 });
