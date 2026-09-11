@@ -243,6 +243,12 @@ class Profile {
     bool clearCity = false,
     bool clearCommunity = false,
     bool clearSubCommunity = false,
+    // Same reasoning: choosing "Not Working" for workWith has to blank
+    // out whatever income/profession/company was answered before, not
+    // just hide those fields while the stale value keeps getting saved.
+    bool clearAnnualIncome = false,
+    bool clearProfession = false,
+    bool clearCompanyName = false,
   }) {
     return Profile(
       id: id ?? this.id,
@@ -263,10 +269,10 @@ class Profile {
       casteNoBar: casteNoBar ?? this.casteNoBar,
       highestEducation: highestEducation ?? this.highestEducation,
       college: college ?? this.college,
-      profession: profession ?? this.profession,
-      annualIncome: annualIncome ?? this.annualIncome,
+      profession: clearProfession ? null : (profession ?? this.profession),
+      annualIncome: clearAnnualIncome ? null : (annualIncome ?? this.annualIncome),
       workWith: workWith ?? this.workWith,
-      companyName: companyName ?? this.companyName,
+      companyName: clearCompanyName ? null : (companyName ?? this.companyName),
       matchmakingOptOut: matchmakingOptOut ?? this.matchmakingOptOut,
       familyType: familyType ?? this.familyType,
       familyValues: familyValues ?? this.familyValues,

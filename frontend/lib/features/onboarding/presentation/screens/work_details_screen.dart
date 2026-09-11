@@ -64,7 +64,12 @@ class _WorkDetailsScreenState extends ConsumerState<WorkDetailsScreen> {
     final controller = ref.read(profileCreationControllerProvider.notifier);
     final draft = ref.watch(profileCreationControllerProvider).draft;
 
-    final canContinue = draft.annualIncome != null && draft.workWith != null;
+    // "Not Working" has no income, profession, or employer to report —
+    // asking for them anyway made no sense and let a previous income/
+    // profession answer linger unseen (still saved) even after switching
+    // to Not Working.
+    final isNotWorking = draft.workWith == 'Not Working';
+    final canContinue = draft.workWith != null && (isNotWorking || draft.annualIncome != null);
     final profileFor = draft.profileFor ?? ProfileFor.myself;
 
     return OnboardingStepScaffold(
@@ -76,83 +81,103 @@ class _WorkDetailsScreenState extends ConsumerState<WorkDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Annual income', style: context.textStyles.headlineSmall),
-          const SizedBox(height: AppSpacing.md),
-          AppSelectField(
-            label: '${profileFor.possessiveTitle} annual income *',
-            value: draft.annualIncome,
-            options: _incomeOptions,
-            onSelected: (v) => controller.update((p) => p.copyWith(annualIncome: v)),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text('Why is income required?', style: context.textStyles.bodySmall),
-              const SizedBox(width: 4),
-              InkWell(
-                onTap: () => showDialog(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    title: const Text('Why we ask for income'),
-                    content: Text(
-                        "It helps other members find a match compatible with their expectations — ${profileFor.subject} can always leave it out of ${profileFor.possessive} public profile later in Privacy settings."),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        child: const Text('Got it'),
-                      ),
-                    ],
+          if (!isNotWorking) ...[
+            Text('Annual income', style: context.textStyles.headlineSmall),
+            const SizedBox(height: AppSpacing.md),
+            AppSelectField(
+              label: '${profileFor.possessiveTitle} annual income *',
+              value: draft.annualIncome,
+              options: _incomeOptions,
+              onSelected: (v) => controller.update((p) => p.copyWith(annualIncome: v)),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Text('Why is income required?', style: context.textStyles.bodySmall),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Why we ask for income'),
+                      content: Text(
+                          "It helps other members find a match compatible with their expectations — ${profileFor.subject} can always leave it out of ${profileFor.possessive} public profile later in Privacy settings."),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: const Text('Got it'),
+                        ),
+                      ],
+                    ),
                   ),
+                  child: Icon(Icons.help_outline_rounded, size: 16, color: context.colors.muted),
                 ),
-                child: Icon(Icons.help_outline_rounded, size: 16, color: context.colors.muted),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xxl),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
           Text('Work details', style: context.textStyles.headlineSmall),
           const SizedBox(height: AppSpacing.md),
           AppSelectField(
             label: '${profileFor.possessiveTitle} employer type',
             value: draft.workWith,
             options: _workWithOptions,
-            onSelected: (v) => controller.update((p) => p.copyWith(workWith: v)),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppSelectField(
-            label: '${profileFor.possessiveTitle} profession',
-            // Showing "Other" once a custom value is in place (rather
-            // than the raw typed text) keeps the picker's own list of
-            // options meaningful — the actual text lives in the field
-            // below, which is the thing that's actually saved.
-            value: _isCustomProfession(draft.profession) ? 'Other' : draft.profession,
-            options: _professions,
             onSelected: (v) {
-              if (v == 'Other') {
-                // Reopening "Other" after already having typed something
-                // shouldn't blank it out — re-save whatever's still in
-                // the box, or leave profession as the "Other" sentinel
-                // until they type, same as a first-time pick.
+              if (v == 'Not Working') {
+                // Clears whatever income/profession/company answer was
+                // already in the draft rather than just hiding the
+                // fields below — otherwise a value entered before
+                // switching to Not Working would still be saved and
+                // submitted even though nothing on screen shows it.
+                _customProfessionController.clear();
+                _companyController.clear();
                 controller.update((p) => p.copyWith(
-                      profession: _customProfessionController.text.trim().isEmpty
-                          ? v
-                          : _customProfessionController.text,
+                      workWith: v,
+                      clearAnnualIncome: true,
+                      clearProfession: true,
+                      clearCompanyName: true,
                     ));
                 return;
               }
-              _customProfessionController.clear();
-              controller.update((p) => p.copyWith(profession: v));
+              controller.update((p) => p.copyWith(workWith: v));
             },
           ),
-          if (draft.profession == 'Other' || _isCustomProfession(draft.profession)) ...[
-            const SizedBox(height: AppSpacing.md),
-            AppTextField(
+          if (!isNotWorking) ...[
+            const SizedBox(height: AppSpacing.lg),
+            AppSelectField(
               label: '${profileFor.possessiveTitle} profession',
-              hint: 'Tell us what ${profileFor.subject} does',
-              controller: _customProfessionController,
-              onChanged: (v) => controller.update((p) => p.copyWith(profession: v)),
+              // Showing "Other" once a custom value is in place (rather
+              // than the raw typed text) keeps the picker's own list of
+              // options meaningful — the actual text lives in the field
+              // below, which is the thing that's actually saved.
+              value: _isCustomProfession(draft.profession) ? 'Other' : draft.profession,
+              options: _professions,
+              onSelected: (v) {
+                if (v == 'Other') {
+                  // Reopening "Other" after already having typed something
+                  // shouldn't blank it out — re-save whatever's still in
+                  // the box, or leave profession as the "Other" sentinel
+                  // until they type, same as a first-time pick.
+                  controller.update((p) => p.copyWith(
+                        profession: _customProfessionController.text.trim().isEmpty
+                            ? v
+                            : _customProfessionController.text,
+                      ));
+                  return;
+                }
+                _customProfessionController.clear();
+                controller.update((p) => p.copyWith(profession: v));
+              },
             ),
-          ],
-          if (draft.workWith != null) ...[
+            if (draft.profession == 'Other' || _isCustomProfession(draft.profession)) ...[
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                label: '${profileFor.possessiveTitle} profession',
+                hint: 'Tell us what ${profileFor.subject} does',
+                controller: _customProfessionController,
+                onChanged: (v) => controller.update((p) => p.copyWith(profession: v)),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             AppTextField(
               label: '${profileFor.possessiveTitle} current company name',
