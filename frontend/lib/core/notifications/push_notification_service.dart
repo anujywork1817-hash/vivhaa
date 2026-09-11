@@ -77,6 +77,12 @@ class PushNotificationService {
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
+      // Without this, a notification drawn manually by _showForeground
+      // (the only path when the app is already open — Android suppresses
+      // the system-drawn one in that case) did nothing at all when
+      // tapped: onMessageOpenedApp/getInitialMessage below only fire for
+      // the OS's own notification tray, which this bypasses entirely.
+      onDidReceiveNotificationResponse: _onLocalNotificationTapped,
     );
     final androidPlugin =
         _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -107,6 +113,17 @@ class PushNotificationService {
   void _navigateTo(RemoteMessage message) {
     final route = _routeForPushData(message.data);
     if (route != null) _ref.read(appRouterProvider).push(route);
+  }
+
+  /// Tap handler for a notification _showForeground drew manually — the
+  /// route was already computed once there and stashed in [payload]
+  /// rather than recomputed, since the original RemoteMessage.data isn't
+  /// available here.
+  void _onLocalNotificationTapped(NotificationResponse response) {
+    final route = response.payload;
+    if (route != null && route.isNotEmpty) {
+      _ref.read(appRouterProvider).push(route);
+    }
   }
 
   /// Requests permission and registers this device against the signed-in
@@ -170,6 +187,10 @@ class PushNotificationService {
           priority: Priority.high,
         ),
       ),
+      // Carries the target route through to _onLocalNotificationTapped —
+      // by the time that fires, message.data is long gone, so the route
+      // has to be computed now and handed along rather than recomputed.
+      payload: _routeForPushData(message.data),
     );
   }
 
