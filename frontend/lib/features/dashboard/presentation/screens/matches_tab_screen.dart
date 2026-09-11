@@ -1041,7 +1041,17 @@ class _MatchesSearchBarEntryState extends ConsumerState<_MatchesSearchBarEntry> 
         ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+            // Previously just a decorative icon — searching only worked if
+            // the on-screen keyboard's return/search key fired onSubmitted,
+            // which some IME/keyboard combinations swallow (predictive-text
+            // suggestion bar intercepting the tap, keyboards. This gives
+            // typing a name an actual button to submit through instead of
+            // silently depending on the keyboard alone.
+            InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              onTap: () => _submit(_controller.text),
+              child: Icon(Icons.search_rounded, size: 20, color: context.colors.muted),
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: TextField(
