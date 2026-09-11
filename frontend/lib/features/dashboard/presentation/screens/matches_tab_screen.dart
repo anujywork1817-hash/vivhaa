@@ -1021,7 +1021,13 @@ class _MatchesSearchBarEntryState extends ConsumerState<_MatchesSearchBarEntry> 
   void _submit(String value) {
     final name = value.trim();
     if (name.isEmpty) return;
-    final filters = SearchFilters(query: name);
+    // applyAgeHeightFilter: false — SearchFilters' ageMin/ageMax/
+    // heightMinCm/heightMaxCm are non-nullable and default to 21-40 /
+    // 145-195cm, which ApiSearchRepository.search would otherwise send
+    // as real constraints even though this is a plain name search with
+    // no visible age/height filter anywhere on this screen — silently
+    // hiding anyone outside that range (e.g. a 20-year-old match).
+    final filters = SearchFilters(query: name, applyAgeHeightFilter: false);
     ref.read(searchFiltersProvider.notifier).update((_) => filters);
     ref.read(searchResultsControllerProvider.notifier).runSearch(filters);
     context.push(AppRoutes.searchResults);

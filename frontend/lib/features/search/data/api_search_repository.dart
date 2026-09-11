@@ -30,10 +30,12 @@ class ApiSearchRepository implements SearchRepository {
       final response = await _client.dio.get(ApiEndpoints.search, queryParameters: {
         'page': page + 1,
         'limit': pageSize,
-        'min_age': filters.ageMin,
-        'max_age': filters.ageMax,
-        'min_height_cm': filters.heightMinCm,
-        'max_height_cm': filters.heightMaxCm,
+        if (filters.applyAgeHeightFilter) ...{
+          'min_age': filters.ageMin,
+          'max_age': filters.ageMax,
+          'min_height_cm': filters.heightMinCm,
+          'max_height_cm': filters.heightMaxCm,
+        },
         if (filters.maritalStatuses.isNotEmpty)
           'marital_status': filters.maritalStatuses.map(maritalStatusLabelToBackend).toList(),
         if (filters.religions.isNotEmpty) 'religion': filters.religions.toList(),

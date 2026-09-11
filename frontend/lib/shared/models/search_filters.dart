@@ -32,6 +32,17 @@ class SearchFilters {
   final String? diet;
   final String? manglik;
   final SortOption sort;
+  /// True everywhere ageMin/ageMax/heightMinCm/heightMaxCm are a real,
+  /// user-visible filter (Basic/Advanced Search's range sliders, always
+  /// showing *some* concrete position). The Matches tab's plain "search
+  /// by name" bar sets this false: it constructs a SearchFilters with
+  /// only [query] set, but ageMin/ageMax/heightMinCm/heightMaxCm still
+  /// take their class defaults (21-40, 145-195cm) since they're
+  /// non-nullable — without this flag, ApiSearchRepository.search would
+  /// silently send those defaults as real constraints, excluding anyone
+  /// outside them from a search the user never asked to narrow by age or
+  /// height at all (e.g. a 20-year-old match wouldn't appear).
+  final bool applyAgeHeightFilter;
 
   const SearchFilters({
     this.query = '',
@@ -51,6 +62,7 @@ class SearchFilters {
     this.diet,
     this.manglik,
     this.sort = SortOption.relevance,
+    this.applyAgeHeightFilter = true,
   });
 
   int get activeFilterCount {
@@ -92,6 +104,7 @@ class SearchFilters {
     String? manglik,
     bool clearManglik = false,
     SortOption? sort,
+    bool? applyAgeHeightFilter,
   }) {
     return SearchFilters(
       query: query ?? this.query,
@@ -111,6 +124,14 @@ class SearchFilters {
       diet: clearDiet ? null : (diet ?? this.diet),
       manglik: clearManglik ? null : (manglik ?? this.manglik),
       sort: sort ?? this.sort,
+      // Explicitly touching an age/height bound is the user deliberately
+      // opting back into that filter (e.g. adjusting the Sort & Filter
+      // sheet's sliders after a name-only search) — re-enable it unless
+      // the caller says otherwise.
+      applyAgeHeightFilter: applyAgeHeightFilter ??
+          ((ageMin != null || ageMax != null || heightMinCm != null || heightMaxCm != null)
+              ? true
+              : this.applyAgeHeightFilter),
     );
   }
 
