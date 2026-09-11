@@ -102,7 +102,11 @@ class InterestDecisionScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: AppSpacing.xl),
-                    ProfileAvatar(name: record.profile.name, size: 120),
+                    ProfileAvatar(
+                      name: record.profile.name,
+                      photoUrl: record.profile.photoSeed,
+                      size: 120,
+                    ),
                     const SizedBox(height: AppSpacing.lg),
                     Text('${record.profile.name}, ${record.profile.age}',
                         textAlign: TextAlign.center,
