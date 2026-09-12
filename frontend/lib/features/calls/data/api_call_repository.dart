@@ -45,6 +45,21 @@ class ApiCallRepository implements CallRepository {
       return ApiResult.failure(mapDioException(e));
     }
   }
+
+  @override
+  Future<ApiResult<CallStatus>> getCallStatus(String callId) async {
+    try {
+      final response = await _client.dio.get(ApiEndpoints.callStatus(callId));
+      final data = response.data['data'] as Map<String, dynamic>;
+      return ApiResult.success(CallStatus(
+        status: data['status'] as String,
+        active: data['active'] as bool,
+        endReason: data['end_reason'] as String?,
+      ));
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
 }
 
 final callRepositoryProvider = Provider<CallRepository>((ref) {

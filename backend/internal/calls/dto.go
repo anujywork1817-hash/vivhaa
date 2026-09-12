@@ -34,6 +34,23 @@ type ICEServersResponse struct {
 	ICEServers []ICEServer `json:"ice_servers"`
 }
 
+// CallStatusResponse backs GET /calls/:call_id/status — a deterministic
+// backstop against the call:end WebSocket push getting silently dropped
+// (Redis pub/sub is fire-and-forget; a subscriber with a momentary
+// connection blip at the wrong instant never sees it and would otherwise
+// only notice via WebRTC's own, much slower ICE-degradation detection).
+// The client polls this while a call is connected so a call the server
+// already knows is over gets caught within one poll interval rather than
+// depending on the dropped push eventually being noticed some other way.
+type CallStatusResponse struct {
+	Status string `json:"status"` // ringing, ongoing, completed, missed, rejected, failed
+	Active bool   `json:"active"` // true only for ringing/ongoing
+	// EndReason mirrors the same "reason" call:end already carries, so a
+	// stale client learns *why* the call it thought was still connected
+	// actually ended, not just that it did.
+	EndReason *string `json:"end_reason"`
+}
+
 // CallHistoryResponse is one row of GET /admin/call-history.
 type CallHistoryResponse struct {
 	ID              string  `json:"id"`

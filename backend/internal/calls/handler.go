@@ -1,6 +1,7 @@
 package calls
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,6 +22,22 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) ICEServers(c *gin.Context) {
 	userID := c.GetString("user_id")
 	response.OK(c, h.service.ICEServers(userID))
+}
+
+// CallStatus backs GET /calls/:call_id/status — see CallStatusResponse's
+// doc comment for why the client polls this during a connected call.
+func (h *Handler) CallStatus(c *gin.Context) {
+	userID := c.GetString("user_id")
+	resp, err := h.service.GetStatus(c.Request.Context(), userID, c.Param("call_id"))
+	if errors.Is(err, ErrNotFound) {
+		response.Fail(c, http.StatusNotFound, "not_found", "call not found", nil)
+		return
+	}
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
+		return
+	}
+	response.OK(c, resp)
 }
 
 // ListMyCallHistory backs GET /calls/history — the caller's own past

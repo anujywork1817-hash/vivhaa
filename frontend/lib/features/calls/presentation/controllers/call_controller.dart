@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../core/exceptions/app_exception.dart';
 import '../../../chat/data/chat_socket_service.dart';
 import '../../data/api_call_repository.dart';
 import '../../domain/call_repository.dart';
@@ -138,7 +139,16 @@ class CallController extends StateNotifier<CallState> {
   Timer? _ringTimeoutTimer;
   Timer? _durationTimer;
   Timer? _reconnectGraceTimer;
+  Timer? _statusPollTimer;
   DateTime? _connectedAt;
+
+  // How often a connected call double-checks with the server that it's
+  // still actually ongoing — a deterministic backstop against call:end
+  // getting silently dropped (see _pollCallStatus's doc comment for the
+  // full "why"). Short enough that a dropped hang-up signal is caught
+  // quickly, long enough not to hammer the API for the ~duration of an
+  // ordinary call.
+  static const _statusPollInterval = Duration(seconds: 8);
 
   // Bounds how many ICE-restart attempts _attemptIceRestart makes before
   // giving up and ending the call — reset to 0 whenever ICE gets back to
@@ -425,6 +435,8 @@ class CallController extends StateNotifier<CallState> {
       if (_connectedAt == null) return;
       state = state.copyWith(duration: DateTime.now().difference(_connectedAt!));
     });
+    _statusPollTimer?.cancel();
+    _statusPollTimer = Timer.periodic(_statusPollInterval, (_) => _pollCallStatus());
     // Force the OS-level audio route explicitly rather than trusting
     // whatever the platform's own default happens to be. Android/WebRTC
     // puts a fresh call's audio session in voice-call mode, which routes
@@ -437,6 +449,48 @@ class CallController extends StateNotifier<CallState> {
     // toggle in the UI); video calls always start on the loudspeaker.
     Helper.setSpeakerphoneOn(state.isVideo);
   }
+
+  // Backstop against call:end getting silently dropped: it rides the
+  // same Redis pub/sub SendToUser every other call:* event does, which
+  // is genuinely fire-and-forget — a momentary connection blip on this
+  // side at the exact instant the other party hangs up means the push
+  // is gone forever, with nothing left to notice except WebRTC's own
+  // ICE-degradation detection (_onIceConnectionStateChange), which can
+  // take much longer to trigger (or never, if the underlying network
+  // path happens to still look fine even though signaling failed once).
+  // Polling the server's own record of the call while connected closes
+  // that gap deterministically instead of waiting on either of those.
+  Future<void> _pollCallStatus() async {
+    final callId = state.callId;
+    if (state.status != CallStatus.connected || callId == null) return;
+
+    final result = await _callRepository.getCallStatus(callId);
+    result.when(
+      success: (status) {
+        if (!status.active && state.status == CallStatus.connected) {
+          debugPrint('CallController: status poll found call no longer active (${status.status}/${status.endReason}) — ending locally');
+          _onRemoteEnded(_endReasonFromServer(status.endReason));
+        }
+      },
+      // A transient network/poll failure must not end a perfectly live
+      // call — the next poll tries again. notFound specifically means
+      // the server has no record of this call being ours/active at all,
+      // which is just as conclusive as an explicit active:false.
+      failure: (f) {
+        if (f.type == AppFailureType.notFound && state.status == CallStatus.connected) {
+          debugPrint('CallController: status poll got 404 for callId=$callId — ending locally');
+          _onRemoteEnded(CallEndReason.remoteEnded);
+        }
+      },
+    );
+  }
+
+  CallEndReason _endReasonFromServer(String? reason) => switch (reason) {
+        'rejected' => CallEndReason.rejected,
+        'caller_cancelled' => CallEndReason.timeout,
+        'connection_failed' => CallEndReason.connectionFailed,
+        _ => CallEndReason.remoteEnded,
+      };
 
   Future<void> _onRemoteIceCandidate(Map<String, dynamic> data) async {
     final raw = data['candidate'] as Map<String, dynamic>?;
@@ -756,6 +810,7 @@ class CallController extends StateNotifier<CallState> {
     _ringTimeoutTimer?.cancel();
     _durationTimer?.cancel();
     _reconnectGraceTimer?.cancel();
+    _statusPollTimer?.cancel();
     _pendingRemoteCandidates.clear();
     _pendingLocalCandidates.clear();
     _pendingOffer = null;

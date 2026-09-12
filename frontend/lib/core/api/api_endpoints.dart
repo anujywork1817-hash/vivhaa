@@ -132,6 +132,7 @@ class ApiEndpoints {
   static const String wsChat = '/ws/chat';
   static const String iceServers = '/video-call/ice-servers';
   static const String callHistory = '/calls/history';
+  static String callStatus(String callId) => '/calls/$callId/status';
 
   static const String subscriptionPlans = '/subscriptions/plans';
   static const String mySubscription = '/subscriptions/me';

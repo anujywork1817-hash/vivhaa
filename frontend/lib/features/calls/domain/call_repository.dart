@@ -16,6 +16,17 @@ class IceServer {
       };
 }
 
+/// GET /calls/:id/status's response — the server-side source of truth
+/// CallController polls against while a call is connected, as a backstop
+/// against the call:end WebSocket push getting silently dropped (see
+/// CallController's poll timer for the full "why").
+class CallStatus {
+  final String status;
+  final bool active;
+  final String? endReason;
+  const CallStatus({required this.status, required this.active, this.endReason});
+}
+
 abstract class CallRepository {
   /// GET /video-call/ice-servers — STUN + a freshly generated, time-limited
   /// TURN credential. Fetched fresh per call rather than cached, since a
@@ -25,4 +36,7 @@ abstract class CallRepository {
   /// GET /calls/history — page is 0-based here (mirrors SearchRepository.search);
   /// the implementation adds 1 before sending it to the backend.
   Future<ApiResult<List<CallHistoryEntry>>> getCallHistory({int page = 0});
+
+  /// GET /calls/:id/status.
+  Future<ApiResult<CallStatus>> getCallStatus(String callId);
 }

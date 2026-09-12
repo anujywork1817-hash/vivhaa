@@ -128,6 +128,27 @@ func (s *Service) ICEServers(userID string) ICEServersResponse {
 	return ICEServersResponse{ICEServers: servers}
 }
 
+// GetStatus reports a call's current server-side status — see
+// CallStatusResponse's doc comment for why the client polls this.
+// ErrNotFound (also returned if userID isn't a party to the call, same
+// "look like it doesn't exist" treatment other packages use for a
+// resource that isn't yours) means the client should treat it as ended
+// too — a call ID this stale genuinely isn't findable.
+func (s *Service) GetStatus(ctx context.Context, userID, callID string) (CallStatusResponse, error) {
+	call, err := s.repo.GetByID(ctx, callID)
+	if err != nil {
+		return CallStatusResponse{}, err
+	}
+	if call.CallerUserID != userID && call.CalleeUserID != userID {
+		return CallStatusResponse{}, ErrNotFound
+	}
+	return CallStatusResponse{
+		Status:    call.Status,
+		Active:    call.Status == "ringing" || call.Status == "ongoing",
+		EndReason: call.EndReason,
+	}, nil
+}
+
 // HandleIncoming parses and dispatches one call:* message. Errors are
 // reported back to the sender as an "error" event rather than silently
 // dropped — a caller staring at a spinner with no explanation is exactly

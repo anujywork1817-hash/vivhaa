@@ -21,6 +21,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, issuer *jwt.Issuer, require
 	calls := rg.Group("/calls")
 	calls.Use(middleware.RequireAuth(issuer), requireUnlocked)
 	calls.GET("/history", h.ListMyCallHistory)
+	calls.GET("/:call_id/status", h.CallStatus)
 
 	adminGroup := rg.Group("/admin")
 	adminGroup.Use(middleware.RequireAuth(issuer), middleware.RequireRole("admin"))
