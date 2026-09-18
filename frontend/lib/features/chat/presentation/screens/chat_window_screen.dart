@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -254,26 +254,59 @@ class _ChatWindowScreenState extends ConsumerState<ChatWindowScreen> {
     ref.listen(messagesControllerProvider(widget.conversationId),
         (_, __) => _scrollToBottom());
 
+    final online = conversation == null
+        ? null
+        : ref.watch(partnerPresenceProvider(conversation.id)).valueOrNull;
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
+        // Tall enough to fit the name + status line without cramming —
+        // the default 56 only ever budgeted for one line of title text.
+        toolbarHeight: 68,
         title: conversation == null
             ? const Text('Chat')
-            : Row(
-                children: [
-                  ProfileAvatar(
-                    name: conversation.withProfile.name,
-                    size: 34,
-                    photoUrl: conversation.withProfile.photoSeed,
+            : InkWell(
+                onTap: () => context.push(
+                    AppRoutes.profileDetailPath(conversation.withProfile.id)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      ProfileAvatar(
+                        name: conversation.withProfile.name,
+                        size: 38,
+                        photoUrl: conversation.withProfile.photoSeed,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(conversation.withProfile.name,
+                                style: context.textStyles.titleMedium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            if (online == true)
+                              Text('Online',
+                                  style: context.textStyles.bodySmall
+                                      ?.copyWith(color: context.colors.success)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(conversation.withProfile.name,
-                        style: context.textStyles.titleMedium,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ],
+                ),
               ),
+        // A thin hairline instead of a shadow — matches every other flat,
+        // border-separated surface this app's theme already uses (cards,
+        // bottom nav) rather than introducing Material's default drop
+        // shadow just for this one screen.
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: context.colors.line),
+        ),
         actions: [
           if (conversation != null && !conversation.isBlocked) ...[
             IconButton(
@@ -529,6 +562,93 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
     }
   }
 
+  void _showMessageActions(BuildContext context) {
+    final message = widget.message;
+    if (message.deleted) return;
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.copy_rounded),
+              title: const Text('Copy'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                Clipboard.setData(ClipboardData(text: message.text));
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: context.colors.danger),
+              title: Text('Delete',
+                  style: TextStyle(color: context.colors.danger)),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _confirmDelete(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final message = widget.message;
+    // "Delete for everyone" only ever makes sense — and is only ever
+    // honored server-side — for a message you sent; someone else's
+    // message can only be hidden from your own view.
+    final forEveryone = message.fromMe
+        ? await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Delete message?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Delete for me'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text('Delete for everyone',
+                      style: TextStyle(color: context.colors.danger)),
+                ),
+              ],
+            ),
+          )
+        : await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Delete message?'),
+              content: const Text('This removes it from your device only.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text('Delete',
+                      style: TextStyle(color: context.colors.danger)),
+                ),
+              ],
+            ),
+          );
+    if (forEveryone == null || !mounted) return;
+
+    final failure = await ref
+        .read(messagesControllerProvider(widget.conversationId).notifier)
+        .deleteMessage(message.id, forEveryone: forEveryone);
+    if (failure != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(duration: const Duration(seconds: 3), content: Text(failure.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final message = widget.message;
@@ -540,6 +660,31 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
           child: Text(message.text,
               style: context.textStyles.bodySmall
                   ?.copyWith(color: context.colors.muted)),
+        ),
+      );
+    }
+
+    if (message.deleted) {
+      return Align(
+        alignment: message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: context.colors.surface,
+            border: Border.all(color: context.colors.line),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.block_rounded, size: 14, color: context.colors.muted),
+              const SizedBox(width: 6),
+              Text('This message was deleted',
+                  style: context.textStyles.bodySmall?.copyWith(
+                      color: context.colors.muted, fontStyle: FontStyle.italic)),
+            ],
+          ),
         ),
       );
     }
@@ -735,8 +880,10 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
                 OutlinedButton(
                   onPressed: _busy ? null : () => _respond(false),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 32),
+                    // 44pt minimum touch target (iOS HIG / Material).
+                    minimumSize: const Size(0, 44),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: VisualDensity.compact,
                   ),
                   child: const Text('Decline'),
                 ),
@@ -744,8 +891,9 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
                 FilledButton(
                   onPressed: _busy ? null : () => _respond(true),
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 32),
+                    minimumSize: const Size(0, 44),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: VisualDensity.compact,
                   ),
                   child: const Text('Accept'),
                 ),
@@ -779,7 +927,10 @@ class _MessageBubbleState extends ConsumerState<_MessageBubble>
             child: Align(
               alignment:
                   message.fromMe ? Alignment.centerRight : Alignment.centerLeft,
-              child: bubble,
+              child: GestureDetector(
+                onLongPress: () => _showMessageActions(context),
+                child: bubble,
+              ),
             ),
           ),
         ],

@@ -10,6 +10,11 @@ type MessageResponse struct {
 	Read           bool             `json:"read"`
 	CreatedAt      string           `json:"created_at"`
 	ReplyTo        *ReplyToResponse `json:"reply_to,omitempty"`
+	// Deleted is true once this message has been deleted for everyone —
+	// Body/AttachmentURL are already stripped by then (see History's
+	// doc comment), this just tells the client to render the "message
+	// deleted" placeholder instead of an empty bubble.
+	Deleted bool `json:"deleted,omitempty"`
 }
 
 // ReplyToResponse is a brief snapshot of the message being replied to —

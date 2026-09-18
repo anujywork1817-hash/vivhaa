@@ -14,22 +14,28 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (leadingIcon != null) ...[
-            Icon(leadingIcon, size: 18),
-            const SizedBox(width: 8),
+    // Full width is this widget's own contract, same as PrimaryButton —
+    // see that widget and app_theme.dart's ElevatedButtonTheme comment
+    // for why the theme no longer supplies this implicitly.
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (leadingIcon != null) ...[
+              Icon(leadingIcon, size: 18),
+              const SizedBox(width: 8),
+            ],
+            // Flexible + ellipsis rather than letting the label size itself
+            // unbounded — see primary_button.dart's identical fix.
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
           ],
-          // Flexible + ellipsis rather than letting the label size itself
-          // unbounded — see primary_button.dart's identical fix.
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
+        ),
       ),
     );
   }

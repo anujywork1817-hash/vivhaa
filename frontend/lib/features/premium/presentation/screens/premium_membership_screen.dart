@@ -224,8 +224,10 @@ class _ActivePlanCard extends ConsumerWidget {
           ),
           const Divider(height: AppSpacing.xl),
           _InfoRow(
-            label: 'Next Billing Date',
-            value: endsAt != null ? _formatDate(endsAt) : '—',
+            label: plan?.isLifetime ?? false ? 'Access' : 'Next Billing Date',
+            value: plan?.isLifetime ?? false
+                ? 'Lifetime'
+                : (endsAt != null ? _formatDate(endsAt) : '—'),
           ),
           const SizedBox(height: AppSpacing.sm),
           _InfoRow(

@@ -27,7 +27,14 @@ class SubscriptionPlan {
     this.tierRank = 0,
   });
 
+  /// Same "very long duration stands in for forever" convention the
+  /// backend's 'free' plan already used (see migration 000007) — a
+  /// one-time lifetime plan reuses it rather than adding a separate
+  /// "never expires" concept anywhere.
+  bool get isLifetime => durationDays >= 36500;
+
   String get durationLabel {
+    if (isLifetime) return 'Lifetime';
     if (durationDays % 365 == 0) {
       final years = durationDays ~/ 365;
       return years == 1 ? '12 months' : '$years years';

@@ -14,6 +14,22 @@ final conversationsProvider = FutureProvider.autoDispose<List<Conversation>>((re
   return result.when(success: (data) => data, failure: (f) => throw f);
 });
 
+/// Polls the partner's live-connection status for the chat header's
+/// "Online" line — there's no push channel for presence changes (unlike
+/// messages), so this is a plain interval poll, only while the chat
+/// screen watching it is actually mounted (autoDispose).
+final partnerPresenceProvider = StreamProvider.autoDispose.family<bool, String>((ref, userId) async* {
+  final repository = ref.watch(chatRepositoryProvider);
+  while (true) {
+    final result = await repository.getPresence(userId);
+    yield result.when(success: (online) => online, failure: (_) => false);
+    // 20s used to mean "Online" could sit stale for a while after the
+    // other person actually closed the app — tightened alongside the
+    // backend's faster dead-connection detection (client.go's pongWait).
+    await Future<void>.delayed(const Duration(seconds: 6));
+  }
+});
+
 final unreadConversationCountProvider = Provider.autoDispose<int>((ref) {
   final conversations = ref.watch(conversationsProvider).valueOrNull ?? const [];
   return conversations.where((c) => c.unreadCount > 0).length;
@@ -128,6 +144,7 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
       kind: _kindFromBackend(data['kind'] as String?),
       replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
       attachmentUrl: data['attachment_url'] as String?,
+      deleted: data['deleted'] as bool? ?? false,
     );
   }
 
@@ -185,6 +202,38 @@ class MessagesController extends StateNotifier<List<ChatMessage>> {
     AppFailure? failure;
     result.when(success: _appendIfNew, failure: (f) => failure = f);
     return failure;
+  }
+
+  /// "Delete for me": removed from this device's list immediately (no
+  /// server push comes back for this — it only affects the requester's
+  /// own view), reinserted at its original position if the request fails.
+  /// "Delete for everyone" doesn't touch local state itself — the
+  /// server's "message_updated" push (see DeleteMessage's doc comment on
+  /// the backend) already turns it into the deleted placeholder for both
+  /// sides once it arrives, same as any other in-place update.
+  Future<AppFailure?> deleteMessage(String messageId, {required bool forEveryone}) async {
+    ChatMessage? removed;
+    int removedIndex = -1;
+    if (!forEveryone) {
+      removedIndex = state.indexWhere((m) => m.id == messageId);
+      if (removedIndex != -1) {
+        removed = state[removedIndex];
+        state = [for (final m in state) if (m.id != messageId) m];
+      }
+    }
+
+    final result = await _repository.deleteMessage(messageId, forEveryone: forEveryone);
+    return result.when(
+      success: (_) => null,
+      failure: (f) {
+        if (removed != null && mounted) {
+          final next = [...state];
+          next.insert(removedIndex.clamp(0, next.length), removed);
+          state = next;
+        }
+        return f;
+      },
+    );
   }
 
   Future<AppFailure?> requestContactNumber() async {

@@ -486,9 +486,12 @@ class _HomeMatchCard extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 12)),
                           style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 32),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            // 32pt was below the 44pt minimum touch target
+                            // (iOS HIG / Material) — small enough to
+                            // mis-tap, which reads as unpolished even
+                            // though the visual chip itself looked fine.
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             visualDensity: VisualDensity.compact,
                           ),
                         ),

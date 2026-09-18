@@ -40,6 +40,11 @@ type Message struct {
 	ReplyToMessageID    *string
 	ReplyToBody         *string
 	ReplyToSenderUserID *string
+
+	// DeletedForEveryoneAt set means the message is gone for both sides —
+	// History strips its Body/AttachmentURL before this ever reaches a
+	// response so a "deleted" message never round-trips its old content.
+	DeletedForEveryoneAt *time.Time
 }
 
 // ConversationSummary describes one chat partner for a conversation list.

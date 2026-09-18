@@ -16,9 +16,16 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: loading ? null : onPressed,
-      child: loading
+    // Full width is this widget's own contract (it's the app's bottom-
+    // of-form CTA), not something it should inherit implicitly from the
+    // theme's button default — see app_theme.dart's ElevatedButtonTheme
+    // comment for why that default no longer forces infinite width on
+    // every button app-wide.
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: loading ? null : onPressed,
+        child: loading
           ? const SizedBox(
               width: 22,
               height: 22,
@@ -42,6 +49,7 @@ class PrimaryButton extends StatelessWidget {
                 ],
               ],
             ),
+      ),
     );
   }
 }

@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../../../../core/notifications/push_notification_service.dart';
 import '../../../../core/tour/app_tour_controller.dart';
@@ -28,6 +32,8 @@ class AppShell extends ConsumerStatefulWidget {
 }
 
 class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
+  bool _exitDialogShowing = false;
+
   static const _tabs = [
     HomeDashboardScreen(),
     MatchesTabScreen(),
@@ -75,6 +81,19 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     // code path, so without this the notifications plugin would never
     // actually get set up on exactly the app launch this fix cares about.
     ref.read(pushNotificationServiceProvider).initialise();
+
+    // Asking for camera/mic the moment a user first reaches the main app
+    // (rather than lazily at the first real call) means that by the time
+    // they actually place or receive one, the OS permission dialog has
+    // already been answered — no dialog popping up mid-call-setup to
+    // trigger the pause/resume cycle above. Best-effort and silent: a
+    // decline here isn't treated as anything but "ask again at call
+    // time," which CallController._ensurePermissions still does.
+    unawaited(_primeCallPermissions());
+  }
+
+  Future<void> _primeCallPermissions() async {
+    await [Permission.camera, Permission.microphone].request();
   }
 
   @override
@@ -106,7 +125,22 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       }
     });
 
-    return Scaffold(
+    // This IS the routed widget for '/home' — the only GoRoute this app
+    // registers for the bottom-nav shell, with the five tabs (Home/
+    // Matches/Inbox/Chat/Premium) switched purely via IndexedStack, never
+    // a route change. That makes AppShell's build the one place with a
+    // real ModalRoute ancestor for PopScope to attach to while sitting on
+    // any of those tabs — a PopScope placed further up, outside the
+    // Router/Navigator (as this used to be, in app.dart), silently finds
+    // no ModalRoute and never intercepts anything, so back closes the app
+    // immediately no matter which tab is showing.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
       body: IndexedStack(index: activeTab.index, children: _tabs),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: activeTab.index,
@@ -151,7 +185,51 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           ),
         ],
       ),
+      ),
     );
+  }
+
+  /// One press always collapses straight to the Home tab if the user
+  /// isn't already there; only once already on Home does back raise an
+  /// "Are you sure you want to exit?" confirmation — one press alone must
+  /// never exit outright.
+  void _handleBack() {
+    final onHomeTab = ref.read(appShellTabProvider) == AppTab.home;
+    if (!onHomeTab) {
+      ref.read(appShellTabProvider.notifier).state = AppTab.home;
+      return;
+    }
+    _confirmExit();
+  }
+
+  Future<void> _confirmExit() async {
+    // A rapid double back-press can fire this twice before the first
+    // dialog even paints; the guard flag (not just checking Navigator's
+    // route stack, which a dialog barrier itself changes) keeps the
+    // second press a no-op instead of stacking two dialogs.
+    if (_exitDialogShowing) return;
+    _exitDialogShowing = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit Vivah?'),
+        content: const Text('Are you sure you want to exit the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+
+    _exitDialogShowing = false;
+    if (confirmed == true) SystemNavigator.pop();
   }
 }
 

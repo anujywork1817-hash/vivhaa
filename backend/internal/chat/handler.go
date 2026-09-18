@@ -108,6 +108,16 @@ func (h *Handler) GetHistory(c *gin.Context) {
 	response.OK(c, resp)
 }
 
+// GetPresence reports whether userId has a live connection right now —
+// backs the chat header's "Online" status line. Reuses the same
+// presence tracking calls.Service already relies on to decide whether a
+// call can even ring (Hub.IsOnline); this is just the first place it's
+// exposed directly to a client rather than only used server-side.
+func (h *Handler) GetPresence(c *gin.Context) {
+	online := h.service.IsOnline(c.Request.Context(), c.Param("userId"))
+	response.OK(c, gin.H{"online": online})
+}
+
 func (h *Handler) ListConversations(c *gin.Context) {
 	userID := c.GetString("user_id")
 	resp, err := h.service.ListConversations(c.Request.Context(), userID)
@@ -148,6 +158,18 @@ func (h *Handler) DeclineContact(c *gin.Context) {
 	response.OK(c, resp)
 }
 
+// DeleteMessage handles both WhatsApp-style options via a query param:
+// DELETE /chat/messages/:messageId?for=everyone (default: "me").
+func (h *Handler) DeleteMessage(c *gin.Context) {
+	userID := c.GetString("user_id")
+	forEveryone := c.Query("for") == "everyone"
+	if err := h.service.DeleteMessage(c.Request.Context(), userID, c.Param("messageId"), forEveryone); err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, gin.H{"deleted": true})
+}
+
 func writeServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrRateLimited):
@@ -176,6 +198,8 @@ func writeServiceError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusUnprocessableEntity, "message_blocked", userFacingBlockMessage, nil)
 	case errors.Is(err, ErrChatRestricted):
 		response.Fail(c, http.StatusTooManyRequests, "chat_restricted", "You're temporarily unable to send messages. Please try again later.", nil)
+	case errors.Is(err, ErrNotFound):
+		response.Fail(c, http.StatusNotFound, "not_found", "message not found, or you can't delete it for everyone", nil)
 	default:
 		response.Fail(c, http.StatusInternalServerError, "internal_error", "something went wrong", nil)
 	}

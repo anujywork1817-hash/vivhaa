@@ -27,4 +27,13 @@ abstract class ChatRepository {
     List<int> bytes,
     String filename,
   );
+
+  /// WhatsApp-style delete. [forEveryone] false ("delete for me") only
+  /// hides it from this device's own view; true removes it for both
+  /// sides and is only actually honored server-side if this user sent it.
+  Future<ApiResult<void>> deleteMessage(String messageId, {required bool forEveryone});
+
+  /// Whether [userId] has a live connection right now — backs the chat
+  /// header's "Online" status line.
+  Future<ApiResult<bool>> getPresence(String userId);
 }

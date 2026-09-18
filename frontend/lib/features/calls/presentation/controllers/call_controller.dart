@@ -34,6 +34,15 @@ class CallState {
   final Duration duration;
   final String? errorMessage;
   final CallEndReason? endReason;
+  // Caller-side only, while status is still `calling`: whether the
+  // callee is confirmed to actually have a live connection right now —
+  // lets the UI say "Ringing…" (it's genuinely reaching them) instead of
+  // a generic "Calling…" the whole time, same distinction every other
+  // calling app makes. A call is no longer refused outright just because
+  // the callee is offline at the moment of dialing (see calls.Service
+  // .initiate's doc comment on the backend) — this is purely a status
+  // label, never a gate on whether the attempt happens.
+  final bool calleeOnline;
 
   const CallState({
     this.status = CallStatus.idle,
@@ -49,6 +58,7 @@ class CallState {
     this.duration = Duration.zero,
     this.errorMessage,
     this.endReason,
+    this.calleeOnline = false,
   });
 
   bool get isActive => status != CallStatus.idle && status != CallStatus.ended;
@@ -67,6 +77,7 @@ class CallState {
     Duration? duration,
     String? errorMessage,
     CallEndReason? endReason,
+    bool? calleeOnline,
   }) {
     return CallState(
       status: status ?? this.status,
@@ -82,6 +93,7 @@ class CallState {
       duration: duration ?? this.duration,
       errorMessage: errorMessage,
       endReason: endReason,
+      calleeOnline: calleeOnline ?? this.calleeOnline,
     );
   }
 }
@@ -148,7 +160,7 @@ class CallController extends StateNotifier<CallState> {
   // full "why"). Short enough that a dropped hang-up signal is caught
   // quickly, long enough not to hammer the API for the ~duration of an
   // ordinary call.
-  static const _statusPollInterval = Duration(seconds: 8);
+  static const _statusPollInterval = Duration(seconds: 3);
 
   // Bounds how many ICE-restart attempts _attemptIceRestart makes before
   // giving up and ending the call — reset to 0 whenever ICE gets back to
@@ -242,7 +254,10 @@ class CallController extends StateNotifier<CallState> {
   /// mirroring what the callee already gets from call:incoming.
   void _onRinging(Map<String, dynamic> data) {
     if (state.status != CallStatus.calling) return;
-    state = state.copyWith(callId: data['call_id'] as String?);
+    state = state.copyWith(
+      callId: data['call_id'] as String?,
+      calleeOnline: data['callee_online'] as bool? ?? false,
+    );
     _flushPendingLocalCandidates();
   }
 
@@ -259,6 +274,7 @@ class CallController extends StateNotifier<CallState> {
       isCaller: false,
       peerUserId: data['caller_id'] as String,
       peerName: (data['caller_name'] as String?) ?? 'Someone',
+      peerPhotoUrl: data['caller_photo_url'] as String?,
       // Every call:incoming before is_video existed was a video call, so a
       // missing field defaults to true — mirrors the backend's default.
       isVideo: (data['is_video'] as bool?) ?? true,
@@ -302,6 +318,7 @@ class CallController extends StateNotifier<CallState> {
       await _openLocalMedia(isVideo);
       final pc = await _createPeerConnection();
       _localStream!.getTracks().forEach((track) => pc.addTrack(track, _localStream!));
+      if (isVideo) await _applyVideoBitrate(pc);
 
       final offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -354,6 +371,7 @@ class CallController extends StateNotifier<CallState> {
       await _openLocalMedia(state.isVideo);
       final pc = await _createPeerConnection();
       _localStream!.getTracks().forEach((track) => pc.addTrack(track, _localStream!));
+      if (state.isVideo) await _applyVideoBitrate(pc);
 
       await pc.setRemoteDescription(
         RTCSessionDescription(_pendingOffer!['sdp'] as String, _pendingOffer!['type'] as String),
@@ -436,6 +454,11 @@ class CallController extends StateNotifier<CallState> {
       state = state.copyWith(duration: DateTime.now().difference(_connectedAt!));
     });
     _statusPollTimer?.cancel();
+    // Timer.periodic only fires after the first full interval elapses —
+    // an immediate check here closes the gap for the (rare but real) case
+    // where the other side's call:end was already dropped by the moment
+    // this side finishes connecting.
+    _pollCallStatus();
     _statusPollTimer = Timer.periodic(_statusPollInterval, (_) => _pollCallStatus());
     // Force the OS-level audio route explicitly rather than trusting
     // whatever the platform's own default happens to be. Android/WebRTC
@@ -631,7 +654,21 @@ class CallController extends StateNotifier<CallState> {
   Future<void> _openLocalMedia(bool isVideo) async {
     final constraints = {
       'audio': true,
-      'video': isVideo ? {'facingMode': 'user'} : false,
+      // Uncapped, this asked the camera for its native resolution (often
+      // 1080p+) with no frame-rate ceiling — a real driver of "laggy"
+      // calls on a mobile connection/modest CPU: more pixels to encode,
+      // decode, and push over the wire (often through the self-hosted
+      // TURN relay, not a direct P2P path) than a phone-to-phone video
+      // call needs. 480p/24fps is plenty for this UI's call screen and
+      // is the same ballpark most mobile video-calling apps target.
+      'video': isVideo
+          ? {
+              'facingMode': 'user',
+              'width': {'ideal': 640},
+              'height': {'ideal': 480},
+              'frameRate': {'ideal': 24, 'max': 24},
+            }
+          : false,
     };
     try {
       _localStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -641,6 +678,34 @@ class CallController extends StateNotifier<CallState> {
       _localStream = await navigator.mediaDevices.getUserMedia(constraints);
     }
     _localStreamController.add(_localStream);
+  }
+
+  /// Without an explicit bitrate floor, WebRTC's default congestion
+  /// control is free to starve the video encoder down to whatever it
+  /// judges the network can take — fine for a mostly-still face, but
+  /// motion has far more entropy to encode per frame, so the same
+  /// starved bitrate that looked OK holding still turns into heavy
+  /// blur/blockiness the moment the phone moves or shakes (more detail
+  /// to encode, same bit budget). A floor stops it from ever dropping
+  /// that low; the ceiling keeps a strong network from ramping so high
+  /// that pixel-perfect motion costs latency instead — resolution is
+  /// already capped in _openLocalMedia, so this only targets bitrate.
+  Future<void> _applyVideoBitrate(RTCPeerConnection pc) async {
+    try {
+      final sender = (await pc.getSenders())
+          .firstWhere((s) => s.track?.kind == 'video');
+      final params = sender.parameters;
+      for (final encoding in params.encodings ?? <RTCRtpEncoding>[]) {
+        encoding.minBitrate = 250000;
+        encoding.maxBitrate = 800000;
+      }
+      await sender.setParameters(params);
+    } catch (e) {
+      // Best-effort tuning — a call must still work with the encoder's
+      // own defaults if this fails for any reason (sender not ready yet,
+      // platform quirk, etc.).
+      debugPrint('CallController: _applyVideoBitrate failed — $e');
+    }
   }
 
   Future<RTCPeerConnection> _createPeerConnection() async {

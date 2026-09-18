@@ -78,7 +78,20 @@ class AppTheme {
           // Pressed/hover overlay uses the dark accent variant so the
           // button visibly deepens on press instead of just dimming.
           overlayColor: accentPressed,
-          minimumSize: const Size.fromHeight(52),
+          // Size.fromHeight(52) used to sit here — that's Size(double
+          // .infinity, 52), so EVERY ElevatedButton defaulted to wanting
+          // infinite width. Harmless inside a full-width slot (a form's
+          // bottom CTA, an Expanded/Column-stretch context), but any
+          // button placed directly in a Row without Expanded — an inline
+          // "Unblock"/"Connect" action next to a list row — genuinely
+          // got unbounded width from Flutter's layout and overflowed or
+          // rendered oversized. That's the actual root cause behind the
+          // pile of one-off `minimumSize: Size(0, 32)` overrides scattered
+          // across screens: each was a local workaround for this global
+          // default, not an unrelated touch-target bug. PrimaryButton
+          // (the real full-width CTA wrapper) now owns its own width
+          // explicitly instead of leaning on this.
+          minimumSize: const Size(64, 52),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
           textStyle: textTheme.labelLarge,
@@ -89,7 +102,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
           overlayColor: accentSoft,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 52),
           side: BorderSide(color: line),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),

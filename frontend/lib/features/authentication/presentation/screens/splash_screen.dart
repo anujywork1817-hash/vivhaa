@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/notifications/push_notification_service.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -62,7 +65,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         // other outcome (no session, no profile yet) falls back to the
         // auth gate, which is always a safe restart point.
         final hasProfile = await ref.read(profileCreationControllerProvider.notifier).loadExisting();
-        if (hasProfile) destination = AppRoutes.home;
+        if (hasProfile) {
+          destination = AppRoutes.home;
+          // A returning session never goes through auth_controller's
+          // login/signup flow (the only place this used to be called),
+          // so a device whose backend-side token record was lost —
+          // e.g. reinstalled, or the backend was briefly unreachable
+          // when it last tried — never got re-registered until the next
+          // explicit sign-out/sign-in. Fire-and-forget: a failure here
+          // shouldn't block getting the user into the app.
+          unawaited(ref.read(pushNotificationServiceProvider).registerDevice());
+        }
       }
     } catch (e) {
       debugPrint('SplashScreen._resume: session resume failed, falling back to auth gate — $e');

@@ -225,6 +225,7 @@ class ApiDashboardRepository implements DashboardRepository {
       case 'contact_request':
       case 'contact_accepted':
       case 'contact_declined':
+      case 'incoming_call':
         return NotificationType.message;
       default:
         return NotificationType.system;

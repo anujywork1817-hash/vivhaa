@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <!-- Lets the incoming-call screen turn the screen on and draw over
+         the lock screen (see MainActivity.showOverLockScreen) — without
+         this, a call arriving while the phone is merely locked (screen
+         off, app still alive) never actually surfaced to the user. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>

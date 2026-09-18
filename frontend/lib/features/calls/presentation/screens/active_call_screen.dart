@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
@@ -96,9 +97,14 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
     return PopScope(
       canPop: call.status == CallStatus.ended,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) ref.read(callControllerProvider.notifier).endCall();
-      },
+      // Used to call endCall() here — meaning a back press or an
+      // accidental edge-swipe while on a call hung up on the other
+      // person outright. No other calling app treats back as "hang up";
+      // only the explicit red end-call button should. While the call is
+      // still active this just blocks the pop and does nothing else —
+      // once it's actually ended, canPop above lets a normal back press
+      // dismiss the screen as usual.
+      onPopInvokedWithResult: (didPop, _) {},
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -133,7 +139,7 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
                       height: 140,
                       child: call.cameraOff
                           ? ColoredBox(color: Colors.grey.shade900, child: const Icon(Icons.videocam_off_rounded, color: Colors.white38))
-                          : RTCVideoView(_localRenderer, mirror: true, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+                          : RTCVideoView(_localRenderer, mirror: false, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
                     ),
                   ),
                 ),
@@ -224,7 +230,12 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
   String _statusLabel(CallState call) {
     return switch (call.status) {
-      CallStatus.calling => 'Calling…',
+      // WhatsApp-style distinction: "Ringing…" once the server's confirmed
+      // the callee actually has a live connection to ring on, "Calling…"
+      // otherwise (still worth attempting — see calls.Service.initiate's
+      // doc comment on the backend for why this is no longer a hard
+      // reject) — never an abrupt error just because they're offline.
+      CallStatus.calling => call.calleeOnline ? 'Ringing…' : 'Calling…',
       // A connected voice call has nothing left to wait on — it's live
       // the moment call:accept arrives, same as video's audio track.
       // "Connecting…" here is only meaningful for video while the
@@ -269,6 +280,20 @@ class _CallEndedOverlay extends StatelessWidget {
             durationLabel != null ? 'Call ended · $durationLabel' : reasonLabel,
             style: const TextStyle(color: Colors.white70, fontSize: 15),
           ),
+          // Denying the camera/mic prompt once shouldn't be a dead end —
+          // Android won't show that system dialog again after a decline,
+          // so the only way back in is the app's own permission settings
+          // page. A retry here just re-requests, which does nothing once
+          // permanently denied; sending the user to Settings is the only
+          // path that actually works.
+          if (call.endReason == CallEndReason.permissionDenied) ...[
+            const SizedBox(height: AppSpacing.md),
+            TextButton(
+              onPressed: openAppSettings,
+              child: const Text('Open Settings to allow camera/mic',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xxl),
           _ControlButton(
             icon: Icons.call_end_rounded,

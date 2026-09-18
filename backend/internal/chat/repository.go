@@ -43,17 +43,26 @@ func (r *Repository) createMessage(ctx context.Context, senderID, receiverID, bo
 }
 
 // History returns messages between userID and partnerID, oldest first,
-// most recent `limit` messages.
+// most recent `limit` messages. Excludes rows userID deleted "for me" —
+// filtered here (not client-side) so a hidden message never leaves the
+// server at all. A message deleted "for everyone" still comes back (both
+// sides need to render its "message deleted" placeholder in place, not
+// have a gap in the thread) but with Body/AttachmentURL stripped.
 func (r *Repository) History(ctx context.Context, userID, partnerID string, limit int) ([]Message, error) {
 	const q = `
 		SELECT id, sender_user_id, receiver_user_id, body, kind, read_at, created_at,
-		       reply_to_message_id, reply_body, reply_sender_user_id, attachment_url FROM (
-			SELECT cm.id, cm.sender_user_id, cm.receiver_user_id, cm.body, cm.kind, cm.read_at, cm.created_at,
+		       reply_to_message_id, reply_body, reply_sender_user_id, attachment_url, deleted_for_everyone_at FROM (
+			SELECT cm.id, cm.sender_user_id, cm.receiver_user_id,
+			       CASE WHEN cm.deleted_for_everyone_at IS NOT NULL THEN '' ELSE cm.body END AS body,
+			       cm.kind, cm.read_at, cm.created_at,
 			       cm.reply_to_message_id, rt.body AS reply_body, rt.sender_user_id AS reply_sender_user_id,
-			       cm.attachment_url
+			       CASE WHEN cm.deleted_for_everyone_at IS NOT NULL THEN NULL ELSE cm.attachment_url END AS attachment_url,
+			       cm.deleted_for_everyone_at
 			FROM chat_messages cm
 			LEFT JOIN chat_messages rt ON rt.id = cm.reply_to_message_id
-			WHERE (cm.sender_user_id = $1 AND cm.receiver_user_id = $2) OR (cm.sender_user_id = $2 AND cm.receiver_user_id = $1)
+			WHERE ((cm.sender_user_id = $1 AND cm.receiver_user_id = $2) OR (cm.sender_user_id = $2 AND cm.receiver_user_id = $1))
+			  AND NOT (cm.sender_user_id = $1 AND cm.sender_deleted_at IS NOT NULL)
+			  AND NOT (cm.receiver_user_id = $1 AND cm.receiver_deleted_at IS NOT NULL)
 			ORDER BY cm.created_at DESC
 			LIMIT $3
 		) recent
@@ -69,13 +78,66 @@ func (r *Repository) History(ctx context.Context, userID, partnerID string, limi
 		var m Message
 		if err := rows.Scan(
 			&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt,
-			&m.ReplyToMessageID, &m.ReplyToBody, &m.ReplyToSenderUserID, &m.AttachmentURL,
+			&m.ReplyToMessageID, &m.ReplyToBody, &m.ReplyToSenderUserID, &m.AttachmentURL, &m.DeletedForEveryoneAt,
 		); err != nil {
 			return nil, err
 		}
 		messages = append(messages, m)
 	}
 	return messages, rows.Err()
+}
+
+// DeleteForMe hides a message from only requesterUserID's own view —
+// mirrors interests' per-party delete (migration 000033): the other
+// side's copy is untouched. Silently succeeds if requesterUserID isn't a
+// participant or the message doesn't exist, same as everywhere else in
+// this file treats "nothing matched" as a no-op rather than an error.
+func (r *Repository) DeleteForMe(ctx context.Context, messageID, requesterUserID string) error {
+	const q = `
+		UPDATE chat_messages SET
+			sender_deleted_at = CASE WHEN sender_user_id = $2 THEN now() ELSE sender_deleted_at END,
+			receiver_deleted_at = CASE WHEN receiver_user_id = $2 THEN now() ELSE receiver_deleted_at END
+		WHERE id = $1 AND (sender_user_id = $2 OR receiver_user_id = $2)`
+	_, err := r.db.Exec(ctx, q, messageID, requesterUserID)
+	return err
+}
+
+// DeleteConversationForMe is DeleteForMe applied to an entire thread —
+// same per-party columns, same "only ever touches the requester's own
+// view" contract, just every message with partnerUserID at once instead
+// of one message ID. The other side's copy of the conversation (and
+// their own read/unread state) is completely untouched; if they send a
+// new message afterward, the thread simply reappears in the requester's
+// list the normal way ListConversations already works.
+func (r *Repository) DeleteConversationForMe(ctx context.Context, requesterUserID, partnerUserID string) error {
+	const q = `
+		UPDATE chat_messages SET
+			sender_deleted_at = CASE WHEN sender_user_id = $1 THEN now() ELSE sender_deleted_at END,
+			receiver_deleted_at = CASE WHEN receiver_user_id = $1 THEN now() ELSE receiver_deleted_at END
+		WHERE (sender_user_id = $1 AND receiver_user_id = $2) OR (sender_user_id = $2 AND receiver_user_id = $1)`
+	_, err := r.db.Exec(ctx, q, requesterUserID, partnerUserID)
+	return err
+}
+
+// DeleteForEveryone is restricted to the original sender by the WHERE
+// clause itself (not just a service-layer check) — same defense-in-depth
+// reasoning GetMessageByID's doc comment gives for scoping to the
+// participant in the query rather than trusting every caller to check
+// first. Returns ErrNotFound if requesterUserID isn't that sender (or
+// the message doesn't exist), so the service layer can tell "nothing to
+// delete" apart from "you're not allowed to."
+func (r *Repository) DeleteForEveryone(ctx context.Context, messageID, requesterUserID string) (Message, error) {
+	const q = `
+		UPDATE chat_messages SET deleted_for_everyone_at = now()
+		WHERE id = $1 AND sender_user_id = $2 AND deleted_for_everyone_at IS NULL
+		RETURNING id, sender_user_id, receiver_user_id, body, kind, read_at, created_at`
+	var m Message
+	err := r.db.QueryRow(ctx, q, messageID, requesterUserID).Scan(
+		&m.ID, &m.SenderUserID, &m.ReceiverUserID, &m.Body, &m.Kind, &m.ReadAt, &m.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Message{}, ErrNotFound
+	}
+	return m, err
 }
 
 // GetMessageByID fetches a single message, but ONLY if participantUserID

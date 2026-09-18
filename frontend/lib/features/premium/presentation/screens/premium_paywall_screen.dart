@@ -59,7 +59,7 @@ class _PremiumPaywallScreenState extends ConsumerState<PremiumPaywallScreen> {
           if (widget.showSkip && !showMembershipScreen)
             TextButton(
               onPressed: _finishOnboardingWithoutPurchase,
-              child: const Text('SKIP'),
+              child: const Text('Skip'),
             ),
         ],
       ),
@@ -321,7 +321,7 @@ class _TopTierMessage extends StatelessWidget {
                 style: context.textStyles.titleMedium, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              "You're already a Gold (Yearly) member — there's no higher plan to move to.",
+              "You already have lifetime Premium — there's nothing higher to move to.",
               style: context.textStyles.bodyMedium?.copyWith(color: context.colors.muted),
               textAlign: TextAlign.center,
             ),
@@ -368,7 +368,6 @@ class _PremiumTierCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final perMonth = (plan.priceINR / (plan.durationDays / 30)).round();
     final tier = PlanTier.forDuration(plan.durationDays);
 
     return Container(
@@ -406,10 +405,16 @@ class _PremiumTierCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('₹$perMonth/mo',
+                  Text(
+                      plan.isLifetime
+                          ? '₹${plan.priceINR}'
+                          : '₹${(plan.priceINR / (plan.durationDays / 30)).round()}/mo',
                       style: context.textStyles.titleMedium
                           ?.copyWith(color: tier.accent, fontWeight: FontWeight.w700)),
-                  if (plan.durationDays > 30)
+                  if (plan.isLifetime)
+                    Text('One-time · Lifetime access',
+                        style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted))
+                  else if (plan.durationDays > 30)
                     Text('Billed ₹${plan.priceINR} every ${plan.durationLabel}',
                         style: context.textStyles.bodySmall?.copyWith(color: context.colors.muted)),
                 ],

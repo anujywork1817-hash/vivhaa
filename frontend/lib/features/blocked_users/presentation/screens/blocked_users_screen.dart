@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/match_profile.dart';
 import '../../../../shared/widgets/feedback/empty_state.dart';
+import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
 import '../controllers/blocked_users_controller.dart';
 
@@ -186,6 +187,43 @@ class _BlockedUsersScreenState extends ConsumerState<BlockedUsersScreen> {
       );
     }
 
-    return const Center(child: CircularProgressIndicator());
+    // Shaped like the real rows (avatar + two text lines + a button-sized
+    // block) rather than a generic spinner — the list's actual layout is
+    // visible immediately instead of the whole screen jumping the instant
+    // data arrives.
+    return ListView.separated(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) => Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: context.colors.line),
+        ),
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            ShimmerBox(
+                width: 48, height: 48, borderRadius: BorderRadius.circular(10)),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(
+                      width: 120, height: 14, borderRadius: BorderRadius.circular(4)),
+                  const SizedBox(height: 6),
+                  ShimmerBox(
+                      width: 80, height: 12, borderRadius: BorderRadius.circular(4)),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            ShimmerBox(
+                width: 84, height: 36, borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+          ],
+        ),
+      ),
+    );
   }
 }

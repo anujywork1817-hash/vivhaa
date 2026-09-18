@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,25 +21,38 @@ class IncomingCallScreen extends ConsumerStatefulWidget {
 }
 
 class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
-  Timer? _ringer;
+  // Loops a bundled ring-tone asset at full volume — SystemSound.play's
+  // "alert" click was too quiet/inaudible to actually notice on a real
+  // call. See assets/sounds/ringtone.wav.
+  final AudioPlayer _ringPlayer = AudioPlayer();
+
+  // A call arriving while the phone is merely locked (screen off, app
+  // still alive — a killed app is a separate, much bigger problem) used
+  // to connect over the socket just fine but never actually surface:
+  // nothing told Android this screen should draw over the keyguard or
+  // wake the display, so it silently sat there until the user happened
+  // to unlock and open the app, almost always well past the 30s ring
+  // window. MainActivity.showOverLockScreen (Kotlin side) is the actual
+  // fix; this just invokes it the moment the ring UI exists.
+  static const _callUiChannel = MethodChannel('com.vivaha.app/call_ui');
 
   @override
   void initState() {
     super.initState();
-    // No bundled ringtone asset exists in this project to loop a real
-    // sound file — this repeats the platform system alert sound plus a
-    // haptic buzz every 1.5s as an audible/felt "someone's calling"
-    // signal without one. Swap in a real audio asset + audio player when
-    // one is available.
-    _ringer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-      SystemSound.play(SystemSoundType.alert);
-      HapticFeedback.vibrate();
+    _ringPlayer.setReleaseMode(ReleaseMode.loop);
+    _ringPlayer.play(AssetSource('sounds/ringtone.wav'), volume: 1.0);
+    HapticFeedback.vibrate();
+    _callUiChannel.invokeMethod('showCallUi').catchError((_) {
+      // Best-effort — a platform-channel hiccup shouldn't block the
+      // ring UI itself from showing (just without the lock-screen/wake
+      // behavior on top of it).
     });
   }
 
   @override
   void dispose() {
-    _ringer?.cancel();
+    _ringPlayer.stop();
+    _ringPlayer.dispose();
     super.dispose();
   }
 

@@ -237,13 +237,16 @@ func (s *Service) initiate(ctx context.Context, callerUserID string, in Incoming
 		return
 	}
 
-	if !s.hub.IsOnline(ctx, calleeUserID) {
-		s.pushEvent(callerUserID, "error", map[string]string{"message": "this member is currently offline"})
-		// The callee's app has no live connection to ring on — see
-		// notifyMissedCall's doc comment. At least let them find out.
-		s.notifyMissedCall(ctx, calleeUserID, s.callerDisplayName(ctx, callerUserID))
-		return
-	}
+	// Used to be a hard reject here ("this member is currently offline")
+	// the instant the callee had no live connection — an abrupt error on
+	// the caller's screen where every other calling app just keeps
+	// ringing. The call now always goes through the normal flow below
+	// (created, ring-timeout applies, a missed-call notification fires
+	// on timeout same as any unanswered call); calleeOnline only decides
+	// what the caller's own screen shows while it waits — "Ringing…"
+	// once we know it's actually reaching a live device, "Calling…"
+	// otherwise — never whether the attempt is allowed to happen at all.
+	calleeOnline := s.hub.IsOnline(ctx, calleeUserID)
 
 	// Every call before this field existed was a video call, so a missing
 	// is_video (nil) defaults to true rather than false's zero value.
@@ -273,13 +276,40 @@ func (s *Service) initiate(ctx context.Context, callerUserID string, in Incoming
 	}
 
 	callerName := s.callerDisplayName(ctx, callerUserID)
+	// Best-effort: a missing/failed photo lookup shouldn't block the call
+	// itself, just leave the callee's incoming-call screen without one —
+	// same as callerDisplayName falling back to "Someone" above.
+	callerPhotoURL, _ := s.repo.PrimaryPhotoURL(ctx, callerUserID)
 
 	s.pushEvent(calleeUserID, "call:incoming", map[string]any{
-		"call_id":     callID,
-		"caller_id":   callerUserID,
-		"caller_name": callerName,
-		"is_video":    isVideo,
-		"offer":       in.Offer,
+		"call_id":          callID,
+		"caller_id":        callerUserID,
+		"caller_name":      callerName,
+		"caller_photo_url": callerPhotoURL,
+		"is_video":         isVideo,
+		"offer":            in.Offer,
+	})
+
+	// The WS event above only ever reaches a live, connected socket — a
+	// killed app (or one whose connection had already dropped, even just
+	// screen-locked) never sees call:incoming at all, and the call rings
+	// out to nothing with no signal the user ever gets. A real
+	// Notification (not a data-only push) is drawn by Android itself even
+	// for a killed app, so this is the one channel that still reaches
+	// them: not enough to answer the original call directly (no way to
+	// resume an in-progress WebRTC offer from a cold start yet — that's
+	// its own, bigger feature), but enough that they see it happened and
+	// can call back immediately instead of the attempt vanishing silently.
+	callKind := "voice"
+	if isVideo {
+		callKind = "video"
+	}
+	_ = s.publisher.PublishNotificationDispatch(ctx, queue.NotificationDispatchEvent{
+		UserID: calleeUserID,
+		Type:   "incoming_call",
+		Title:  callerName + " is calling",
+		Body:   "Incoming " + callKind + " call",
+		Data:   map[string]any{"call_id": callID, "caller_id": callerUserID, "is_video": isVideo},
 	})
 
 	// The callee learns callID from call:incoming; the caller otherwise
@@ -287,7 +317,7 @@ func (s *Service) initiate(ctx context.Context, callerUserID string, in Incoming
 	// leaving a window (offer sent, not yet answered) where the caller's
 	// own trickling ICE candidates have no call_id to attach to and are
 	// silently unroutable. Ack the caller immediately with the same ID.
-	s.pushEvent(callerUserID, "call:ringing", map[string]any{"call_id": callID})
+	s.pushEvent(callerUserID, "call:ringing", map[string]any{"call_id": callID, "callee_online": calleeOnline})
 }
 
 func (s *Service) accept(ctx context.Context, calleeUserID string, in IncomingCallMessage) {
@@ -422,8 +452,25 @@ func (s *Service) sweepOnce(ctx context.Context) {
 	}
 }
 
+// finish marks a call ended in the DB — the one write that actually
+// releases active_calls_by_user's "one active call per user" constraint
+// and flips CallStatus.Active to false for both sides' poll backstop.
+// Silently swallowing a failure here used to mean a single transient DB
+// error (connection blip, statement timeout) left that row stuck
+// "ongoing" forever: nothing else ever retries it (unlike ringing calls,
+// which SweepExpiredRinging catches), so the call would never actually
+// "hang up" for either side no matter how many times call:end fired —
+// exactly the intermittent "video call is not getting cut" symptom. One
+// retry after a short backoff turns a transient blip into a non-issue;
+// logging instead of swallowing means a genuine repeat failure is at
+// least visible.
 func (s *Service) finish(ctx context.Context, callID, status, reason string) {
-	_ = s.repo.End(ctx, callID, status, reason)
+	if err := s.repo.End(ctx, callID, status, reason); err != nil {
+		time.Sleep(200 * time.Millisecond)
+		if err := s.repo.End(ctx, callID, status, reason); err != nil {
+			slog.Error("calls: failed to end call session", "call_id", callID, "status", status, "reason", reason, "error", err)
+		}
+	}
 }
 
 // getActiveCallFor mirrors what the old in-memory calls map's presence

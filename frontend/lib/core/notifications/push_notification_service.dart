@@ -31,6 +31,14 @@ String? _routeForPushData(Map<String, dynamic> data) {
     case 'contact_declined':
       final partnerUserId = data['sender_user_id'] as String?;
       return partnerUserId == null ? null : AppRoutes.chatWindowPath(partnerUserId);
+    case 'incoming_call':
+      // Can't resume the actual call (there's no way yet to answer an
+      // in-progress WebRTC offer from a cold start — see calls.Service
+      // .initiate's comment on the backend for why), so this just gets
+      // the caller in front of the user to call back, same as tapping
+      // through to any other conversation.
+      final callerId = data['caller_id'] as String?;
+      return callerId == null ? null : AppRoutes.chatWindowPath(callerId);
     default:
       return null;
   }

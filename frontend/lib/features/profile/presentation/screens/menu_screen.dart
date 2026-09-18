@@ -238,7 +238,9 @@ class MenuScreen extends ConsumerWidget {
                               style: context.textStyles.titleSmall)),
                       OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 32)),
+                            // 44pt minimum touch target (iOS HIG / Material).
+                            minimumSize: const Size(0, 44),
+                            visualDensity: VisualDensity.compact),
                         // No invite/VIP tier exists on the backend — only
                         // the free and premium subscription plans do. Say
                         // that instead of leaving a no-op button.
@@ -258,7 +260,7 @@ class MenuScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        child: const Text('GET INVITED'),
+                        child: const Text('Get invited'),
                       ),
                     ],
                   ),

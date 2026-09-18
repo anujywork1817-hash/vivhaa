@@ -413,12 +413,14 @@ class _SentList extends ConsumerWidget {
                     _showFilterSheet(context, ref, filter, pronoun),
                 icon: const Icon(Icons.filter_alt_outlined, size: 16),
                 label: Text(switch (filter) {
-                  SentFilter.all => 'FILTER',
-                  SentFilter.viewed => 'VIEWED',
-                  SentFilter.notViewed => 'NOT VIEWED',
+                  SentFilter.all => 'Filter',
+                  SentFilter.viewed => 'Viewed',
+                  SentFilter.notViewed => 'Not viewed',
                 }),
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 34),
+                  // 44pt minimum touch target (iOS HIG / Material).
+                  minimumSize: const Size(0, 44),
+                  visualDensity: VisualDensity.compact,
                   shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(AppSpacing.radiusPill)),

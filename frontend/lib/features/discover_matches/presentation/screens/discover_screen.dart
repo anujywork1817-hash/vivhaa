@@ -197,7 +197,7 @@ class _SwipeCardState extends State<_SwipeCard>
               child: Opacity(
                 opacity: likeOpacity,
                 child:
-                    const _StampLabel(label: 'INTERESTED', color: Colors.green),
+                    _StampLabel(label: 'INTERESTED', color: context.colors.success),
               ),
             ),
             Positioned(
@@ -206,7 +206,7 @@ class _SwipeCardState extends State<_SwipeCard>
               child: Opacity(
                 opacity: nopeOpacity,
                 child:
-                    const _StampLabel(label: 'SKIP', color: Colors.redAccent),
+                    _StampLabel(label: 'SKIP', color: context.colors.danger),
               ),
             ),
           ],

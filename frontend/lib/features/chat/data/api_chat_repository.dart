@@ -140,6 +140,30 @@ class ApiChatRepository implements ChatRepository {
     }
   }
 
+  @override
+  Future<ApiResult<void>> deleteMessage(String messageId, {required bool forEveryone}) async {
+    try {
+      await _client.dio.delete(
+        ApiEndpoints.deleteMessage(messageId),
+        queryParameters: forEveryone ? {'for': 'everyone'} : null,
+      );
+      return const ApiResult.success(null);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
+  Future<ApiResult<bool>> getPresence(String userId) async {
+    try {
+      final response = await _client.dio.get(ApiEndpoints.presence(userId));
+      final data = response.data['data'] as Map<String, dynamic>;
+      return ApiResult.success(data['online'] as bool? ?? false);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
   DioMediaType _attachmentMediaType(String filename) {
     final lower = filename.toLowerCase();
     if (lower.endsWith('.png')) return DioMediaType('image', 'png');
@@ -164,6 +188,7 @@ class ApiChatRepository implements ChatRepository {
       kind: _kindFromBackend(json['kind'] as String?),
       replyTo: replyToJson == null ? null : ReplyToPreview.fromJson(replyToJson),
       attachmentUrl: json['attachment_url'] as String?,
+      deleted: json['deleted'] as bool? ?? false,
     );
   }
 

@@ -28,6 +28,28 @@ type Repository struct {
 	db *pgxpool.Pool
 }
 
+// PrimaryPhotoURL returns userID's primary profile photo, if they have one.
+// Same lookup pattern chat.Repository.ListConversations uses for a
+// partner's photo — kept here as its own query rather than a shared
+// helper since neither package depends on the other.
+func (r *Repository) PrimaryPhotoURL(ctx context.Context, userID string) (*string, error) {
+	const q = `
+		SELECT pp.url FROM profile_photos pp
+		JOIN profiles p ON p.id = pp.profile_id
+		WHERE p.user_id = $1
+		ORDER BY pp.is_primary DESC, pp.sort_order ASC
+		LIMIT 1`
+	var url string
+	err := r.db.QueryRow(ctx, q, userID).Scan(&url)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &url, nil
+}
+
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }

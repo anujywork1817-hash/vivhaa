@@ -30,6 +30,13 @@ dependencies:
   # chat WebSocket, no third-party video SDK)
   flutter_webrtc: ^1.6.0
   permission_handler: ^11.3.1
+  # Loops a bundled ringtone asset (assets/sounds/ringtone.wav) for
+  # incoming-call and outgoing-call-ringback audio — SystemSound.play's
+  # "alert" click was too quiet/inaudible to actually notice on a real
+  # call. (flutter_ringtone_player was tried first but is unmaintained —
+  # its Android build.gradle still calls the long-shut-down jcenter()
+  # repo and fails outright under this project's Gradle/AGP version.)
+  audioplayers: ^6.1.0
 
   # Push notifications
   firebase_core: ^3.8.0
@@ -85,6 +92,7 @@ flutter:
     - assets/icons/
     - assets/lottie/
     - assets/icon/
+    - assets/sounds/
 
 flutter_launcher_icons:
   android: true

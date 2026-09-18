@@ -20,13 +20,15 @@ class AppColors {
   // tier; available for screens that want it.
   static const Color surfaceSubtleLight = Color(0xFFF7F7F7);
 
-  // Dark — left as the previous palette. The design system only covers a
-  // light theme; ping if you'd like dark mode restyled to match too.
-  static const Color bgDark = Color(0xFF1D1013);
-  static const Color surfaceDark = Color(0xFF271519);
-  static const Color inkDark = Color(0xFFF3E7E1);
-  static const Color mutedDark = Color(0xFFC6A9AB);
-  static const Color lineDark = Color(0xFF42282F);
+  // Dark — true black instead of the maroon-tinted black this used to be
+  // (0xFF1D1013 reads as "dark red" at a glance, not "dark theme"). Surface
+  // one step up from pure black (not 0x000000 itself) so cards/sheets are
+  // still visibly distinct from the page background.
+  static const Color bgDark = Color(0xFF000000);
+  static const Color surfaceDark = Color(0xFF121212);
+  static const Color inkDark = Color(0xFFF2F2F2);
+  static const Color mutedDark = Color(0xFF9E9E9E);
+  static const Color lineDark = Color(0xFF2A2A2A);
 
   // Brand — shared across themes
   static const Color accent = Color(0xFFD9467E); // Primary Rose

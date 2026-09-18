@@ -32,6 +32,11 @@ class ChatMessage {
   final ReplyToPreview? replyTo;
   final String? attachmentUrl;
 
+  /// True once this message has been deleted "for everyone" — the bubble
+  /// renders a "This message was deleted" placeholder instead of [text]
+  /// (already stripped server-side by the time this is true).
+  final bool deleted;
+
   const ChatMessage({
     required this.id,
     required this.text,
@@ -40,5 +45,17 @@ class ChatMessage {
     this.kind = MessageKind.text,
     this.replyTo,
     this.attachmentUrl,
+    this.deleted = false,
   });
+
+  ChatMessage copyWith({bool? deleted}) => ChatMessage(
+        id: id,
+        text: deleted == true ? '' : text,
+        fromMe: fromMe,
+        timestamp: timestamp,
+        kind: kind,
+        replyTo: replyTo,
+        attachmentUrl: deleted == true ? null : attachmentUrl,
+        deleted: deleted ?? this.deleted,
+      );
 }

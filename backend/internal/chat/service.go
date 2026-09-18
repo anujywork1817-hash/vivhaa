@@ -531,6 +531,39 @@ func (s *Service) ListConversations(ctx context.Context, userID string) ([]Conve
 	return out, nil
 }
 
+// DeleteMessage implements both WhatsApp-style options. forEveryone=false
+// ("delete for me") always succeeds for a participant — it only touches
+// requesterUserID's own view. forEveryone=true is restricted to the
+// original sender by DeleteForEveryone's query itself; both sides get
+// the same "message_updated" push a resolved contact-request already
+// uses to update a message in place, so the client needs no new event
+// type — just render Deleted's placeholder same as any other update.
+func (s *Service) DeleteMessage(ctx context.Context, requesterUserID, messageID string, forEveryone bool) error {
+	if !forEveryone {
+		return s.repo.DeleteForMe(ctx, messageID, requesterUserID)
+	}
+
+	m, err := s.repo.DeleteForEveryone(ctx, messageID, requesterUserID)
+	if err != nil {
+		return err
+	}
+
+	m.DeletedForEveryoneAt = &m.CreatedAt // any non-nil value — toResponse only checks presence
+	resp := toResponse(m)
+	resp.Body = ""
+	s.pushEvent(m.SenderUserID, "message_updated", resp)
+	s.pushEvent(m.ReceiverUserID, "message_updated", resp)
+	return nil
+}
+
+// IsOnline reports whether userID has a live WebSocket connection right
+// now — backs the chat header's presence line. Thin passthrough to the
+// hub (already relied on server-side by calls.Service to decide whether
+// a call can even ring); this is its first direct client exposure.
+func (s *Service) IsOnline(ctx context.Context, userID string) bool {
+	return s.hub.IsOnline(ctx, userID)
+}
+
 func (s *Service) pushEvent(userID, eventType string, data any) {
 	payload, err := json.Marshal(OutgoingWSEvent{Type: eventType, Data: data})
 	if err != nil {
@@ -550,6 +583,7 @@ func toResponse(m Message) MessageResponse {
 		AttachmentURL:  m.AttachmentURL,
 		Read:           m.ReadAt != nil,
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+		Deleted:        m.DeletedForEveryoneAt != nil,
 	}
 	if m.ReplyToMessageID != nil && m.ReplyToBody != nil && m.ReplyToSenderUserID != nil {
 		resp.ReplyTo = &ReplyToResponse{

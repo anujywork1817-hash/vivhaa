@@ -7,8 +7,14 @@ import (
 )
 
 const (
-	writeWait    = 10 * time.Second
-	pongWait     = 60 * time.Second
+	writeWait = 10 * time.Second
+	// A connection that goes dark without a clean close (flight mode, a
+	// backgrounded app the OS hasn't reclaimed yet, a dropped mobile
+	// network) is only ever detected by this ping/pong timeout — 60s
+	// used to mean up to a minute of a chat partner showing "Online"
+	// after they'd effectively gone offline. Shorter, still comfortable
+	// margin above a normal round trip.
+	pongWait     = 25 * time.Second
 	pingInterval = (pongWait * 9) / 10
 	// 4096 was sized for chat text messages; this connection now also
 	// carries WebRTC call signaling (internal/calls), whose SDP
