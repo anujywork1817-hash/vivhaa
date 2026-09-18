@@ -556,6 +556,15 @@ func (s *Service) DeleteMessage(ctx context.Context, requesterUserID, messageID 
 	return nil
 }
 
+// DeleteConversation clears a whole thread from requesterUserID's own
+// Chat list — same per-party mechanism DeleteMessage's "delete for me"
+// uses, just applied to every message with partnerUserID at once. No WS
+// push: unlike a single deleted message, nothing needs to change on the
+// partner's side or their already-open chat window.
+func (s *Service) DeleteConversation(ctx context.Context, requesterUserID, partnerUserID string) error {
+	return s.repo.DeleteConversationForMe(ctx, requesterUserID, partnerUserID)
+}
+
 // IsOnline reports whether userID has a live WebSocket connection right
 // now — backs the chat header's presence line. Thin passthrough to the
 // hub (already relied on server-side by calls.Service to decide whether

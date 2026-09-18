@@ -10,6 +10,7 @@ import '../../../../shared/widgets/feedback/empty_state.dart';
 import '../../../../shared/widgets/feedback/error_state.dart';
 import '../../../../shared/widgets/feedback/shimmer_box.dart';
 import '../../../../shared/widgets/misc/profile_avatar.dart';
+import '../../data/api_chat_repository.dart';
 import '../controllers/chat_controller.dart';
 
 enum ChatFilter { all, unread }
@@ -103,9 +104,9 @@ class _FilterPill extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         decoration: BoxDecoration(
-          color: selected ? context.colors.ink : context.colors.surface,
+          color: selected ? context.colors.accent : context.colors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          border: Border.all(color: selected ? context.colors.ink : context.colors.line),
+          border: Border.all(color: selected ? context.colors.accent : context.colors.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -153,6 +154,39 @@ String _timestampLabel(DateTime t) {
     return names[local.weekday - 1];
   }
   return '${local.day}/${local.month}/${local.year % 100}';
+}
+
+Future<void> _confirmDeleteConversation(
+    BuildContext context, WidgetRef ref, Conversation conversation) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Delete chat with ${conversation.withProfile.name}?'),
+      content: const Text(
+          'This removes the conversation from your Chat list. It only affects your own view — they can still message you.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text('Delete', style: TextStyle(color: context.colors.danger)),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+
+  final result = await ref.read(chatRepositoryProvider).deleteConversation(conversation.id);
+  ref.invalidate(conversationsProvider);
+  if (context.mounted) {
+    result.when(
+      success: (_) {},
+      failure: (f) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(duration: const Duration(seconds: 3), content: Text(f.message))),
+    );
+  }
 }
 
 class _ConversationsList extends ConsumerWidget {
@@ -204,6 +238,7 @@ class _ConversationsList extends ConsumerWidget {
                 conversation: c,
                 timeLabel: _timestampLabel(c.lastMessageAt),
                 onTap: () => context.push(AppRoutes.chatWindowPath(c.id)),
+                onLongPress: () => _confirmDeleteConversation(context, ref, c),
               );
             },
           ),
@@ -217,9 +252,14 @@ class _ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final String timeLabel;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-  const _ConversationTile(
-      {required this.conversation, required this.timeLabel, required this.onTap});
+  const _ConversationTile({
+    required this.conversation,
+    required this.timeLabel,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +268,7 @@ class _ConversationTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg, vertical: AppSpacing.md),

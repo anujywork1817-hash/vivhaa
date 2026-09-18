@@ -427,7 +427,7 @@ class _BrandHeader extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           'Vivah',
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.roboto(
             fontSize: 42,
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -437,7 +437,7 @@ class _BrandHeader extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Where Hearts Find Home',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.roboto(
             fontSize: 13.5,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.3,
@@ -551,7 +551,7 @@ class _ModeToggle extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.roboto(
                 color: Colors.white.withValues(alpha: selected ? 1 : 0.75),
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
@@ -637,7 +637,7 @@ class _GlassAuthCard extends StatelessWidget {
                               : 'Continue your journey to meaningful connections.',
                           key: ValueKey(mode),
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.roboto(
                             fontSize: 13,
                             color: Colors.white.withValues(alpha: 0.75),
                             height: 1.4,
@@ -691,7 +691,7 @@ class _GlassAuthCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(vertical: 4),
                             ),
                             child: Text('Forgot password?',
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.roboto(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600)),
                           ),
@@ -708,7 +708,7 @@ class _GlassAuthCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               'Your privacy and data are secure with us.',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.roboto(
                                 fontSize: 11.5,
                                 color: Colors.white.withValues(alpha: 0.6),
                               ),
@@ -836,7 +836,7 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
         keyboardType: widget.keyboardType,
         autofillHints: widget.autofillHints,
         validator: widget.validator,
-        style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
+        style: GoogleFonts.roboto(color: Colors.white, fontSize: 15),
         cursorColor: _Palette.softPink,
         decoration: InputDecoration(
           border: InputBorder.none,
@@ -847,16 +847,16 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
           filled: false,
           labelText: widget.label,
           hintText: widget.hint,
-          labelStyle: GoogleFonts.inter(
+          labelStyle: GoogleFonts.roboto(
               color: Colors.white.withValues(alpha: 0.65), fontSize: 14),
-          floatingLabelStyle: GoogleFonts.inter(
+          floatingLabelStyle: GoogleFonts.roboto(
               color: _Palette.softPink,
               fontSize: 13,
               fontWeight: FontWeight.w600),
-          hintStyle: GoogleFonts.inter(
+          hintStyle: GoogleFonts.roboto(
               color: Colors.white.withValues(alpha: 0.35), fontSize: 13.5),
           errorStyle:
-              GoogleFonts.inter(color: const Color(0xFFFFB4C6), fontSize: 11.5),
+              GoogleFonts.roboto(color: const Color(0xFFFFB4C6), fontSize: 11.5),
           contentPadding:
               const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
           prefixIcon: Padding(
@@ -942,7 +942,7 @@ class _PrimaryCTAButtonState extends State<_PrimaryCTAButton> {
                     children: [
                       Text(
                         widget.label,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.roboto(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -979,7 +979,7 @@ class _OrDivider extends StatelessWidget {
                   size: 10, color: _Palette.softPink.withValues(alpha: 0.6)),
               const SizedBox(width: 6),
               Text('or',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.roboto(
                       color: Colors.white.withValues(alpha: 0.65),
                       fontSize: 12.5,
                       fontWeight: FontWeight.w500)),
@@ -1045,7 +1045,7 @@ class _GoogleButtonState extends State<_GoogleButton> {
               const SizedBox(width: 12),
               Text(
                 'Continue with Google',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.roboto(
                   color: const Color(0xFF3C2430),
                   fontSize: 14.5,
                   fontWeight: FontWeight.w600,
@@ -1079,7 +1079,7 @@ class _GoogleMark extends StatelessWidget {
       ),
       child: Text(
         'G',
-        style: GoogleFonts.inter(
+        style: GoogleFonts.roboto(
           fontSize: 13,
           fontWeight: FontWeight.w800,
           color: const Color(0xFF4285F4),
@@ -1105,7 +1105,7 @@ class _TrustFooter extends StatelessWidget {
           child: Text(
             'Helping hearts find meaningful connections',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.roboto(
               fontSize: 12,
               color: Colors.white.withValues(alpha: 0.55),
             ),

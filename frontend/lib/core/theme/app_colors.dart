@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Light
-  static const Color bgLight = Color(0xFFFFF8F6);
+  // Light — full white instead of the pink-tinted off-white this used to
+  // be (0xFFFFF8F6 reads as "light pink" at a glance), same reasoning as
+  // the dark theme's move to true black.
+  static const Color bgLight = Color(0xFFFFFFFF);
   static const Color surfaceLight = Color(0xFFFFFFFF);
   static const Color inkLight = Color(0xFF1F2937);
   static const Color mutedLight = Color(0xFF6B7280);

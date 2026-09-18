@@ -212,7 +212,7 @@ class _MatchTile extends StatelessWidget {
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: selected ? context.colors.ink : context.colors.surface,
+                color: selected ? context.colors.accent : context.colors.surface,
                 border: Border.all(color: context.colors.line),
                 borderRadius: BorderRadius.circular(6),
               ),

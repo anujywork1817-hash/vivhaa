@@ -206,7 +206,9 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 					ORDER BY created_at DESC
 				) AS rn
 			FROM chat_messages
-			WHERE sender_user_id = $1 OR receiver_user_id = $1
+			WHERE (sender_user_id = $1 OR receiver_user_id = $1)
+			  AND NOT (sender_user_id = $1 AND sender_deleted_at IS NOT NULL)
+			  AND NOT (receiver_user_id = $1 AND receiver_deleted_at IS NOT NULL)
 		),
 		accepted_partners AS (
 			SELECT
@@ -226,7 +228,7 @@ func (r *Repository) ListConversations(ctx context.Context, userID string) ([]Co
 			c.partner_id, p.full_name,
 			(SELECT url FROM profile_photos pp WHERE pp.profile_id = p.id ORDER BY pp.is_primary DESC, pp.sort_order ASC LIMIT 1),
 			c.body, c.kind, COALESCE(c.receiver_user_id::text, ''), c.created_at,
-			(SELECT COUNT(*) FROM chat_messages WHERE receiver_user_id = $1 AND sender_user_id = c.partner_id AND read_at IS NULL),
+			(SELECT COUNT(*) FROM chat_messages WHERE receiver_user_id = $1 AND sender_user_id = c.partner_id AND read_at IS NULL AND receiver_deleted_at IS NULL),
 			EXISTS (
 				SELECT 1 FROM blocked_users b
 				WHERE (b.user_id = $1 AND b.blocked_user_id = c.partner_id)

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/tour/app_tour_controller.dart';
@@ -425,78 +426,98 @@ class _HomeMatchCard extends ConsumerWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  child: SizedBox(
-                    width: 90,
-                    height: 90,
-                    child: showLocked
-                        ? LockedProfilePhoto(name: profile.name)
-                        : ProfileAvatar(
-                            name: profile.name,
-                            size: 90,
-                            borderRadius: BorderRadius.zero,
-                            photoUrl: profile.photoSeed),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${profile.name.split(' ').first}, ${profile.age}',
-                          style: context.textStyles.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 2),
-                      Text(profile.city,
-                          style: context.textStyles.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: AppSpacing.sm),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: isInterested
-                              ? null
-                              : () async {
-                                  final failure = await ref
-                                      .read(interestsActionsProvider)
-                                      .send(profile);
-                                  if (context.mounted && failure != null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                            duration:
-                                                const Duration(seconds: 3),
-                                            content: Text(failure.message)));
-                                  }
-                                },
-                          icon: Icon(
-                              isInterested
-                                  ? Icons.check_rounded
-                                  : Icons.favorite_rounded,
-                              size: 13),
-                          label: Text(
-                              isInterested ? 'Requested' : 'Connect Now',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            // 32pt was below the 44pt minimum touch target
-                            // (iOS HIG / Material) — small enough to
-                            // mis-tap, which reads as unpolished even
-                            // though the visual chip itself looked fine.
-                            minimumSize: const Size(0, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 68,
+                      height: 68,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.accent, width: 2),
                       ),
-                    ],
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: showLocked
+                            ? LockedProfilePhoto(
+                                name: profile.name,
+                                borderRadius: BorderRadius.circular(30),
+                              )
+                            : ProfileAvatar(
+                                name: profile.name,
+                                size: 60,
+                                photoUrl: profile.photoSeed),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    // Only name/city center against the avatar's height —
+                    // the button lives in its own row below instead of
+                    // fighting for space in this one, which is what made
+                    // the name sit pinned to the top before: with the
+                    // button included here, this column was the tallest
+                    // child, so it had no spare height left to center into.
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${profile.name}, ${profile.age}',
+                              style: context.textStyles.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600, fontSize: 18),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(profile.city,
+                              style: context.textStyles.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: OutlinedButton.icon(
+                    onPressed: isInterested
+                        ? null
+                        : () async {
+                            final failure = await ref
+                                .read(interestsActionsProvider)
+                                .send(profile);
+                            if (context.mounted && failure != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  duration: const Duration(seconds: 3),
+                                  content: Text(failure.message)));
+                            }
+                          },
+                    icon: Icon(
+                        isInterested ? Icons.check_rounded : Icons.favorite_rounded,
+                        size: 13,
+                        color: Colors.black),
+                    label: Text(isInterested ? 'Requested' : 'Connect Now',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Colors.black)),
+                    style: OutlinedButton.styleFrom(
+                      // 32pt was below the 44pt minimum touch target (iOS
+                      // HIG / Material) — small enough to mis-tap, which
+                      // reads as unpolished even though the visual chip
+                      // itself looked fine.
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.accentSoftLight,
+                      side: BorderSide(color: AppColors.accent),
+                      disabledBackgroundColor:
+                          AppColors.accentSoftLight.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
               ],

@@ -36,4 +36,9 @@ abstract class ChatRepository {
   /// Whether [userId] has a live connection right now — backs the chat
   /// header's "Online" status line.
   Future<ApiResult<bool>> getPresence(String userId);
+
+  /// Clears an entire thread from this device's own Chat list — the
+  /// partner's copy and their unread state are untouched, same "for me
+  /// only" contract [deleteMessage] already has for a single message.
+  Future<ApiResult<void>> deleteConversation(String partnerUserId);
 }

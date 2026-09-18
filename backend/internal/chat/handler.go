@@ -170,6 +170,17 @@ func (h *Handler) DeleteMessage(c *gin.Context) {
 	response.OK(c, gin.H{"deleted": true})
 }
 
+// DeleteConversation clears an entire thread from the caller's own Chat
+// list: DELETE /chat/conversations/:userId — :userId is the partner.
+func (h *Handler) DeleteConversation(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if err := h.service.DeleteConversation(c.Request.Context(), userID, c.Param("userId")); err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	response.OK(c, gin.H{"deleted": true})
+}
+
 func writeServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrRateLimited):

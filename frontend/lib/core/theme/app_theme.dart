@@ -147,10 +147,14 @@ class AppTheme {
             borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
       ),
       dividerTheme: DividerThemeData(color: line, thickness: 1),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: surface,
-        selectedItemColor: accent,
-        unselectedItemColor: muted,
+      // Fixed dark black in both light and dark app themes (rather than
+      // following `surface`, which would make it white in light mode) —
+      // a permanent black bottom nav bar, matching the WhatsApp/Instagram
+      // look this app's fonts were also just switched to match.
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFF0A0A0A),
+        selectedItemColor: AppColors.accent,
+        unselectedItemColor: Colors.white70,
         type: BottomNavigationBarType.fixed,
         showUnselectedLabels: true,
         elevation: 0,

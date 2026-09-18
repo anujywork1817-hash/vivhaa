@@ -249,10 +249,10 @@ class _TogglePill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md, vertical: 9),
           decoration: BoxDecoration(
-            color: selected ? context.colors.ink : context.colors.surface,
+            color: selected ? context.colors.accent : context.colors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
             border: Border.all(
-                color: selected ? context.colors.ink : context.colors.line),
+                color: selected ? context.colors.accent : context.colors.line),
           ),
           child: Text(
             label,

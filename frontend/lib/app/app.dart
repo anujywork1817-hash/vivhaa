@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -46,17 +47,30 @@ class ShaadiApp extends ConsumerWidget {
       // from any tab, including Home. The real back-button gate now lives
       // in AppShell.build (see AppShell's PopScope) — that widget is the
       // actual routed page, with a real ModalRoute ancestor.
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(
-          textScaler: TextScaler.linear(preferences.fontSize.scale),
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        // The bottom nav bar is always dark black by design (light or
+        // dark theme). Under edge-to-edge (enabled in main.dart), Android
+        // ignores a solid systemNavigationBarColor and draws whatever
+        // sits behind the system nav bar strip instead — transparent
+        // here lets the app's own black BottomNavigationBar show
+        // through, rather than the OS's own default for the app theme.
+        value: SystemUiOverlayStyle.light.copyWith(
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarContrastEnforced: false,
         ),
-        child: ShowCaseWidget(
-          // Only fires on a natural "reached the last step" completion —
-          // Skip calls ShowCaseWidgetState.dismiss() directly, which
-          // bypasses this, so the Skip button clears tourActiveProvider
-          // itself (see home_dashboard_screen.dart).
-          onFinish: () => ref.read(tourActiveProvider.notifier).state = false,
-          builder: (context) => _DeepLinkListener(router: router, child: child!),
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(preferences.fontSize.scale),
+          ),
+          child: ShowCaseWidget(
+            // Only fires on a natural "reached the last step" completion —
+            // Skip calls ShowCaseWidgetState.dismiss() directly, which
+            // bypasses this, so the Skip button clears tourActiveProvider
+            // itself (see home_dashboard_screen.dart).
+            onFinish: () => ref.read(tourActiveProvider.notifier).state = false,
+            builder: (context) => _DeepLinkListener(router: router, child: child!),
+          ),
         ),
       ),
       routerConfig: router,

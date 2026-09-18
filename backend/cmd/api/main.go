@@ -14,6 +14,8 @@ import (
 	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	goredis "github.com/redis/go-redis/v9"
 
 	"matrimony-backend/configs"
 	"matrimony-backend/internal/admin"
@@ -66,6 +68,27 @@ import (
 	"matrimony-backend/pkg/s3"
 )
 
+// retryConnect retries connect (a service dial/ping) with a short backoff
+// instead of failing on the first attempt. Added after this environment's
+// in-place deploy swap was observed to briefly disconnect the new
+// container's network right as it was dialing out — the container died
+// on that single failed attempt every time, even though the same image
+// connects fine moments later. Services that are actually down still
+// exit(1) after the deadline, same as before.
+func retryConnect(name string, deadline time.Duration, connect func() error) error {
+	start := time.Now()
+	var lastErr error
+	for attempt := 1; ; attempt++ {
+		if lastErr = connect(); lastErr == nil {
+			return nil
+		}
+		if time.Since(start) >= deadline {
+			return fmt.Errorf("%s: giving up after %d attempts: %w", name, attempt, lastErr)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
 func main() {
 	cfg, err := configs.Load()
 	if err != nil {
@@ -116,8 +139,12 @@ func main() {
 
 	ctx := context.Background()
 
-	dbPool, err := database.NewPool(ctx, cfg.DB)
-	if err != nil {
+	var dbPool *pgxpool.Pool
+	if err := retryConnect("database", 10*time.Second, func() error {
+		var connectErr error
+		dbPool, connectErr = database.NewPool(ctx, cfg.DB)
+		return connectErr
+	}); err != nil {
 		log.Error("failed to connect to database", "error", err)
 		sentry.CaptureException(err)
 		os.Exit(1)
@@ -125,8 +152,12 @@ func main() {
 	defer dbPool.Close()
 	log.Info("connected to database", "host", cfg.DB.Host, "name", cfg.DB.Name)
 
-	redisClient, err := redis.NewClient(ctx, cfg.Redis)
-	if err != nil {
+	var redisClient *goredis.Client
+	if err := retryConnect("redis", 10*time.Second, func() error {
+		var connectErr error
+		redisClient, connectErr = redis.NewClient(ctx, cfg.Redis)
+		return connectErr
+	}); err != nil {
 		log.Error("failed to connect to redis", "error", err)
 		sentry.CaptureException(err)
 		os.Exit(1)
@@ -136,8 +167,12 @@ func main() {
 
 	rateLimiter := ratelimit.New(redisClient)
 
-	s3Client, err := s3.NewClient(ctx, cfg.S3)
-	if err != nil {
+	var s3Client *s3.Client
+	if err := retryConnect("s3", 10*time.Second, func() error {
+		var connectErr error
+		s3Client, connectErr = s3.NewClient(ctx, cfg.S3)
+		return connectErr
+	}); err != nil {
 		log.Error("failed to create s3 client", "error", err)
 		sentry.CaptureException(err)
 		os.Exit(1)

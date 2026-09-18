@@ -131,6 +131,7 @@ class ApiEndpoints {
   static String acceptContact(String messageId) => '/chat/contact-requests/$messageId/accept';
   static String declineContact(String messageId) => '/chat/contact-requests/$messageId/decline';
   static String deleteMessage(String messageId) => '/chat/messages/single/$messageId';
+  static String deleteConversation(String partnerUserId) => '/chat/conversations/$partnerUserId';
   static const String wsChat = '/ws/chat';
   static const String iceServers = '/video-call/ice-servers';
   static const String callHistory = '/calls/history';

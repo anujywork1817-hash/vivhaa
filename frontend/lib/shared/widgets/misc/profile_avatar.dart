@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 import 'app_file_image.dart';
 
 /// A member's photo when there is one ([photoUrl]), otherwise a
-/// deterministic placeholder — a pastel tint derived from the name plus
-/// their initials. The placeholder also covers the moments a real photo
-/// can't be shown: while it loads, or if the fetch fails.
+/// placeholder — a soft rose tint (matching the app's love/accent theme)
+/// behind rose-colored initials. The placeholder also covers the moments
+/// a real photo can't be shown: while it loads, or if the fetch fails.
 class ProfileAvatar extends StatelessWidget {
   final String name;
   final double size;
@@ -21,15 +22,10 @@ class ProfileAvatar extends StatelessWidget {
     this.photoUrl,
   });
 
-  static const _palette = [
-    Color(0xFFE7B8A6), Color(0xFFC9D6B8), Color(0xFFB9CDE5),
-    Color(0xFFE3C6E0), Color(0xFFE8D3A6), Color(0xFFA9D3CB),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final hash = name.codeUnits.fold<int>(0, (a, b) => a + b);
-    final color = _palette[hash % _palette.length];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? AppColors.accentSoftDark : AppColors.accentSoftLight;
     final initials = name.trim().isEmpty
         ? '?'
         : name.trim().split(RegExp(r'\s+')).take(2).map((p) => p[0].toUpperCase()).join();
@@ -58,7 +54,7 @@ class ProfileAvatar extends StatelessWidget {
           style: TextStyle(
             fontSize: initialsSize,
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF3A2A22),
+            color: AppColors.accent,
           ),
         ),
       ),

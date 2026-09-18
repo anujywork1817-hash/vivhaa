@@ -154,6 +154,16 @@ class ApiChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ApiResult<void>> deleteConversation(String partnerUserId) async {
+    try {
+      await _client.dio.delete(ApiEndpoints.deleteConversation(partnerUserId));
+      return const ApiResult.success(null);
+    } on DioException catch (e) {
+      return ApiResult.failure(mapDioException(e));
+    }
+  }
+
+  @override
   Future<ApiResult<bool>> getPresence(String userId) async {
     try {
       final response = await _client.dio.get(ApiEndpoints.presence(userId));

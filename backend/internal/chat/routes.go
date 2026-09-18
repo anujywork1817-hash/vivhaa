@@ -22,6 +22,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler, ws *WSHandler, issuer *jwt.
 	chatGroup.POST("/contact-requests/:messageId/accept", h.AcceptContact)
 	chatGroup.POST("/contact-requests/:messageId/decline", h.DeclineContact)
 	chatGroup.DELETE("/messages/single/:messageId", h.DeleteMessage)
+	chatGroup.DELETE("/conversations/:userId", h.DeleteConversation)
 
 	// WS auth is handled inside WSHandler.Serve (token via query param),
 	// since the browser WS handshake can't set custom headers.

@@ -161,7 +161,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
               key: tourKeys.inboxTab,
               title: 'Inbox',
               description: 'See who\'s interested in you and respond.',
-              child: _BadgedIcon(icon: Icons.mail_rounded, count: pendingInterests),
+              child: _BadgedIcon(icon: Icons.favorite_rounded, count: pendingInterests),
             ),
             label: 'Inbox',
           ),
