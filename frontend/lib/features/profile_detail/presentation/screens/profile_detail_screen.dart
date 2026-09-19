@@ -447,6 +447,7 @@ class _PhotoCarouselState extends State<_PhotoCarousel> {
               size: double.infinity,
               borderRadius: BorderRadius.zero,
               photoUrl: widget.photoUrls[i],
+              photoAlignment: Alignment.topCenter,
             ),
           ),
         ),
@@ -740,13 +741,15 @@ class _ActionBar extends ConsumerWidget {
                               .read(interestsActionsProvider)
                               .send(profile);
                           if (!context.mounted) return;
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.hideCurrentSnackBar();
                           if (failure != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            messenger.showSnackBar(SnackBar(
                                 duration: const Duration(seconds: 3),
                                 content: Text(failure.message)));
                             return;
                           }
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             SnackBar(
                               duration: const Duration(seconds: 3),
                               content: Text('Interest sent to $name.'),

@@ -191,6 +191,22 @@ class AppTheme {
           side: BorderSide(color: line),
         ),
       ),
+      // Floating + rounded + brand ink color instead of Flutter's plain
+      // flush-black default bar — the "school project" look every one of
+      // this app's 26 raw ScaffoldMessenger.showSnackBar call sites was
+      // stuck with, since none of them set their own shape/behavior.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ink,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: bg),
+        actionTextColor: accent,
+        elevation: 4,
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+      ),
       extensions: [
         AppSemanticColors(
           bg: bg,

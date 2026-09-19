@@ -200,17 +200,37 @@ func (s *Service) getVerificationSummary(ctx context.Context, userID string) (*V
 	}, nil
 }
 
+// Suspend used to only flip users.status, blocking that member from
+// logging in again while leaving their profile fully visible and
+// contactable to everyone else in the meantime — search, recommendations,
+// and a direct GET /profiles/:id all kept serving it. Also revokes any
+// session they're already holding rather than waiting for their access
+// token to expire on its own.
 func (s *Service) Suspend(ctx context.Context, id string) (UserResponse, error) {
 	u, err := s.repo.UpdateUserStatus(ctx, id, "suspended")
 	if err != nil {
 		return UserResponse{}, err
 	}
+	if err := s.repo.SetProfileVisibility(ctx, id, "private"); err != nil {
+		return UserResponse{}, err
+	}
+	if err := s.repo.RevokeAllSessions(ctx, id); err != nil {
+		return UserResponse{}, err
+	}
 	return toUserResponse(u), nil
 }
 
+// Activate restores the profile to public alongside the account — the
+// counterpart to Suspend hiding it. A member who'd deliberately set their
+// own profile private before being suspended reverts to public here too;
+// that's an accepted tradeoff for keeping this symmetric and simple
+// rather than tracking pre-suspension visibility separately.
 func (s *Service) Activate(ctx context.Context, id string) (UserResponse, error) {
 	u, err := s.repo.UpdateUserStatus(ctx, id, "active")
 	if err != nil {
+		return UserResponse{}, err
+	}
+	if err := s.repo.SetProfileVisibility(ctx, id, "public"); err != nil {
 		return UserResponse{}, err
 	}
 	return toUserResponse(u), nil

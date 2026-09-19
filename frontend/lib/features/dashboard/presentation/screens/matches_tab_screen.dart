@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/match_profile.dart';
@@ -536,15 +537,14 @@ class _CompactMatchCard extends ConsumerWidget {
                                       content: Text(failure.message)));
                             }
                           },
-                    icon: Icon(Icons.check_rounded,
+                    icon: Icon(
+                        isInterested ? Icons.check_rounded : Icons.favorite_rounded,
                         size: 14,
-                        color: isInterested
-                            ? context.colors.muted
-                            : context.colors.accent),
+                        color: Colors.black),
                     label: Text(isInterested ? 'Requested' : 'Connect Now',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11.5)),
+                        style: const TextStyle(fontSize: 11.5, color: Colors.black)),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 32),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -557,6 +557,10 @@ class _CompactMatchCard extends ConsumerWidget {
                       // equal to minimumSize.
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.compact,
+                      backgroundColor: AppColors.accentSoftLight,
+                      side: BorderSide(color: AppColors.accent),
+                      disabledBackgroundColor:
+                          AppColors.accentSoftLight.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusPill)),
@@ -792,14 +796,15 @@ class _MatchGridCard extends ConsumerWidget {
                                     .read(interestsActionsProvider)
                                     .send(profile);
                                 if (!context.mounted) return;
+                                final messenger = ScaffoldMessenger.of(context);
+                                messenger.hideCurrentSnackBar();
                                 if (failure != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          duration: const Duration(seconds: 3),
-                                          content: Text(failure.message)));
+                                  messenger.showSnackBar(SnackBar(
+                                      duration: const Duration(seconds: 3),
+                                      content: Text(failure.message)));
                                   return;
                                 }
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                messenger.showSnackBar(
                                   SnackBar(
                                     duration: const Duration(seconds: 3),
                                     content: Text(
@@ -819,16 +824,21 @@ class _MatchGridCard extends ConsumerWidget {
                             isInterested
                                 ? Icons.check_rounded
                                 : Icons.favorite_rounded,
-                            size: 13),
+                            size: 13,
+                            color: Colors.black),
                         label: Text(isInterested ? 'Requested' : 'Connect Now',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5)),
+                            style: const TextStyle(fontSize: 11.5, color: Colors.black)),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 32),
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
+                          backgroundColor: AppColors.accentSoftLight,
+                          side: BorderSide(color: AppColors.accent),
+                          disabledBackgroundColor:
+                              AppColors.accentSoftLight.withValues(alpha: 0.5),
                         ),
                       ),
                     ),

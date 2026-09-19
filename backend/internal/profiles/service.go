@@ -194,9 +194,11 @@ func (s *Service) GetByID(ctx context.Context, profileID, requestingUserID strin
 		return ProfileResponse{}, ErrForbidden
 	}
 
-	if err := s.visitorsSvc.RecordVisit(ctx, requestingUserID, p.UserID); err != nil {
-		return ProfileResponse{}, err
-	}
+	// Best-effort, like every other side-effect write in this codebase
+	// (analytics.Track, MarkConversationRead) — a lock/timeout hiccup
+	// writing this visit-tracking row used to turn an otherwise
+	// successful profile load into a 500 for the viewer.
+	_ = s.visitorsSvc.RecordVisit(ctx, requestingUserID, p.UserID)
 
 	return s.toResponse(ctx, p)
 }
@@ -217,9 +219,11 @@ func (s *Service) GetByCode(ctx context.Context, code, requestingUserID string) 
 		return ProfileResponse{}, ErrForbidden
 	}
 
-	if err := s.visitorsSvc.RecordVisit(ctx, requestingUserID, p.UserID); err != nil {
-		return ProfileResponse{}, err
-	}
+	// Best-effort, like every other side-effect write in this codebase
+	// (analytics.Track, MarkConversationRead) — a lock/timeout hiccup
+	// writing this visit-tracking row used to turn an otherwise
+	// successful profile load into a 500 for the viewer.
+	_ = s.visitorsSvc.RecordVisit(ctx, requestingUserID, p.UserID)
 
 	return s.toResponse(ctx, p)
 }

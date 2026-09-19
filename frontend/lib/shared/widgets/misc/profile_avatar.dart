@@ -14,12 +14,20 @@ class ProfileAvatar extends StatelessWidget {
   /// Local file path or remote URL; see [AppFileImage].
   final String? photoUrl;
 
+  /// Where BoxFit.cover crops from. Most uploaded photos are a portrait
+  /// shot with the subject's whole body, not a tight headshot — cropping
+  /// from the center (Image's own default) reliably cut faces off in any
+  /// non-square crop (avatars, match cards, the profile detail header
+  /// alike), so topCenter is the default everywhere here instead.
+  final Alignment photoAlignment;
+
   const ProfileAvatar({
     super.key,
     required this.name,
     this.size = 56,
     this.borderRadius,
     this.photoUrl,
+    this.photoAlignment = Alignment.topCenter,
   });
 
   @override
@@ -72,6 +80,7 @@ class ProfileAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           width: boxSize,
           height: boxSize,
+          alignment: photoAlignment,
           placeholder: placeholder,
         ),
       ),

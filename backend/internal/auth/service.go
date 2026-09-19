@@ -80,6 +80,24 @@ func channelFor(phone, email string) (identifier, channel string) {
 	return email, "email"
 }
 
+// checkRateLimit fails open on a Redis error instead of propagating it —
+// middleware.RateLimit already does exactly this ("abuse protection
+// degrading for the duration of an infra hiccup is a far smaller problem
+// than the entire API going down because Redis did"), but these direct
+// s.limiter.Allow call sites didn't, so an ElastiCache blip 500'd every
+// login/OTP/forgot-password request instead of just letting them through.
+func (s *Service) checkRateLimit(ctx context.Context, key string, limit int, window time.Duration) error {
+	err := s.limiter.Allow(ctx, key, limit, window)
+	if err == nil {
+		return nil
+	}
+	var limitErr *ratelimit.LimitExceededError
+	if errors.As(err, &limitErr) {
+		return err
+	}
+	return nil
+}
+
 // Signup creates (or resumes) a user for identifier. A password-based
 // signup activates and signs the caller in immediately (see
 // SignupResponse's doc); one with no password falls back to the legacy
@@ -182,7 +200,7 @@ func inferChannel(identifier string) string {
 // happens — checked first so a locked-out identifier never even reaches
 // the DB lookup/OTP-send path.
 func (s *Service) RequestOTP(ctx context.Context, identifier string) (SignupResponse, error) {
-	if err := s.limiter.Allow(ctx, "otp_request:identifier:"+identifier, otpRequestLimit, otpRequestWindow); err != nil {
+	if err := s.checkRateLimit(ctx, "otp_request:identifier:"+identifier, otpRequestLimit, otpRequestWindow); err != nil {
 		return SignupResponse{}, err
 	}
 
@@ -190,14 +208,31 @@ func (s *Service) RequestOTP(ctx context.Context, identifier string) (SignupResp
 	purpose := "signup"
 
 	existing, err := s.repo.GetUserByIdentifier(ctx, identifier)
+	// An UNVERIFIED phone/email claim (see SetPhoneUnverified) is not
+	// proof of ownership — treating it as one let an attacker pre-claim
+	// a victim's real phone number onto their own account (no OTP
+	// needed to set it), then have the victim's later signup OTP
+	// resolve to and log straight into the attacker's already-open
+	// session instead of creating the victim's own account.
+	identifierVerified := err == nil && (channel == "phone" && existing.PhoneVerified || channel == "email" && existing.EmailVerified)
 	switch {
-	case err == nil && existing.Status == "active":
+	case err == nil && identifierVerified && existing.Status == "active":
 		purpose = "login"
-	case err == nil && existing.Status == "suspended":
+	case err == nil && identifierVerified && existing.Status == "suspended":
 		return SignupResponse{}, ErrAccountSuspended
-	case err == nil && existing.Status == "pending":
+	case err == nil && identifierVerified && existing.Status == "pending":
 		// fall through: resend a signup OTP below
-	case errors.Is(err, ErrNotFound):
+	case errors.Is(err, ErrNotFound), err == nil && !identifierVerified:
+		if err == nil {
+			// The unverified claim sits on a different account's row,
+			// which would otherwise collide with CreateUser's unique
+			// constraint on phone/email — clearing it here means
+			// whoever actually completes this OTP verification becomes
+			// its verified owner, not whoever merely typed it in first.
+			if clearErr := s.repo.ClearUnverifiedIdentifier(ctx, existing.ID, channel); clearErr != nil {
+				return SignupResponse{}, clearErr
+			}
+		}
 		var phonePtr, emailPtr *string
 		if channel == "phone" {
 			phonePtr = &identifier
@@ -383,7 +418,7 @@ func (s *Service) googleAuthForEmail(ctx context.Context, email, userAgent, ip s
 // exchange. Sends an OTP to the new number the same way signup does;
 // ConfirmLinkPhone finishes the job once it's verified.
 func (s *Service) RequestLinkPhone(ctx context.Context, userID, phone string) (string, error) {
-	if err := s.limiter.Allow(ctx, "link_phone:user:"+userID, otpRequestLimit, otpRequestWindow); err != nil {
+	if err := s.checkRateLimit(ctx, "link_phone:user:"+userID, otpRequestLimit, otpRequestWindow); err != nil {
 		return "", err
 	}
 
@@ -460,7 +495,7 @@ func (s *Service) SetPhoneUnverified(ctx context.Context, userID, phone string) 
 // source IP (an attacker can trivially rotate IPs; they can't rotate
 // which account they're trying to break into).
 func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ip string) (AuthResponse, error) {
-	if err := s.limiter.Allow(ctx, "login:identifier:"+req.Identifier, loginAttemptLimit, loginAttemptWindow); err != nil {
+	if err := s.checkRateLimit(ctx, "login:identifier:"+req.Identifier, loginAttemptLimit, loginAttemptWindow); err != nil {
 		return AuthResponse{}, err
 	}
 
@@ -500,7 +535,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ip str
 // returns, so a caller can't enumerate registered emails by trying
 // addresses here; genuine send failures are only visible in server logs.
 func (s *Service) ForgotPassword(ctx context.Context, identifier string) (string, error) {
-	if err := s.limiter.Allow(ctx, "forgot_password:identifier:"+identifier, otpRequestLimit, otpRequestWindow); err != nil {
+	if err := s.checkRateLimit(ctx, "forgot_password:identifier:"+identifier, otpRequestLimit, otpRequestWindow); err != nil {
 		return "", err
 	}
 
@@ -558,6 +593,14 @@ func (s *Service) ResetPassword(ctx context.Context, req ResetPasswordRequest, u
 	}
 	h := string(hash)
 	if err := s.repo.UpdateUserPassword(ctx, user.ID, &h); err != nil {
+		return AuthResponse{}, err
+	}
+
+	// Revoke every session the account already had before issuing this
+	// one — a password reset is often recovery from a compromised
+	// credential, and without this an attacker's existing refresh token
+	// kept working for its full TTL regardless of the reset.
+	if err := s.repo.RevokeAllRefreshTokensForUser(ctx, user.ID); err != nil {
 		return AuthResponse{}, err
 	}
 

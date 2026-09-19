@@ -89,8 +89,35 @@ func (r *Repository) Resolve(ctx context.Context, id, status, reviewerID string,
 	return r.scan(r.db.QueryRow(ctx, q, id, status, reviewerID, notes))
 }
 
+// SuspendUser used to only flip users.status, which blocks that member
+// from logging in again but leaves their profile fully visible and
+// contactable in the meantime — search, recommendations, and a direct
+// GET /profiles/:id all kept serving it. Mirrors users.Repository.
+// DeleteAccount's approach: private visibility drops it out of every
+// other surface the same way any other private profile would, and
+// revoking refresh tokens ends any session they're already holding
+// instead of waiting for their access token to expire on its own.
 func (r *Repository) SuspendUser(ctx context.Context, userID string) error {
-	const q = `UPDATE users SET status = 'suspended', updated_at = now() WHERE id = $1`
-	_, err := r.db.Exec(ctx, q, userID)
-	return err
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET status = 'suspended', updated_at = now() WHERE id = $1`, userID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE profiles SET visibility = 'private', updated_at = now() WHERE user_id = $1`, userID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

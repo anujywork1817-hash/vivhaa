@@ -40,6 +40,22 @@ func (r *Repository) GetUserByIdentifier(ctx context.Context, identifier string)
 	return r.scanUser(r.db.QueryRow(ctx, q, identifier))
 }
 
+// ClearUnverifiedIdentifier nulls out an account's phone or email, but
+// only while it's still unverified — used when a fresh OTP request for
+// that same identifier is about to reclaim it for whoever actually
+// verifies it, so the unverified holder's row doesn't collide with the
+// new account being created on the identifier's unique constraint.
+func (r *Repository) ClearUnverifiedIdentifier(ctx context.Context, userID, channel string) error {
+	var q string
+	if channel == "phone" {
+		q = `UPDATE users SET phone = NULL, updated_at = now() WHERE id = $1 AND phone_verified = false`
+	} else {
+		q = `UPDATE users SET email = NULL, updated_at = now() WHERE id = $1 AND email_verified = false`
+	}
+	_, err := r.db.Exec(ctx, q, userID)
+	return err
+}
+
 func (r *Repository) GetUserByID(ctx context.Context, id string) (User, error) {
 	const q = `
 		SELECT id, phone, email, password_hash, phone_verified, email_verified, status, role, created_at
@@ -217,5 +233,17 @@ func (r *Repository) RevokeRefreshToken(ctx context.Context, tokenHash string) e
 func (r *Repository) RevokeRefreshTokenForUser(ctx context.Context, userID, tokenHash string) error {
 	const q = `UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1 AND user_id = $2 AND revoked_at IS NULL`
 	_, err := r.db.Exec(ctx, q, tokenHash, userID)
+	return err
+}
+
+// RevokeAllRefreshTokensForUser ends every session the user currently
+// holds — used by ResetPassword so a stolen/phished credential's session
+// doesn't survive the account owner recovering their account. Before
+// this, resetting a compromised password didn't actually revoke the
+// attacker's already-issued refresh token, which stayed valid for its
+// full TTL (JWT_REFRESH_TTL_HOURS, 30 days by default) regardless.
+func (r *Repository) RevokeAllRefreshTokensForUser(ctx context.Context, userID string) error {
+	const q = `UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`
+	_, err := r.db.Exec(ctx, q, userID)
 	return err
 }

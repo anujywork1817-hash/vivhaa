@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"matrimony-backend/internal/queue"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -23,11 +25,12 @@ type User struct {
 }
 
 type Repository struct {
-	db *pgxpool.Pool
+	db        *pgxpool.Pool
+	publisher *queue.Publisher
 }
 
-func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{db: db}
+func NewRepository(db *pgxpool.Pool, publisher *queue.Publisher) *Repository {
+	return &Repository{db: db, publisher: publisher}
 }
 
 func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
@@ -73,12 +76,30 @@ func (r *Repository) DeleteAccount(ctx context.Context, userID string) error {
 		return err
 	}
 
-	if _, err := tx.Exec(ctx,
-		`UPDATE profiles SET visibility = 'private', updated_at = now() WHERE user_id = $1`, userID); err != nil {
+	var profileID string
+	err = tx.QueryRow(ctx,
+		`UPDATE profiles SET visibility = 'private', updated_at = now() WHERE user_id = $1 RETURNING id`,
+		userID).Scan(&profileID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	// Every other profile mutation flows through profiles.Service's own
+	// publishUpdated, which reindexes in Elasticsearch — this path bypassed
+	// that entirely (a raw SQL UPDATE, no publisher at all), so a deleted
+	// account's profile stayed fully searchable by name/city/community
+	// indefinitely even though every Postgres-backed surface already hid
+	// it. profileID is empty when the user never created a profile at all
+	// (nothing to reindex then).
+	if profileID != "" {
+		_ = r.publisher.PublishProfileUpdated(ctx, queue.ProfileUpdatedEvent{ProfileID: profileID, UserID: userID})
+	}
+
+	return nil
 }
 
 // IsUnlocked reports whether userID has completed the one-time ₹1 unlock

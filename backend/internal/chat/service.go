@@ -441,7 +441,35 @@ func (s *Service) HandleIncoming(ctx context.Context, userID string, raw []byte)
 	}
 
 	if _, err := s.SendMessage(ctx, userID, in.ReceiverUserID, in.Body, in.ReplyToID); err != nil {
-		s.pushEvent(userID, "error", map[string]string{"message": err.Error()})
+		s.pushEvent(userID, "error", map[string]string{"message": wsSafeErrorMessage(err)})
+	}
+}
+
+// wsSafeErrorMessage mirrors writeServiceError's REST-side mapping (see
+// handler.go) instead of the socket path's previous `err.Error()`, which
+// forwarded whatever the failure actually was — including raw pgx errors
+// (constraint names, column names, connection string fragments) — to the
+// client verbatim and rendered it in the chat UI same as a real sentinel
+// message, with no way to tell the two apart.
+func wsSafeErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, ErrRateLimited),
+		errors.Is(err, ErrEmptyMessage),
+		errors.Is(err, ErrMessageTooLong),
+		errors.Is(err, ErrSelfMessage),
+		errors.Is(err, ErrChatNotAllowed),
+		errors.Is(err, ErrPremiumRequired),
+		errors.Is(err, ErrBlocked),
+		errors.Is(err, ErrContactRequestPending),
+		errors.Is(err, ErrContactRequestNotFound),
+		errors.Is(err, ErrNotContactRecipient),
+		errors.Is(err, ErrContactRequestResolved),
+		errors.Is(err, ErrContactInfoBlocked),
+		errors.Is(err, ErrChatRestricted),
+		errors.Is(err, ErrNotFound):
+		return err.Error()
+	default:
+		return "something went wrong sending your message"
 	}
 }
 
@@ -604,9 +632,16 @@ func toResponse(m Message) MessageResponse {
 	return resp
 }
 
+// truncate cuts by rune, not by byte — this app's members write in
+// Hindi/Marathi/Tamil/etc as often as English, and those runes are
+// commonly 3 bytes each. Slicing s[:max] on the byte length could land
+// mid-rune, and json.Marshal then silently replaces the fragment with
+// U+FFFD, showing up as a visible replacement glyph at the end of a push
+// notification or reply preview.
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	runes := []rune(s)
+	if len(runes) <= max {
 		return s
 	}
-	return s[:max] + "..."
+	return string(runes[:max]) + "..."
 }

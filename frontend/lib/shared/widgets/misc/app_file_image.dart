@@ -18,6 +18,7 @@ class AppFileImage extends StatelessWidget {
   final BoxFit fit;
   final double? width;
   final double? height;
+  final Alignment alignment;
 
   /// Shown while a remote image loads and if it fails — lets callers keep
   /// their own placeholder (e.g. initials) visible instead of a blank box.
@@ -29,6 +30,7 @@ class AppFileImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.width,
     this.height,
+    this.alignment = Alignment.center,
     this.placeholder,
   });
 
@@ -42,6 +44,7 @@ class AppFileImage extends StatelessWidget {
         fit: fit,
         width: width,
         height: height,
+        alignment: alignment,
         errorBuilder: (_, __, ___) => placeholder ?? const SizedBox.shrink(),
         loadingBuilder: (context, child, progress) =>
             progress == null ? child : (placeholder ?? const SizedBox.shrink()),
@@ -52,6 +55,7 @@ class AppFileImage extends StatelessWidget {
       fit: fit,
       width: width,
       height: height,
+      alignment: alignment,
       errorBuilder: (_, __, ___) => placeholder ?? const SizedBox.shrink(),
     );
   }

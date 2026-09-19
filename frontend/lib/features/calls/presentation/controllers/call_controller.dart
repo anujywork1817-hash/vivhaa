@@ -897,15 +897,22 @@ class CallController extends StateNotifier<CallState> {
     _remoteStreamController.add(null);
   }
 
+  Timer? _resetDelayTimer;
+
   void _reset({bool afterDelay = false}) {
     void doReset() {
       if (mounted) state = const CallState();
     }
 
+    // Cancel any previous pending reset — without this, hanging up and
+    // immediately starting/receiving a new call within the 2s window let
+    // the stale timer fire mid-setup and wipe the new call's state back
+    // to idle out from under it.
+    _resetDelayTimer?.cancel();
     if (afterDelay) {
       // Briefly leaves the "call ended" reason visible on the active-call
       // screen before it pops itself, instead of vanishing mid-explanation.
-      Timer(const Duration(seconds: 2), doReset);
+      _resetDelayTimer = Timer(const Duration(seconds: 2), doReset);
     } else {
       doReset();
     }
@@ -914,7 +921,24 @@ class CallController extends StateNotifier<CallState> {
   @override
   void dispose() {
     _socketSubscription?.cancel();
-    _cleanupMedia();
+    _resetDelayTimer?.cancel();
+    _ringTimeoutTimer?.cancel();
+    _durationTimer?.cancel();
+    _reconnectGraceTimer?.cancel();
+    _statusPollTimer?.cancel();
+    // Media teardown is async but dispose() can't await it — running it
+    // through _cleanupMedia() here used to add(null) to the stream
+    // controllers after they were already closed below (Bad state: Cannot
+    // add event after closing). This path skips the controller
+    // notifications entirely since nothing is listening anymore anyway.
+    unawaited(() async {
+      for (final track in _localStream?.getTracks() ?? <MediaStreamTrack>[]) {
+        await track.stop();
+      }
+      await _localStream?.dispose();
+      await _peerConnection?.close();
+      await _peerConnection?.dispose();
+    }());
     _remoteStreamController.close();
     _localStreamController.close();
     super.dispose();

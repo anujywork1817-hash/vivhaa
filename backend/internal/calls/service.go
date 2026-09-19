@@ -143,8 +143,16 @@ func (s *Service) GetStatus(ctx context.Context, userID, callID string) (CallSta
 		return CallStatusResponse{}, ErrNotFound
 	}
 	return CallStatusResponse{
-		Status:    call.Status,
-		Active:    call.Status == "ringing" || call.Status == "ongoing",
+		Status: call.Status,
+		// "ringing" was never a real status this call row could hold —
+		// Create() inserts "initiated" (the only DB CHECK-constraint value
+		// before a call is answered) and nothing ever writes "ringing".
+		// The client polls this as its "is the call still alive"
+		// backstop for the entire unanswered-ring window, so checking
+		// only for "ringing" made every outgoing call look dead the
+		// moment it started, and the caller's client would tear it down
+		// before the callee had a chance to answer.
+		Active:    call.Status == "initiated" || call.Status == "ongoing",
 		EndReason: call.EndReason,
 	}, nil
 }
@@ -189,6 +197,18 @@ func (s *Service) HandleIncoming(ctx context.Context, userID string, raw []byte)
 // context.Background() directly.
 func (s *Service) HandleDisconnect(userID string) {
 	ctx := context.Background()
+
+	// The hub supports a user having multiple simultaneous connections
+	// (phone + tablet, two browser tabs), and by the time this callback
+	// fires, Hub.unregister has already run for the socket that just
+	// closed — so this reflects any OTHER connection the user still
+	// holds, anywhere. Without this check, one device's socket dropping
+	// (backgrounded, network switch) ended a call that was still live
+	// and fine on the user's other device.
+	if s.hub.IsOnline(ctx, userID) {
+		return
+	}
+
 	call, err := s.repo.GetActiveForUser(ctx, userID)
 	if err != nil {
 		return // not in a call, or a transient lookup error — nothing to clean up either way

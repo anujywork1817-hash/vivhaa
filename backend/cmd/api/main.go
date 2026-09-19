@@ -319,7 +319,7 @@ func main() {
 	authService := auth.NewService(authRepo, smsSender, emailSender, accessIssuer, cfg.JWT.RefreshTTL, cfg.Env == "dev", analyticsService, googleVerifier, rateLimiter)
 	authHandler := auth.NewHandler(authService, cfg.Env == "prod")
 
-	usersRepo := users.NewRepository(dbPool)
+	usersRepo := users.NewRepository(dbPool, publisher)
 	usersHandler := users.NewHandler(usersRepo)
 
 	visitorsRepo := visitors.NewRepository(dbPool)
@@ -507,6 +507,12 @@ func main() {
 	srv := &http.Server{
 		Addr:    ":" + cfg.HTTP.Port,
 		Handler: router,
+		// Go's default is unlimited, which leaves this open to a classic
+		// Slowloris — a few hundred connections trickling one header byte
+		// per second each pins goroutines and connections indefinitely.
+		// Only the header read is bounded (not WriteTimeout/ReadTimeout),
+		// which would otherwise cut off the long-lived WS upgrade path.
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {

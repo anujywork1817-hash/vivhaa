@@ -312,7 +312,12 @@ func (r *Repository) ListForUser(ctx context.Context, userID string, page, limit
 		       cs.ended_at, cs.duration_seconds, cs.end_reason, pp.full_name,
 		       (SELECT url FROM profile_photos ph WHERE ph.profile_id = pp.id ORDER BY ph.is_primary DESC, ph.sort_order ASC LIMIT 1)
 		FROM call_sessions cs
-		JOIN profiles pp ON pp.user_id = CASE WHEN cs.caller_user_id = $1 THEN cs.callee_user_id ELSE cs.caller_user_id END
+		-- LEFT, not JOIN: a call partner who's since deleted their profile
+		-- otherwise silently dropped that row from the results while the
+		-- COUNT above (a plain count with no join) still counted it, so
+		-- pagination never converged for anyone with such a call in
+		-- their history. Matches ListForAdmin's join below.
+		LEFT JOIN profiles pp ON pp.user_id = CASE WHEN cs.caller_user_id = $1 THEN cs.callee_user_id ELSE cs.caller_user_id END
 		WHERE cs.caller_user_id = $1 OR cs.callee_user_id = $1
 		ORDER BY cs.started_at DESC
 		LIMIT $2 OFFSET $3`

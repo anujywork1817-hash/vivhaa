@@ -102,6 +102,24 @@ func (r *Repository) UpdateUserStatus(ctx context.Context, id, status string) (U
 	return scanUser(r.db.QueryRow(ctx, q, id, status))
 }
 
+// SetProfileVisibility backs Suspend/Activate — keeps a suspended
+// member's profile out of search/recommendations/direct lookup the same
+// way any other private profile is hidden, and restores it on Activate.
+func (r *Repository) SetProfileVisibility(ctx context.Context, userID, visibility string) error {
+	const q = `UPDATE profiles SET visibility = $2, updated_at = now() WHERE user_id = $1`
+	_, err := r.db.Exec(ctx, q, userID, visibility)
+	return err
+}
+
+// RevokeAllSessions ends every refresh token a suspended user is
+// currently holding, instead of leaving them able to keep minting fresh
+// access tokens until those naturally expire.
+func (r *Repository) RevokeAllSessions(ctx context.Context, userID string) error {
+	const q = `UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`
+	_, err := r.db.Exec(ctx, q, userID)
+	return err
+}
+
 // ListSubscriptions joins subscriptions against their user (for a
 // display identifier) and plan (for a readable code/name), optionally
 // filtered by status — mirrors ListUsers' filter+paginate shape.

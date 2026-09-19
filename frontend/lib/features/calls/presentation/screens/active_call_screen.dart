@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -23,6 +24,9 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
   final _localRenderer = RTCVideoRenderer();
   final _remoteRenderer = RTCVideoRenderer();
   Offset _pipOffset = const Offset(16, 60);
+  StreamSubscription? _localStreamSub;
+  StreamSubscription? _remoteStreamSub;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -33,6 +37,11 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
   Future<void> _init() async {
     await _localRenderer.initialize();
     await _remoteRenderer.initialize();
+    // A quick cancel (misdial, accidental tap) can dispose this screen
+    // while these initialize() calls are still pending — without this
+    // guard, code below would touch already-disposed renderers and leak
+    // the native texture from the one still mid-initialize.
+    if (_disposed) return;
     final controller = ref.read(callControllerProvider.notifier);
     // The local track can just as easily arrive after this screen exists
     // as the remote one can — _openLocalMedia() sits behind a user-paced
@@ -40,7 +49,7 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
     // finish before initState runs. Snapshot what's already there, then
     // listen for it becoming available later — same pattern as remote.
     _localRenderer.srcObject = controller.localStreamValue;
-    controller.localStream.listen((stream) {
+    _localStreamSub = controller.localStream.listen((stream) {
       if (!mounted) return;
       setState(() => _localRenderer.srcObject = stream);
     });
@@ -50,7 +59,7 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
     // broadcast stream subscription only catches *future* events, so
     // check for one that's already there first.
     _remoteRenderer.srcObject = controller.remoteStreamValue;
-    controller.remoteStream.listen((stream) {
+    _remoteStreamSub = controller.remoteStream.listen((stream) {
       if (!mounted) return;
       setState(() => _remoteRenderer.srcObject = stream);
     });
@@ -59,6 +68,9 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
+    _localStreamSub?.cancel();
+    _remoteStreamSub?.cancel();
     _localRenderer.dispose();
     _remoteRenderer.dispose();
     super.dispose();
