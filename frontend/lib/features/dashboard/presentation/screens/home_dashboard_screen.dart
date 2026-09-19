@@ -30,6 +30,17 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
+  // showcaseview gives every step its own OverlayEntry and appends it to
+  // the end (top) of the Navigator's Overlay as that step begins. A Skip
+  // button built inline in this widget's own Stack lives *underneath*
+  // that Overlay, so from the second step onward the newly-inserted
+  // barrier entry paints over it and swallows its taps — the button was
+  // visible but not actually pressable. Managing Skip as our own
+  // OverlayEntry, re-raised (removed + re-inserted) above each step's
+  // barrier via tourStepTickProvider, keeps it clickable for the whole
+  // walkthrough.
+  OverlayEntry? _skipOverlayEntry;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +58,12 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _removeSkipOverlay();
+    super.dispose();
+  }
+
   void _startTour() {
     ref.read(tourActiveProvider.notifier).state = true;
     final keys = ref.read(appTourKeysProvider);
@@ -56,6 +73,29 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   void _skipTour() {
     ShowCaseWidget.of(context).dismiss();
     ref.read(tourActiveProvider.notifier).state = false;
+    _removeSkipOverlay();
+  }
+
+  /// Re-inserts (or first-creates) the Skip OverlayEntry as the topmost
+  /// entry in the Navigator's Overlay. showcaseview inserts a step's
+  /// barrier from inside a post-frame callback scheduled during that
+  /// step's own build, so we wait two frames before raising ours — one to
+  /// let that build/callback pair run, one to land after it — otherwise a
+  /// race can leave our entry appended before theirs and buried again.
+  void _raiseSkipOverlay() {
+    _skipOverlayEntry ??= OverlayEntry(builder: (context) => _SkipTourButton(onSkip: _skipTour));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _skipOverlayEntry == null) return;
+        if (_skipOverlayEntry!.mounted) _skipOverlayEntry!.remove();
+        Overlay.of(context).insert(_skipOverlayEntry!);
+      });
+    });
+  }
+
+  void _removeSkipOverlay() {
+    if (_skipOverlayEntry?.mounted ?? false) _skipOverlayEntry!.remove();
+    _skipOverlayEntry = null;
   }
 
   @override
@@ -63,7 +103,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final draft = ref.watch(profileCreationControllerProvider).draft;
     final tourKeys = ref.watch(appTourKeysProvider);
-    final tourActive = ref.watch(tourActiveProvider);
 
     // The "Take a Tour" row in the hamburger menu can't reach this
     // widget's GlobalKeys directly, so it flips this flag and navigates
@@ -77,30 +116,23 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       });
     });
 
-    return Stack(
-      children: [
-        _buildScaffold(context, unreadCount, draft, tourKeys),
-        if (tourActive)
-          Positioned(
-            top: MediaQuery.of(context).padding.top + AppSpacing.sm,
-            right: AppSpacing.lg,
-            child: SafeArea(
-              child: TextButton(
-                onPressed: _skipTour,
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
-                ),
-                child: const Text('Skip'),
-              ),
-            ),
-          ),
-      ],
-    );
+    // Each tick means a new showcase step just started and buried our
+    // Skip button under its own OverlayEntry (see _raiseSkipOverlay) —
+    // re-raise it so it's on top again for this step too.
+    ref.listen<int>(tourStepTickProvider, (previous, next) {
+      if (ref.read(tourActiveProvider)) _raiseSkipOverlay();
+    });
+
+    // Covers the natural "reached the last step" finish path — app.dart's
+    // ShowCaseWidget.onFinish flips this to false without knowing about
+    // our overlay entry, so clean it up here too. _skipTour already
+    // removes it directly on the explicit Skip path; this is a harmless,
+    // idempotent backstop for that one.
+    ref.listen<bool>(tourActiveProvider, (previous, active) {
+      if (previous == true && !active) _removeSkipOverlay();
+    });
+
+    return _buildScaffold(context, unreadCount, draft, tourKeys);
   }
 
   Widget _buildScaffold(BuildContext context, int unreadCount, Profile draft,
@@ -213,6 +245,38 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 /// search screen (BasicSearchScreen), same destination the Matches tab's
 /// "Search" chip already uses, so Home and Matches agree on where search
 /// actually lives instead of each rolling its own.
+/// Floating "Skip" affordance for the tour, built by an OverlayEntry (see
+/// _HomeDashboardScreenState._raiseSkipOverlay) rather than placed inline
+/// in HomeDashboardScreen's own widget tree, so it always paints above
+/// showcaseview's per-step barrier instead of being buried under it.
+class _SkipTourButton extends StatelessWidget {
+  const _SkipTourButton({required this.onSkip});
+
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + AppSpacing.sm,
+      right: AppSpacing.lg,
+      child: SafeArea(
+        child: TextButton(
+          onPressed: onSkip,
+          style: TextButton.styleFrom(
+            backgroundColor: Colors.black54,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill)),
+          ),
+          child: const Text('Skip'),
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchBarEntry extends StatelessWidget {
   const _SearchBarEntry();
 

@@ -47,32 +47,49 @@ class ShaadiApp extends ConsumerWidget {
       // from any tab, including Home. The real back-button gate now lives
       // in AppShell.build (see AppShell's PopScope) — that widget is the
       // actual routed page, with a real ModalRoute ancestor.
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        // The bottom nav bar is always dark black by design (light or
-        // dark theme). Under edge-to-edge (enabled in main.dart), Android
-        // ignores a solid systemNavigationBarColor and draws whatever
-        // sits behind the system nav bar strip instead — transparent
-        // here lets the app's own black BottomNavigationBar show
-        // through, rather than the OS's own default for the app theme.
-        value: SystemUiOverlayStyle.light.copyWith(
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
-          systemNavigationBarContrastEnforced: false,
-        ),
-        child: MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.linear(preferences.fontSize.scale),
+      builder: (context, child) {
+        // The bottom nav bar now follows the app theme (light surface in
+        // light mode, dark surface in dark mode — see
+        // AppTheme.bottomNavigationBarTheme) instead of always being
+        // black, so the OS gesture bar's icon color has to follow it too:
+        // dark icons over the light bar, light icons over the dark one.
+        // `preferences.themeMode` can be ThemeMode.system, so the actual
+        // rendered brightness still needs the platform's own setting for
+        // that case.
+        final isDark = preferences.themeMode == ThemeMode.dark ||
+            (preferences.themeMode == ThemeMode.system &&
+                MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+        // Under edge-to-edge (enabled in main.dart), Android ignores a
+        // solid systemNavigationBarColor and draws whatever sits behind
+        // the system nav bar strip instead — transparent here lets the
+        // app's own themed BottomNavigationBar show through.
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: (isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarContrastEnforced: false,
           ),
-          child: ShowCaseWidget(
-            // Only fires on a natural "reached the last step" completion —
-            // Skip calls ShowCaseWidgetState.dismiss() directly, which
-            // bypasses this, so the Skip button clears tourActiveProvider
-            // itself (see home_dashboard_screen.dart).
-            onFinish: () => ref.read(tourActiveProvider.notifier).state = false,
-            builder: (context) => _DeepLinkListener(router: router, child: child!),
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(preferences.fontSize.scale),
+            ),
+            child: ShowCaseWidget(
+              // Only fires on a natural "reached the last step" completion —
+              // Skip calls ShowCaseWidgetState.dismiss() directly, which
+              // bypasses this, so the Skip button clears tourActiveProvider
+              // itself (see home_dashboard_screen.dart).
+              onFinish: () => ref.read(tourActiveProvider.notifier).state = false,
+              // Each step gets its own OverlayEntry inserted above whatever
+              // is already in the Overlay (see AppTourSkipOverlay's doc
+              // comment in home_dashboard_screen.dart) — bumping this on
+              // every step, including the first, is what tells the Skip
+              // button to re-raise itself above the new barrier.
+              onStart: (_, __) => ref.read(tourStepTickProvider.notifier).state++,
+              builder: (context) => _DeepLinkListener(router: router, child: child!),
+            ),
           ),
-        ),
-      ),
+        );
+      },
       routerConfig: router,
     );
   }

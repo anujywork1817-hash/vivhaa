@@ -52,6 +52,16 @@ final tourReplayRequestedProvider = StateProvider<bool>((ref) => false);
 /// this itself). Drives whether the floating Skip button renders.
 final tourActiveProvider = StateProvider<bool>((ref) => false);
 
+/// Bumped by ShowCaseWidget's `onStart` callback (see app.dart) every time
+/// a new step of the walkthrough begins, including the first. showcaseview
+/// gives each Showcase step its own fresh OverlayEntry, inserted on top of
+/// whatever is already in the Navigator's Overlay — which buries any
+/// floating "Skip" button placed in the ordinary widget tree the moment
+/// the second step's entry lands above it. HomeDashboardScreen listens to
+/// this counter to re-raise its own Skip OverlayEntry above each new
+/// step's barrier as it appears.
+final tourStepTickProvider = StateProvider<int>((ref) => 0);
+
 /// The GlobalKeys every Showcase step in the walkthrough is registered
 /// under, shared between HomeDashboardScreen (AppBar: menu, avatar, bell,
 /// search bar) and AppShell (bottom-nav tabs) — the two widgets that

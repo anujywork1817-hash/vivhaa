@@ -15,7 +15,21 @@ final premiumPlansProvider = FutureProvider.autoDispose<List<SubscriptionPlan>>(
 /// other UI reading this reflects the new plan immediately instead of
 /// still showing "Upgrade to Premium" after a payment that already went
 /// through on the backend.
-final mySubscriptionProvider = FutureProvider.autoDispose<MySubscription>((ref) async {
+///
+/// Deliberately NOT `.autoDispose`: every reader (MenuScreen, the Inbox
+/// tab, ChatWindowScreen) falls back to `isPremium: false` while this is
+/// still loading — the only sane default before the real answer is known,
+/// since gating premium-only UI behind an *unconfirmed* "yes" would leak
+/// the paid feature to free members. With autoDispose this provider gets
+/// torn down the moment its last watcher unmounts (e.g. closing the
+/// hamburger Menu) and starts over from that loading state on every
+/// single reopen — so a genuinely premium member saw the free "Upgrade
+/// Now" bar flash for the ~1s the refetch took, every single time they
+/// opened the menu. Kept alive for the app session instead: it loads once
+/// and every reader shares that cached, already-resolved value from then
+/// on. Purchases still update it immediately via the explicit
+/// `ref.invalidate` in order_summary_screen.dart.
+final mySubscriptionProvider = FutureProvider<MySubscription>((ref) async {
   final result = await ref.watch(subscriptionsRepositoryProvider).getMine();
   return result.when(success: (data) => data, failure: (f) => throw f);
 });

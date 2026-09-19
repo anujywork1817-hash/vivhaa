@@ -74,6 +74,12 @@ class MenuScreen extends ConsumerWidget {
     if (confirmed != true) return;
     await ref.read(authControllerProvider.notifier).signOut();
     ref.read(profileCreationControllerProvider.notifier).reset();
+    // mySubscriptionProvider is no longer `.autoDispose` (see
+    // premium_controller.dart) so it now outlives this screen instead of
+    // resetting itself once nothing's watching it — without this, a
+    // second account signing in on the same device would briefly inherit
+    // the previous account's cached premium status.
+    ref.invalidate(mySubscriptionProvider);
     if (context.mounted) context.go(AppRoutes.splash);
   }
 
