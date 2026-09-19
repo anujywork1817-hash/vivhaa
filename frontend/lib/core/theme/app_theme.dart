@@ -75,6 +75,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: accent,
           foregroundColor: AppColors.onAccent,
+          disabledBackgroundColor: muted.withValues(alpha: 0.35),
           // Pressed/hover overlay uses the dark accent variant so the
           // button visibly deepens on press instead of just dimming.
           overlayColor: accentPressed,
@@ -92,10 +93,16 @@ class AppTheme {
           // (the real full-width CTA wrapper) now owns its own width
           // explicitly instead of leaning on this.
           minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
-          textStyle: textTheme.labelLarge,
-          elevation: 0,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          // A soft brand-tinted shadow instead of the flat elevation:0 look
+          // reads as more modern/tactile while staying subtle — Material's
+          // default grey elevation shadow clashes with the rose palette.
+          elevation: 2,
+          shadowColor: accent.withValues(alpha: 0.35),
+          animationDuration: const Duration(milliseconds: 150),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -103,15 +110,35 @@ class AppTheme {
           foregroundColor: ink,
           overlayColor: accentSoft,
           minimumSize: const Size(64, 52),
-          side: BorderSide(color: line),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          side: BorderSide(color: line, width: 1.4),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
-          textStyle: textTheme.titleSmall,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg)),
+          textStyle: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: accent, overlayColor: accentSoft),
+        style: TextButton.styleFrom(
+          foregroundColor: accent,
+          overlayColor: accentSoft,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
+        ),
       ),
+      // No IconButtonTheme existed before, so every icon button fell back
+      // to Flutter's plain default (no hover/press feedback shape, easy to
+      // miss as a tappable target). A soft circular tint on press/hover
+      // gives every one of the app's icon buttons the same tactile,
+      // pill-shaped feedback without touching each of the 71 call sites.
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: ink,
+          highlightColor: accentSoft,
+          hoverColor: accentSoft.withValues(alpha: 0.6),
+          shape: const CircleBorder(),
+        ),
+      ),
+      iconTheme: IconThemeData(color: ink, size: 24),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,

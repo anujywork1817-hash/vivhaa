@@ -93,14 +93,20 @@ class _OtpInputFieldState extends State<OtpInputField> {
           isDense: true,
           contentPadding: EdgeInsets.zero,
           filled: true,
-          fillColor: context.colors.surface,
+          // Was context.colors.surface (white in light mode) with
+          // BorderSide.none on both border/enabledBorder — on a white
+          // scaffold background that made every unfocused box literally
+          // invisible (white fill, no border, no shadow), so the whole OTP
+          // row read as a blank gap until you tapped into a box and its
+          // focusedBorder finally gave it an outline.
+          fillColor: context.colors.surfaceSubtle,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(color: context.colors.line, width: 1.4),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+            borderSide: BorderSide(color: context.colors.line, width: 1.4),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),

@@ -26,6 +26,7 @@ type Config struct {
 	FCM        FCMConfig
 	WebRTC     WebRTCConfig
 	Moderation ModerationConfig
+	Email      EmailConfig
 }
 
 // ModerationConfig configures the chat contact-sharing moderation
@@ -165,6 +166,24 @@ type AIConfig struct {
 	Model      string
 }
 
+// EmailConfig configures the SMTP relay used to send OTP codes and other
+// transactional email (internal/email.SMTPSender). Empty Host means no
+// real provider is configured, and the caller (cmd/api/main.go) falls back
+// to email.ConsoleSender — the OTP is only ever logged, never delivered.
+type EmailConfig struct {
+	SMTPHost string
+	SMTPPort string
+	Username string
+	Password string
+	From     string
+	FromName string
+}
+
+// Configured reports whether a real SMTP relay is set up.
+func (c EmailConfig) Configured() bool {
+	return c.SMTPHost != "" && c.From != ""
+}
+
 // Load reads configuration from environment variables, loading a local
 // .env file first (if present) for developer convenience. Env vars set
 // in the actual environment always take precedence over .env values.
@@ -283,6 +302,14 @@ func Load() (*Config, error) {
 			StunURLs:   splitAndTrim(getEnv("STUN_SERVER_URL", "stun:stun.l.google.com:19302")),
 			TURNURL:    getEnv("TURN_SERVER_URL", ""),
 			TURNSecret: getEnv("TURN_SECRET", ""),
+		},
+		Email: EmailConfig{
+			SMTPHost: getEnv("SMTP_HOST", ""),
+			SMTPPort: getEnv("SMTP_PORT", "587"),
+			Username: getEnv("SMTP_USERNAME", ""),
+			Password: getEnv("SMTP_PASSWORD", ""),
+			From:     getEnv("SMTP_FROM", ""),
+			FromName: getEnv("SMTP_FROM_NAME", "Vivah"),
 		},
 	}
 

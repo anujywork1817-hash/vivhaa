@@ -305,7 +305,24 @@ func main() {
 
 	accessIssuer := jwt.NewIssuer(cfg.JWT.AccessSecret, cfg.JWT.AccessTTL)
 	smsSender := sms.NewConsoleSender(log)
-	emailSender := email.NewConsoleSender(log)
+
+	// Falls back to logging the email instead of sending it when SMTP_HOST
+	// isn't set — same "unconfigured means safe no-op, not a crash" pattern
+	// as googleVerifier below. This was previously unconditional (always
+	// ConsoleSender, in every environment, prod included), which is why
+	// OTP codes for signup/login/password-reset never actually reached an
+	// inbox — they only ever showed up in this process's log output.
+	var emailSender email.Sender
+	if cfg.Email.Configured() {
+		emailSender = email.NewSMTPSender(
+			cfg.Email.SMTPHost, cfg.Email.SMTPPort,
+			cfg.Email.Username, cfg.Email.Password,
+			cfg.Email.From, cfg.Email.FromName,
+		)
+	} else {
+		log.Warn("SMTP_HOST not set, OTP emails will only be logged, not delivered")
+		emailSender = email.NewConsoleSender(log)
+	}
 
 	analyticsRepo := analytics.NewRepository(dbPool)
 	analyticsService := analytics.NewService(analyticsRepo)

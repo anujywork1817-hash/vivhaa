@@ -487,6 +487,7 @@ class _ModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedRight = mode == _AuthMode.logIn;
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
@@ -498,14 +499,49 @@ class _ModeToggle extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: _Palette.glassBorder, width: 1),
           ),
-          child: Row(
+          // A single pill that slides from one half to the other reads as
+          // one continuous motion — the previous version had each segment
+          // independently cross-fade its own gradient in/out, which looked
+          // like two separate animations firing at once instead of one
+          // toggle switching state.
+          child: Stack(
             children: [
-              Expanded(
-                  child: _segment(context, 'Sign Up', _AuthMode.signUp,
-                      Icons.favorite_border_rounded)),
-              Expanded(
-                  child: _segment(context, 'Log In', _AuthMode.logIn,
-                      Icons.favorite_border_rounded)),
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                alignment: selectedRight
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: 0.5,
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_Palette.primary, _Palette.deepRose],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _Palette.primary.withValues(alpha: 0.5),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                      child: _segment(context, 'Sign Up', _AuthMode.signUp,
+                          Icons.person_add_alt_1_rounded)),
+                  Expanded(
+                      child: _segment(context, 'Log In', _AuthMode.logIn,
+                          Icons.login_rounded)),
+                ],
+              ),
             ],
           ),
         ),
@@ -518,44 +554,33 @@ class _ModeToggle extends StatelessWidget {
     final selected = mode == value;
     return GestureDetector(
       onTap: onChanged == null ? null : () => onChanged!(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? const LinearGradient(colors: [
-                  _Palette.primary,
-                  _Palette.deepRose,
-                ])
-              : null,
-          color: selected ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: _Palette.primary.withValues(alpha: 0.5),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 13,
-                color: Colors.white.withValues(alpha: selected ? 1 : 0.75)),
+            AnimatedScale(
+              scale: selected ? 1.0 : 0.9,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: selected ? 1 : 0.75,
+                duration: const Duration(milliseconds: 280),
+                child: Icon(icon, size: 13, color: Colors.white),
+              ),
+            ),
             const SizedBox(width: 6),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
               style: GoogleFonts.roboto(
                 color: Colors.white.withValues(alpha: selected ? 1 : 0.75),
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
+              child: Text(label),
             ),
           ],
         ),
@@ -626,105 +651,135 @@ class _GlassAuthCard extends StatelessWidget {
                 child: Form(
                   key: formKey,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: Text(
-                          mode == _AuthMode.signUp
-                              ? 'Begin your journey to a meaningful connection.'
-                              : 'Continue your journey to meaningful connections.',
-                          key: ValueKey(mode),
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.roboto(
-                            fontSize: 13,
-                            color: Colors.white.withValues(alpha: 0.75),
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _PremiumTextField(
-                        controller: emailController,
-                        label: 'Email',
-                        hint: 'you@example.com',
-                        icon: Icons.mail_outline_rounded,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        validator: validateEmail,
-                      ),
-                      const SizedBox(height: 14),
-                      _PremiumTextField(
-                        controller: passwordController,
-                        label: 'Password',
-                        hint: mode == _AuthMode.signUp
-                            ? 'At least 8 characters'
-                            : null,
-                        icon: Icons.lock_outline_rounded,
-                        obscureText: obscurePassword,
-                        autofillHints: [
-                          mode == _AuthMode.signUp
-                              ? AutofillHints.newPassword
-                              : AutofillHints.password,
-                        ],
-                        validator: validatePassword,
-                        trailing: IconButton(
-                          splashRadius: 20,
-                          icon: Icon(
-                            obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: Colors.white.withValues(alpha: 0.7),
-                            size: 20,
-                          ),
-                          onPressed: onToggleObscure,
-                        ),
-                      ),
-                      if (mode == _AuthMode.logIn)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: isLoading ? null : onForgotPassword,
-                            style: TextButton.styleFrom(
-                              foregroundColor: _Palette.softPink,
-                              padding: const EdgeInsets.symmetric(vertical: 4),
+                  // Toggling sign-up/log-in changes this card's content
+                  // height (the "Forgot password?" link only exists in log-
+                  // in mode, the password hint only in sign-up), which
+                  // previously snapped the whole card to its new size
+                  // instantly — the one hard cut in an otherwise fully
+                  // animated screen. AnimatedSize smooths that resize into
+                  // the same motion as everything else toggling alongside
+                  // it.
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: Text(
+                            mode == _AuthMode.signUp
+                                ? 'Begin your journey to a meaningful connection.'
+                                : 'Continue your journey to meaningful connections.',
+                            key: ValueKey(mode),
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.roboto(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.75),
+                              height: 1.4,
                             ),
-                            child: Text('Forgot password?',
-                                style: GoogleFonts.roboto(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600)),
                           ),
-                        )
-                      else
-                        const SizedBox(height: 6),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.shield_outlined,
-                              size: 14,
-                              color: _Palette.softPink.withValues(alpha: 0.75)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Your privacy and data are secure with us.',
-                              style: GoogleFonts.roboto(
-                                fontSize: 11.5,
-                                color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(height: 20),
+                        _PremiumTextField(
+                          controller: emailController,
+                          label: 'Email',
+                          hint: 'you@example.com',
+                          icon: Icons.mail_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          validator: validateEmail,
+                        ),
+                        const SizedBox(height: 14),
+                        _PremiumTextField(
+                          controller: passwordController,
+                          label: 'Password',
+                          hint: mode == _AuthMode.signUp
+                              ? 'At least 8 characters'
+                              : null,
+                          icon: Icons.lock_outline_rounded,
+                          obscureText: obscurePassword,
+                          autofillHints: [
+                            mode == _AuthMode.signUp
+                                ? AutofillHints.newPassword
+                                : AutofillHints.password,
+                          ],
+                          validator: validatePassword,
+                          trailing: Material(
+                            color: Colors.transparent,
+                            shape: const CircleBorder(),
+                            clipBehavior: Clip.antiAlias,
+                            child: IconButton(
+                              splashRadius: 20,
+                              // A bare IconButton on this glass card had no
+                              // visible press feedback against the blurred
+                              // background — this wraps it in the same soft
+                              // rose highlight the rest of the screen's
+                              // pressable elements use, so it reads as
+                              // tappable rather than just decorative.
+                              highlightColor:
+                                  _Palette.primary.withValues(alpha: 0.25),
+                              hoverColor:
+                                  _Palette.primary.withValues(alpha: 0.15),
+                              icon: Icon(
+                                obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: Colors.white.withValues(alpha: 0.7),
+                                size: 20,
+                              ),
+                              onPressed: onToggleObscure,
+                            ),
+                          ),
+                        ),
+                        if (mode == _AuthMode.logIn)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: isLoading ? null : onForgotPassword,
+                              style: TextButton.styleFrom(
+                                foregroundColor: _Palette.softPink,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                              ),
+                              child: Text('Forgot password?',
+                                  style: GoogleFonts.roboto(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600)),
+                            ),
+                          )
+                        else
+                          const SizedBox(height: 6),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.shield_outlined,
+                                size: 14,
+                                color:
+                                    _Palette.softPink.withValues(alpha: 0.75)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Your privacy and data are secure with us.',
+                                style: GoogleFonts.roboto(
+                                  fontSize: 11.5,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      _PrimaryCTAButton(
-                        loading: isLoading,
-                        label: mode == _AuthMode.signUp
-                            ? 'Create Account'
-                            : 'Log In',
-                        onTap: isLoading ? null : onSubmit,
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _PrimaryCTAButton(
+                          loading: isLoading,
+                          label: mode == _AuthMode.signUp
+                              ? 'Create Account'
+                              : 'Log In',
+                          onTap: isLoading ? null : onSubmit,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -855,8 +910,8 @@ class _PremiumTextFieldState extends State<_PremiumTextField> {
               fontWeight: FontWeight.w600),
           hintStyle: GoogleFonts.roboto(
               color: Colors.white.withValues(alpha: 0.35), fontSize: 13.5),
-          errorStyle:
-              GoogleFonts.roboto(color: const Color(0xFFFFB4C6), fontSize: 11.5),
+          errorStyle: GoogleFonts.roboto(
+              color: const Color(0xFFFFB4C6), fontSize: 11.5),
           contentPadding:
               const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
           prefixIcon: Padding(
@@ -940,13 +995,31 @@ class _PrimaryCTAButtonState extends State<_PrimaryCTAButton> {
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        widget.label,
-                        style: GoogleFonts.roboto(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
+                      // Cross-fades + slides the label vertically instead of
+                      // snapping instantly when toggling sign-up/log-in, so
+                      // it reads as part of the same smooth mode switch as
+                      // the pill above rather than a separate hard cut.
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.3),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: Text(
+                          widget.label,
+                          key: ValueKey(widget.label),
+                          style: GoogleFonts.roboto(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
